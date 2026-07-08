@@ -35,3 +35,9 @@ export interface RawUpdateOptions {
 export function collectRepeatable(value: string, previous: string[]): string[] {
   return [...previous, value];
 }
+
+export interface RawPlanOptions {
+  json?: boolean;
+  fromFile?: string;
+  example?: boolean;
+}

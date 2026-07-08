@@ -3,11 +3,13 @@ import type { WorkUnitStatus } from "../schema/work-unit.schema.js";
 import type { StateModel } from "../schema/state.schema.js";
 
 export const WORK_UNIT_STATUSES: readonly WorkUnitStatus[] = [
-  "pending",
-  "active",
-  "blocked",
-  "in_review",
+  "ready",
+  "planned",
+  "in_progress",
+  "needs_review",
   "done",
+  "replanned",
+  "cancelled",
 ];
 
 /** Count work units grouped by status, always returning every status key. */
@@ -15,11 +17,13 @@ export function workUnitCountsByStatus(
   state: StateModel,
 ): Record<WorkUnitStatus, number> {
   const counts = {
-    pending: 0,
-    active: 0,
-    blocked: 0,
-    in_review: 0,
+    ready: 0,
+    planned: 0,
+    in_progress: 0,
+    needs_review: 0,
     done: 0,
+    replanned: 0,
+    cancelled: 0,
   } as Record<WorkUnitStatus, number>;
   for (const unit of state.workGraph.workUnits) {
     counts[unit.status] += 1;

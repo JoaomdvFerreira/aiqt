@@ -1,0 +1,43 @@
+{
+  "milestones": [
+    {
+      "clientKey": "foundation",
+      "title": "Foundation",
+      "objective": "Establish the base application structure."
+    }
+  ],
+  "workUnits": [
+    {
+      "clientKey": "wu-a",
+      "milestoneClientKey": "foundation",
+      "title": "Work unit A",
+      "objective": "First work unit.",
+      "scope": ["Scope A"],
+      "outOfScope": ["Out of scope A"],
+      "acceptanceCriteria": ["Criterion A"],
+      "validationCommands": ["pnpm test"]
+    },
+    {
+      "clientKey": "wu-b",
+      "milestoneClientKey": "foundation",
+      "title": "Work unit B",
+      "objective": "Second work unit.",
+      "scope": ["Scope B"],
+      "outOfScope": ["Out of scope B"],
+      "acceptanceCriteria": ["Criterion B"],
+      "validationCommands": ["pnpm test"]
+    }
+  ],
+  "dependencies": [
+    {
+      "fromClientKey": "wu-a",
+      "toClientKey": "wu-b",
+      "type": "blocks"
+    },
+    {
+      "fromClientKey": "wu-a",
+      "toClientKey": "wu-b",
+      "type": "blocks"
+    }
+  ]
+}

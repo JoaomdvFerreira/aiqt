@@ -40,7 +40,7 @@ describe("aiqt status", () => {
     const data = result.data as Record<string, unknown>;
     expect(data.milestoneCount).toBe(0);
     expect(data.workUnitCount).toBe(0);
-    expect(data.workUnitCounts).toMatchObject({ pending: 0, done: 0 });
+    expect(data.workUnitCounts).toMatchObject({ ready: 0, planned: 0, done: 0 });
   });
 
   it("fails with exit code 3 on corrupted project.json", () => {

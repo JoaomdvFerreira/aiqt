@@ -54,4 +54,22 @@ describe("aiqt CLI entrypoint", () => {
     expect(statusRes.status).toBe(0);
     expect(JSON.parse(statusRes.stdout).projectStatus).toBe("draft");
   });
+
+  it("aiqt plan --example prints sample JSON, exits 0, without requiring .aiqt/", () => {
+    dir = makeTempDir();
+    const res = runCli(["plan", "--example"], dir);
+    expect(res.status).toBe(0);
+    const parsed = JSON.parse(res.stdout);
+    expect(Array.isArray(parsed.milestones)).toBe(true);
+    expect(Array.isArray(parsed.workUnits)).toBe(true);
+    expect(Array.isArray(parsed.dependencies)).toBe(true);
+  });
+
+  it("aiqt plan --example --json is rejected with exit code 3", () => {
+    dir = makeTempDir();
+    const res = runCli(["plan", "--example", "--json"], dir);
+    expect(res.status).toBe(3);
+    const parsed = JSON.parse(res.stderr);
+    expect(parsed.exitCode).toBe(3);
+  });
 });
