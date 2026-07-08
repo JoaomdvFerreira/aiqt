@@ -1,0 +1,6 @@
+{
+  "project": {
+    "objective": "Build a local CLI workflow engine.",
+    "targetUsers": ["Human project owner"]
+  }
+}

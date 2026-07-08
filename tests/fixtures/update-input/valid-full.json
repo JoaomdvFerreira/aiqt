@@ -1,0 +1,80 @@
+{
+  "project": {
+    "objective": "Create a local CLI that manages AI-agent implementation workflow state.",
+    "targetUsers": ["Human project owner using Claude Code"],
+    "preferredAgent": "claude-code",
+    "existingRepositoryPath": "."
+  },
+  "context": {
+    "constraints": [
+      "Local files are the source of truth",
+      "No markdown files are created by default"
+    ],
+    "nonGoals": [
+      "No SaaS backend in MVP",
+      "No autonomous code execution in MVP"
+    ],
+    "technologyPreferences": ["Node.js", "TypeScript", "pnpm", "Vitest"],
+    "businessRules": [
+      "Human-readable exports are generated only on request"
+    ],
+    "architectureNotes": [
+      "project.json stores durable context",
+      "state.json stores workflow position and work graph"
+    ]
+  },
+  "requirements": [
+    {
+      "clientKey": "req-capture-project-context",
+      "title": "Capture project context",
+      "description": "The update command stores durable project context in project.json.",
+      "priority": "critical",
+      "type": "functional",
+      "acceptanceCriteria": [
+        "aiqt update --from-file updates project.json",
+        "aiqt update --json returns a deterministic CommandResult"
+      ],
+      "status": "accepted"
+    }
+  ],
+  "decisions": [
+    {
+      "clientKey": "decision-single-update-command",
+      "decision": "Use aiqt update as the single context mutation command.",
+      "reason": "Avoids a large command surface with add-requirement/add-decision commands.",
+      "impact": "Granular actions are handled internally by the update service.",
+      "status": "decided"
+    }
+  ],
+  "assumptions": [
+    {
+      "clientKey": "assumption-agent-external-mvp",
+      "statement": "The implementation agent runs outside AIQT for MVP.",
+      "reason": "Deep provider integration is deferred.",
+      "source": "human",
+      "status": "active"
+    }
+  ],
+  "risks": [
+    {
+      "clientKey": "risk-overbuild-m2",
+      "title": "Overbuilding the planning engine too early",
+      "description": "M2 could accidentally drift into plan generation.",
+      "severity": "medium",
+      "mitigation": "Keep workGraph empty and defer aiqt plan.",
+      "status": "open"
+    }
+  ],
+  "openQuestions": [
+    {
+      "clientKey": "question-m3-heuristic",
+      "question": "Which planning heuristic should M3 use first?",
+      "impact": "medium",
+      "status": "open",
+      "answer": null
+    }
+  ],
+  "quality": {
+    "preferredValidationCommands": ["pnpm validate"]
+  }
+}

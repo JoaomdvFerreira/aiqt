@@ -23,4 +23,19 @@ describe("id generation", () => {
   it("ignores ids from other prefixes", () => {
     expect(nextId("EVT", ["PROJECT-009", "EVT-001"])).toBe("EVT-002");
   });
+
+  it("supports a custom (empty) separator for D and Q id styles", () => {
+    expect(formatId("D", 1, "")).toBe("D001");
+    expect(formatId("Q", 2, "")).toBe("Q002");
+    expect(parseIdNumber("D", "D001", "")).toBe(1);
+    expect(nextId("D", [], "")).toBe("D001");
+    expect(nextId("D", ["D001", "D002"], "")).toBe("D003");
+    expect(nextId("Q", ["Q001"], "")).toBe("Q002");
+  });
+
+  it("generates REQ/ASM/RISK ids with the default hyphen separator", () => {
+    expect(nextId("REQ", [])).toBe("REQ-001");
+    expect(nextId("ASM", ["ASM-001"])).toBe("ASM-002");
+    expect(nextId("RISK", [])).toBe("RISK-001");
+  });
 });

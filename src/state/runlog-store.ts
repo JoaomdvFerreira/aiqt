@@ -38,6 +38,89 @@ export function appendRunlogEvent(path: string, event: RunlogEvent): void {
   appendJsonLine(path, event);
 }
 
+export interface ProjectUpdatedEventData {
+  changedFields: string[];
+  changedSections: string[];
+  createdRecordIds: string[];
+  updatedRecordIds: string[];
+  planningContextReady: boolean;
+  nextRecommendedCommand: string | null;
+}
+
+/** Build the project.updated event appended by `aiqt update` on mutation. */
+export function buildProjectUpdatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ProjectUpdatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "project.updated",
+    timestamp: input.timestamp,
+    actor: "human",
+    summary: "Project context updated.",
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+/** Build the decision.recorded event appended once per newly created decision. */
+export function buildDecisionRecordedEvent(input: {
+  id: string;
+  timestamp: string;
+  projectId: string;
+  decisionId: string;
+  decision: string;
+  reason: string;
+  impact: string;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "decision.recorded",
+    timestamp: input.timestamp,
+    actor: "human",
+    summary: "Decision recorded.",
+    relatedIds: [input.projectId, input.decisionId],
+    data: {
+      decisionId: input.decisionId,
+      decision: input.decision,
+      reason: input.reason,
+      impact: input.impact,
+    },
+  };
+}
+
+/**
+ * Read the `id` of every well-formed event in runlog.jsonl, ignoring
+ * malformed lines. Used to continue the stable EVT- id sequence. Returns an
+ * empty list for a missing/unreadable file rather than throwing, since event
+ * ID continuation is best-effort and the caller has already validated runlog
+ * health via inspectRunlogHealth.
+ */
+export function readRunlogEventIds(path: string): string[] {
+  if (!isFile(path)) return [];
+  let raw: string;
+  try {
+    raw = readTextFile(path);
+  } catch {
+    return [];
+  }
+
+  const ids: string[] = [];
+  for (const line of raw.split(/\r?\n/)) {
+    if (line.trim() === "") continue;
+    try {
+      const parsed = JSON.parse(line);
+      const result = RunlogEventSchema.safeParse(parsed);
+      if (result.success) ids.push(result.data.id);
+    } catch {
+      // skip malformed lines
+    }
+  }
+  return ids;
+}
+
 function invalidRunlogIssue(message: string): Issue {
   return {
     id: "RUNLOG-INVALID",

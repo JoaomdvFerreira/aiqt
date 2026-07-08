@@ -1,0 +1,14 @@
+{
+  "project": {
+    "objective": "Idempotent update objective.",
+    "targetUsers": ["Repeat runner"]
+  },
+  "decisions": [
+    {
+      "clientKey": "decision-idempotent-test",
+      "decision": "Idempotent decision.",
+      "reason": "Testing repeated patch application.",
+      "impact": "None."
+    }
+  ]
+}
