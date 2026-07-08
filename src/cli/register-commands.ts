@@ -5,14 +5,19 @@ import {
   collectRepeatable,
   type RawInitOptions,
   type RawUpdateOptions,
+  type RawPlanOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
 import { runNext } from "./commands/next.command.js";
 import { runUpdate } from "./commands/update.command.js";
+import { runPlan } from "./commands/plan.command.js";
+import { EXAMPLE_PLAN_INPUT } from "./commands/plan-example.js";
+import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
 import { ExitCode } from "../core/output/exit-codes.js";
+import { AiqtError } from "../core/output/aiqt-error.js";
 import type { CommandResult } from "../core/output/result.js";
 
 /** Emit a CommandResult and set the process exit code. */
@@ -92,6 +97,43 @@ export function buildProgram(): Command {
     .action(async (raw: RawUpdateOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = await runUpdate(ctx, raw);
+      emit(result, ctx.json);
+    });
+
+  program
+    .command("plan")
+    .description("Ingest a structured plan into the canonical work graph")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "load a JSON plan input file")
+    .option("--example", "print a sample plan input JSON and exit", false)
+    .action((raw: RawPlanOptions) => {
+      if (raw.example && raw.json) {
+        const result = errorToResult(
+          "plan",
+          new AiqtError(
+            "aiqt plan --example cannot be combined with --json.",
+            ExitCode.InvalidInput,
+            {
+              id: "PLAN-EXAMPLE-JSON-CONFLICT",
+              severity: "critical",
+              area: "input",
+              message: "aiqt plan --example cannot be combined with --json.",
+              agentCanFix: false,
+            },
+          ),
+        );
+        emit(result, true);
+        return;
+      }
+
+      if (raw.example) {
+        process.stdout.write(JSON.stringify(EXAMPLE_PLAN_INPUT, null, 2) + "\n");
+        process.exitCode = ExitCode.Success;
+        return;
+      }
+
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runPlan(ctx, { fromFile: raw.fromFile });
       emit(result, ctx.json);
     });
 

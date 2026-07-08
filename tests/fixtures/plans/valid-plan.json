@@ -1,0 +1,24 @@
+{
+  "milestones": [
+    {
+      "clientKey": "foundation",
+      "title": "Foundation",
+      "objective": "Establish the base application structure."
+    }
+  ],
+  "workUnits": [
+    {
+      "clientKey": "initialize-app",
+      "milestoneClientKey": "foundation",
+      "title": "Initialize application structure",
+      "objective": "Create the first runnable application shell.",
+      "scope": ["Create the application scaffold"],
+      "outOfScope": ["Do not implement authentication"],
+      "acceptanceCriteria": ["Application starts successfully"],
+      "agentContextRefs": [],
+      "suggestedFiles": ["package.json", "src/"],
+      "validationCommands": ["pnpm test", "pnpm build"]
+    }
+  ],
+  "dependencies": []
+}

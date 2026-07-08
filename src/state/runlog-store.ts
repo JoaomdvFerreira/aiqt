@@ -91,6 +91,33 @@ export function buildDecisionRecordedEvent(input: {
   };
 }
 
+export interface WorkGraphGeneratedEventData {
+  source: "from-file";
+  milestoneCount: number;
+  workUnitCount: number;
+  dependencyCount: number;
+  readyWorkUnitId: string | null;
+  nextRecommendedCommand: string | null;
+}
+
+/** Build the work_graph.generated event appended by `aiqt plan` on success. */
+export function buildWorkGraphGeneratedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: WorkGraphGeneratedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "work_graph.generated",
+    timestamp: input.timestamp,
+    actor: "aiqt",
+    summary: "Work graph generated from structured plan input.",
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 /**
  * Read the `id` of every well-formed event in runlog.jsonl, ignoring
  * malformed lines. Used to continue the stable EVT- id sequence. Returns an

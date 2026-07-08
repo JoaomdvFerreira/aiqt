@@ -49,10 +49,24 @@ export function computeNextAction(
     };
   }
 
+  const hasReadyWorkUnit = state.workGraph.workUnits.some(
+    (wu) => wu.status === "ready",
+  );
+
+  if (hasReadyWorkUnit) {
+    return {
+      nextRecommendedCommand: "aiqt next",
+      reason:
+        "A work graph exists with at least one ready work unit. Run aiqt next to receive the next work unit.",
+      blockingIssues: [],
+      warnings: [],
+    };
+  }
+
   return {
     nextRecommendedCommand: null,
     reason:
-      "A work graph exists, but full aiqt next (agent packet generation) arrives in a later milestone.",
+      "A work graph exists, but no work unit is currently ready and full aiqt next (agent packet generation) arrives in a later milestone.",
     blockingIssues: [],
     warnings: [
       {
@@ -60,7 +74,7 @@ export function computeNextAction(
         severity: "low",
         area: "workflow",
         message:
-          "Full aiqt next behavior (agent packet generation) is not implemented in Milestone 1.",
+          "Full aiqt next behavior (agent packet generation) is not implemented yet.",
         suggestedAction: "Await a later AIQT milestone.",
         agentCanFix: false,
       },
