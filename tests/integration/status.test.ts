@@ -1,0 +1,67 @@
+import { describe, it, expect, afterEach } from "vitest";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { runInit } from "../../src/cli/commands/init.command.js";
+import { runStatus } from "../../src/cli/commands/status.command.js";
+import { normalizeInitOptions } from "../../src/cli/options.js";
+import { ExitCode } from "../../src/core/output/exit-codes.js";
+import {
+  makeTempDir,
+  removeDir,
+  contextFor,
+  copyFixture,
+} from "../helpers.js";
+
+describe("aiqt status", () => {
+  let dir: string | null = null;
+  afterEach(() => {
+    if (dir) removeDir(dir);
+    dir = null;
+  });
+
+  it("reports draft status after init and does not mutate files", () => {
+    dir = makeTempDir();
+    runInit(contextFor(dir), normalizeInitOptions({}));
+    const before = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
+
+    const result = runStatus(contextFor(dir));
+    expect(result.exitCode).toBe(ExitCode.Success);
+    expect(result.projectStatus).toBe("draft");
+    expect(result.action).toBe("status");
+
+    const after = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
+    expect(after).toBe(before);
+  });
+
+  it("exposes milestone and work-unit counts in data", () => {
+    dir = makeTempDir();
+    runInit(contextFor(dir), normalizeInitOptions({}));
+    const result = runStatus(contextFor(dir, true));
+    const data = result.data as Record<string, unknown>;
+    expect(data.milestoneCount).toBe(0);
+    expect(data.workUnitCount).toBe(0);
+    expect(data.workUnitCounts).toMatchObject({ pending: 0, done: 0 });
+  });
+
+  it("fails with exit code 3 on corrupted project.json", () => {
+    dir = makeTempDir();
+    runInit(contextFor(dir), normalizeInitOptions({}));
+    writeFileSync(join(dir, ".aiqt", "project.json"), "{ broken json");
+    const result = runStatus(contextFor(dir));
+    expect(result.exitCode).toBe(ExitCode.InvalidInput);
+    expect(result.status).toBe("failed");
+  });
+
+  it("fails with exit code 3 on corrupted state.json", () => {
+    dir = copyFixture("corrupted-state");
+    const result = runStatus(contextFor(dir));
+    expect(result.exitCode).toBe(ExitCode.InvalidInput);
+    expect(result.blockingIssues.length).toBeGreaterThan(0);
+  });
+
+  it("fails with exit code 3 when .aiqt/ is missing", () => {
+    dir = makeTempDir();
+    const result = runStatus(contextFor(dir));
+    expect(result.exitCode).toBe(ExitCode.InvalidInput);
+  });
+});

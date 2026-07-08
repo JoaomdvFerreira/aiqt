@@ -1,0 +1,31 @@
+{
+  "version": "0.5.0",
+  "project": {
+    "id": "PROJECT-001",
+    "name": "corrupted-state",
+    "objective": "",
+    "targetUsers": [],
+    "preferredAgent": null,
+    "existingRepositoryPath": null,
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "context": {
+    "constraints": [],
+    "nonGoals": [],
+    "technologyPreferences": [],
+    "businessRules": [],
+    "architectureNotes": []
+  },
+  "requirements": [],
+  "decisions": [],
+  "risks": [],
+  "assumptions": [],
+  "openQuestions": [],
+  "quality": {
+    "acceptanceCriteriaRequired": true,
+    "validationRequiredBeforeDone": true,
+    "preferredValidationCommands": []
+  },
+  "integrations": {}
+}

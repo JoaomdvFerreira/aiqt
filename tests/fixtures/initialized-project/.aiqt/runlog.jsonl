@@ -1,0 +1,1 @@
+{"id":"EVT-001","type":"project.initialized","timestamp":"2026-01-01T00:00:00.000Z","actor":"aiqt","summary":"Project initialized with canonical AIQT state files.","relatedIds":["PROJECT-001"],"data":{"schemaVersion":"0.5.0"}}
