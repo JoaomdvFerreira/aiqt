@@ -1,0 +1,6 @@
+{
+  "project": {
+    "objective": "Valid objective",
+    "unknownField": "this key is not allowed"
+  }
+}

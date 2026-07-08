@@ -18,6 +18,7 @@
     "validate": "pnpm typecheck && pnpm lint && pnpm test"
   },
   "dependencies": {
+    "@inquirer/prompts": "^7.0.0",
     "commander": "^12.1.0",
     "zod": "^3.23.8"
   },

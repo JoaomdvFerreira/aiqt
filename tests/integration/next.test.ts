@@ -22,7 +22,12 @@ describe("aiqt next", () => {
     expect(result.nextRecommendedCommand).toBe("aiqt update");
   });
 
-  it("recommends aiqt plan once context exists but no work graph", () => {
+  it("still recommends aiqt update when only the objective is set (no target users)", () => {
+    // Under the Milestone 2 planning-readiness rule, an objective alone is
+    // not sufficient context: at least one target user and one structural
+    // item (requirement/constraint/tech-preference/business-rule/
+    // architecture-note) are also required. See planning-readiness.ts and
+    // tests/integration/update-next-flow.test.ts for the full "ready" path.
     dir = makeTempDir();
     runInit(
       contextFor(dir),
@@ -30,7 +35,7 @@ describe("aiqt next", () => {
     );
     const result = runNext(contextFor(dir));
     expect(result.exitCode).toBe(ExitCode.Success);
-    expect(result.nextRecommendedCommand).toBe("aiqt plan");
+    expect(result.nextRecommendedCommand).toBe("aiqt update");
   });
 
   it("blocks and recommends aiqt init when .aiqt/ is missing", () => {

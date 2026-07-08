@@ -1,9 +1,15 @@
 import { Command } from "commander";
 import { makeContext } from "./command-context.js";
-import { normalizeInitOptions, type RawInitOptions } from "./options.js";
+import {
+  normalizeInitOptions,
+  collectRepeatable,
+  type RawInitOptions,
+  type RawUpdateOptions,
+} from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
 import { runNext } from "./commands/next.command.js";
+import { runUpdate } from "./commands/update.command.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
 import { ExitCode } from "../core/output/exit-codes.js";
@@ -66,6 +72,26 @@ export function buildProgram(): Command {
     .action((raw: { json?: boolean }) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runNext(ctx);
+      emit(result, ctx.json);
+    });
+
+  program
+    .command("update")
+    .description("Capture durable project context")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "load a JSON update patch from a file")
+    .option("--objective <objective>", "project objective")
+    .option(
+      "--target-user <targetUser>",
+      "target user (repeatable)",
+      collectRepeatable,
+      [] as string[],
+    )
+    .option("--agent <agent>", "preferred coding agent")
+    .option("--repository-path <path>", "existing repository path")
+    .action(async (raw: RawUpdateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runUpdate(ctx, raw);
       emit(result, ctx.json);
     });
 

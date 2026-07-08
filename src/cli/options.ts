@@ -21,3 +21,17 @@ export function normalizeInitOptions(raw: RawInitOptions): InitOptions {
       raw.agent && raw.agent.trim() !== "" ? raw.agent : null,
   };
 }
+
+export interface RawUpdateOptions {
+  json?: boolean;
+  fromFile?: string;
+  objective?: string;
+  targetUser?: string[];
+  agent?: string;
+  repositoryPath?: string;
+}
+
+/** Accumulate repeatable commander flag values into an array. */
+export function collectRepeatable(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
