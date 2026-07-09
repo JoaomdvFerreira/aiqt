@@ -20,3 +20,8 @@ export function serializeJsonLine(value: unknown): string {
 export function appendJsonLine(targetPath: string, value: unknown): void {
   appendFileSync(targetPath, serializeJsonLine(value));
 }
+
+/** Write a plain text document (e.g. a generated markdown export) atomically. */
+export function writeTextFile(targetPath: string, contents: string): void {
+  atomicWriteFileSync(targetPath, contents);
+}

@@ -47,3 +47,9 @@ export interface RawCheckpointOptions {
   fromFile?: string;
   example?: boolean;
 }
+
+export interface RawExportOptions {
+  json?: boolean;
+  format?: string;
+  dryRun?: boolean;
+}

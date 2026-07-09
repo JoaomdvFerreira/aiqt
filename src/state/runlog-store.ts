@@ -212,6 +212,36 @@ export function buildCheckpointCreatedEvent(input: {
   };
 }
 
+export interface ExportGeneratedEventData {
+  target: string;
+  format: "markdown";
+  files: string[];
+  skippedTargets?: string[];
+  dryRun: false;
+}
+
+/** Build the export.generated event appended by `aiqt export` only on write. */
+export function buildExportGeneratedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExportGeneratedEventData;
+}): RunlogEvent {
+  const fileCount = input.data.files.length;
+  return {
+    id: input.id,
+    type: "export.generated",
+    timestamp: input.timestamp,
+    actor: "aiqt",
+    summary:
+      fileCount === 1
+        ? "Generated AIQT export documents."
+        : `Generated ${fileCount} export documents.`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 /**
  * Read every PKT- packet id discoverable from runlog agent_packet.created
  * events, plus `lastAgentPacket.id` when present. Used to continue the
