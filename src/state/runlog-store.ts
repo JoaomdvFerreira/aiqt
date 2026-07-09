@@ -118,6 +118,96 @@ export function buildWorkGraphGeneratedEvent(input: {
   };
 }
 
+export interface AgentPacketCreatedEventData {
+  packetId: string;
+  workUnitId: string;
+  milestoneId: string;
+  format: "markdown";
+  contentHash: string;
+  nextRecommendedCommand: string | null;
+}
+
+/** Build the agent_packet.created event appended by `aiqt next` on success. */
+export function buildAgentPacketCreatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: AgentPacketCreatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "agent_packet.created",
+    timestamp: input.timestamp,
+    actor: "aiqt",
+    summary: `Agent packet created for work unit ${input.data.workUnitId}.`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface WorkUnitStatusChangedEventData {
+  workUnitId: string;
+  fromStatus: string;
+  toStatus: string;
+  reason: string;
+}
+
+/** Build the work_unit.status_changed event appended by `aiqt next` on success. */
+export function buildWorkUnitStatusChangedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: WorkUnitStatusChangedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "work_unit.status_changed",
+    timestamp: input.timestamp,
+    actor: "aiqt",
+    summary: `Work unit ${input.data.workUnitId} started.`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+/**
+ * Read every PKT- packet id discoverable from runlog agent_packet.created
+ * events, plus `lastAgentPacket.id` when present. Used to continue the
+ * stable PKT- id sequence.
+ */
+export function readAgentPacketIds(
+  path: string,
+  lastAgentPacket?: { id?: string } | null,
+): string[] {
+  const ids: string[] = [];
+  if (isFile(path)) {
+    let raw: string;
+    try {
+      raw = readTextFile(path);
+    } catch {
+      raw = "";
+    }
+    for (const line of raw.split(/\r?\n/)) {
+      if (line.trim() === "") continue;
+      try {
+        const parsed = JSON.parse(line);
+        const result = RunlogEventSchema.safeParse(parsed);
+        if (result.success && result.data.type === "agent_packet.created") {
+          const packetId = (result.data.data as { packetId?: unknown } | undefined)
+            ?.packetId;
+          if (typeof packetId === "string") ids.push(packetId);
+        }
+      } catch {
+        // skip malformed lines
+      }
+    }
+  }
+  if (lastAgentPacket && typeof lastAgentPacket.id === "string") {
+    ids.push(lastAgentPacket.id);
+  }
+  return ids;
+}
+
 /**
  * Read the `id` of every well-formed event in runlog.jsonl, ignoring
  * malformed lines. Used to continue the stable EVT- id sequence. Returns an

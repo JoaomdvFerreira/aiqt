@@ -1,6 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { runStatus } from "../../src/cli/commands/status.command.js";
-import { runNext } from "../../src/cli/commands/next.command.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
 import { removeDir, contextFor, copyFixture } from "../helpers.js";
 
@@ -22,8 +21,11 @@ describe("runlog health", () => {
   });
 
   it("exposes runlogHealth counts under data", () => {
+    // Runlog health reporting lives under aiqt status as of M4: aiqt next
+    // became the full packet-generation engine and no longer exposes
+    // runlogHealth in its data shape (see M4 spec section 15.2).
     dir = copyFixture("malformed-runlog");
-    const result = runNext(contextFor(dir, true));
+    const result = runStatus(contextFor(dir, true));
     const data = result.data as Record<string, unknown>;
     const health = data.runlogHealth as {
       totalLines: number;

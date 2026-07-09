@@ -7,18 +7,22 @@ import { normalizeInitOptions } from "../../src/cli/options.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
 import { makeTempDir, removeDir, contextFor } from "../helpers.js";
 
-describe("aiqt next", () => {
+// As of M4, aiqt next is the full agent handoff packet engine, not a
+// recommendation-only reporter. See tests/integration/next-packet.command.test.ts
+// for the packet-generation success path and gate/precondition coverage.
+describe("aiqt next (preconditions)", () => {
   let dir: string | null = null;
   afterEach(() => {
     if (dir) removeDir(dir);
     dir = null;
   });
 
-  it("recommends aiqt update after a plain init", () => {
+  it("blocks with exit code 2 and recommends aiqt update after a plain init", () => {
     dir = makeTempDir();
     runInit(contextFor(dir), normalizeInitOptions({}));
     const result = runNext(contextFor(dir));
-    expect(result.exitCode).toBe(ExitCode.Success);
+    expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
+    expect(result.status).toBe("blocked");
     expect(result.nextRecommendedCommand).toBe("aiqt update");
   });
 
@@ -34,19 +38,19 @@ describe("aiqt next", () => {
       normalizeInitOptions({ objective: "Ship it" }),
     );
     const result = runNext(contextFor(dir));
-    expect(result.exitCode).toBe(ExitCode.Success);
+    expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
     expect(result.nextRecommendedCommand).toBe("aiqt update");
   });
 
-  it("blocks and recommends aiqt init when .aiqt/ is missing", () => {
+  it("fails with exit code 3 and recommends aiqt init when .aiqt/ is missing", () => {
     dir = makeTempDir();
     const result = runNext(contextFor(dir));
-    expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
-    expect(result.status).toBe("blocked");
+    expect(result.exitCode).toBe(ExitCode.InvalidInput);
+    expect(result.status).toBe("failed");
     expect(result.nextRecommendedCommand).toBe("aiqt init");
   });
 
-  it("does not mutate state", () => {
+  it("does not mutate state when blocked (empty work graph)", () => {
     dir = makeTempDir();
     runInit(contextFor(dir), normalizeInitOptions({}));
     const before = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");

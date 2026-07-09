@@ -72,11 +72,24 @@ export function buildProgram(): Command {
 
   program
     .command("next")
-    .description("Report the next required workflow action")
+    .description("Select the next ready work unit and generate its agent handoff packet")
     .option("--json", "emit machine-readable JSON output", false)
     .action((raw: { json?: boolean }) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runNext(ctx);
+
+      // On successful packet generation, human-mode output is the packet
+      // text itself (paste-ready for a coding agent), not the usual
+      // CommandResult summary wrapper.
+      if (!ctx.json && result.exitCode === ExitCode.Success) {
+        const data = result.data as { packet?: string } | undefined;
+        if (typeof data?.packet === "string") {
+          process.stdout.write(data.packet + "\n");
+          process.exitCode = result.exitCode;
+          return;
+        }
+      }
+
       emit(result, ctx.json);
     });
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeTempDir, removeDir } from "../helpers.js";
@@ -71,5 +72,29 @@ describe("aiqt CLI entrypoint", () => {
     expect(res.status).toBe(3);
     const parsed = JSON.parse(res.stderr);
     expect(parsed.exitCode).toBe(3);
+  });
+
+  it("aiqt next human mode prints the raw packet text on success, paste-ready", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    expect(
+      runCli(["update", "--objective", "Ship it", "--target-user", "devs"], dir).status,
+    ).toBe(0);
+    const patchPath = join(dir, "patch.json");
+    writeFileSync(
+      patchPath,
+      JSON.stringify({ context: { constraints: ["Local files are the source of truth"] } }),
+    );
+    expect(runCli(["update", "--from-file", patchPath], dir).status).toBe(0);
+    const planRes = runCli(["plan", "--example"], dir);
+    const planPath = join(dir, "plan.json");
+    writeFileSync(planPath, planRes.stdout);
+    expect(runCli(["plan", "--from-file", planPath], dir).status).toBe(0);
+
+    const res = runCli(["next"], dir);
+    expect(res.status).toBe(0);
+    expect(res.stdout.startsWith("# AGENT EXECUTION PACKET")).toBe(true);
+    expect(res.stdout).not.toContain("AIQT next:");
+    expect(res.stdout).not.toContain("Next recommended command:");
   });
 });
