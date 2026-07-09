@@ -153,18 +153,60 @@ export interface WorkUnitStatusChangedEventData {
 }
 
 /** Build the work_unit.status_changed event appended by `aiqt next` on success. */
+function defaultWorkUnitStatusChangedSummary(data: WorkUnitStatusChangedEventData): string {
+  switch (data.toStatus) {
+    case "in_progress":
+      return `Work unit ${data.workUnitId} started.`;
+    case "done":
+      return `Work unit ${data.workUnitId} completed.`;
+    case "ready":
+      return `Work unit ${data.workUnitId} became ready.`;
+    default:
+      return `Work unit ${data.workUnitId} status changed to ${data.toStatus}.`;
+  }
+}
+
 export function buildWorkUnitStatusChangedEvent(input: {
   id: string;
   timestamp: string;
   relatedIds: string[];
   data: WorkUnitStatusChangedEventData;
+  summary?: string;
 }): RunlogEvent {
   return {
     id: input.id,
     type: "work_unit.status_changed",
     timestamp: input.timestamp,
     actor: "aiqt",
-    summary: `Work unit ${input.data.workUnitId} started.`,
+    summary: input.summary ?? defaultWorkUnitStatusChangedSummary(input.data),
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface CheckpointCreatedEventData {
+  checkpointId: string;
+  workUnitId: string;
+  packetId: string | null;
+  validationResult: string;
+  acceptanceCriteriaResult: string;
+  targetStatus: string;
+  nextRecommendedCommand: string | null;
+}
+
+/** Build the checkpoint.created event appended by `aiqt checkpoint` on success. */
+export function buildCheckpointCreatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: CheckpointCreatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "checkpoint.created",
+    timestamp: input.timestamp,
+    actor: "human",
+    summary: `Checkpoint captured for work unit ${input.data.workUnitId}.`,
     relatedIds: input.relatedIds,
     data: { ...input.data },
   };

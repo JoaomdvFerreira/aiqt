@@ -1,9 +1,86 @@
 import { z } from "zod";
 
+export const ValidationResultSchema = z.enum([
+  "passed",
+  "failed",
+  "partial",
+  "not_run",
+]);
+export type ValidationResult = z.infer<typeof ValidationResultSchema>;
+
+export const AcceptanceCriteriaResultSchema = z.enum([
+  "passed",
+  "failed",
+  "partial",
+  "not_checked",
+]);
+export type AcceptanceCriteriaResult = z.infer<
+  typeof AcceptanceCriteriaResultSchema
+>;
+
+export const ValidationCommandResultSchema = z.object({
+  command: z.string(),
+  result: ValidationResultSchema,
+  summary: z.string().nullable(),
+});
+export type ValidationCommandResult = z.infer<
+  typeof ValidationCommandResultSchema
+>;
+
+export const AcceptanceCriterionResultSchema = z.object({
+  criterion: z.string(),
+  result: AcceptanceCriteriaResultSchema,
+  evidence: z.string().nullable(),
+});
+export type AcceptanceCriterionResult = z.infer<
+  typeof AcceptanceCriterionResultSchema
+>;
+
+export const CheckpointIssueSeveritySchema = z.enum([
+  "low",
+  "medium",
+  "high",
+  "critical",
+]);
+export type CheckpointIssueSeverity = z.infer<
+  typeof CheckpointIssueSeveritySchema
+>;
+
+export const CheckpointIssueStatusSchema = z.enum(["open", "resolved"]);
+export type CheckpointIssueStatus = z.infer<typeof CheckpointIssueStatusSchema>;
+
+/**
+ * Durable domain record stored inside a checkpoint. Intentionally distinct
+ * from the transient CommandResult `Issue` diagnostic contract used for
+ * blockingIssues/warnings — the two types must not be merged.
+ */
+export const CheckpointIssueSchema = z.object({
+  title: z.string(),
+  description: z.string().nullable(),
+  severity: CheckpointIssueSeveritySchema,
+  status: CheckpointIssueStatusSchema,
+  agentCanFix: z.boolean(),
+});
+export type CheckpointIssue = z.infer<typeof CheckpointIssueSchema>;
+
+export const FinalWorkUnitStatusSchema = z.enum(["done", "needs_review"]);
+export type FinalWorkUnitStatus = z.infer<typeof FinalWorkUnitStatusSchema>;
+
 export const CheckpointSchema = z.object({
   id: z.string(),
   workUnitId: z.string(),
+  packetId: z.string().nullable(),
   summary: z.string(),
+  completed: z.array(z.string()),
+  notCompleted: z.array(z.string()),
+  filesChanged: z.array(z.string()),
+  issues: z.array(CheckpointIssueSchema),
+  validationResult: ValidationResultSchema,
+  acceptanceCriteriaResult: AcceptanceCriteriaResultSchema,
+  validationCommands: z.array(ValidationCommandResultSchema),
+  acceptanceCriteria: z.array(AcceptanceCriterionResultSchema),
+  finalWorkUnitStatus: FinalWorkUnitStatusSchema,
+  nextRecommendation: z.string(),
   createdAt: z.string(),
 });
 export type Checkpoint = z.infer<typeof CheckpointSchema>;

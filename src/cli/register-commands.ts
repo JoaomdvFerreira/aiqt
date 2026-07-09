@@ -6,6 +6,7 @@ import {
   type RawInitOptions,
   type RawUpdateOptions,
   type RawPlanOptions,
+  type RawCheckpointOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -13,6 +14,8 @@ import { runNext } from "./commands/next.command.js";
 import { runUpdate } from "./commands/update.command.js";
 import { runPlan } from "./commands/plan.command.js";
 import { EXAMPLE_PLAN_INPUT } from "./commands/plan-example.js";
+import { runCheckpoint } from "./commands/checkpoint.command.js";
+import { EXAMPLE_CHECKPOINT_INPUT } from "./commands/checkpoint-example.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -147,6 +150,43 @@ export function buildProgram(): Command {
 
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runPlan(ctx, { fromFile: raw.fromFile });
+      emit(result, ctx.json);
+    });
+
+  program
+    .command("checkpoint")
+    .description("Capture the result of the current work unit's execution cycle")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "load a JSON checkpoint input file")
+    .option("--example", "print a sample checkpoint input JSON and exit", false)
+    .action((raw: RawCheckpointOptions) => {
+      if (raw.example && raw.json) {
+        const result = errorToResult(
+          "checkpoint",
+          new AiqtError(
+            "aiqt checkpoint --example cannot be combined with --json.",
+            ExitCode.InvalidInput,
+            {
+              id: "CHECKPOINT-EXAMPLE-JSON-CONFLICT",
+              severity: "critical",
+              area: "input",
+              message: "aiqt checkpoint --example cannot be combined with --json.",
+              agentCanFix: false,
+            },
+          ),
+        );
+        emit(result, true);
+        return;
+      }
+
+      if (raw.example) {
+        process.stdout.write(JSON.stringify(EXAMPLE_CHECKPOINT_INPUT, null, 2) + "\n");
+        process.exitCode = ExitCode.Success;
+        return;
+      }
+
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runCheckpoint(ctx, { fromFile: raw.fromFile });
       emit(result, ctx.json);
     });
 

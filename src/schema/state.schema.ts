@@ -8,6 +8,7 @@ export const ProjectStatusSchema = z.enum([
   "planned",
   "in_progress",
   "blocked",
+  "review",
   "done",
 ]);
 export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;

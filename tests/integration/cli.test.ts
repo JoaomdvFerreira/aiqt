@@ -97,4 +97,22 @@ describe("aiqt CLI entrypoint", () => {
     expect(res.stdout).not.toContain("AIQT next:");
     expect(res.stdout).not.toContain("Next recommended command:");
   });
+
+  it("aiqt checkpoint --example prints sample JSON, exits 0, without requiring .aiqt/", () => {
+    dir = makeTempDir();
+    const res = runCli(["checkpoint", "--example"], dir);
+    expect(res.status).toBe(0);
+    const parsed = JSON.parse(res.stdout);
+    expect(typeof parsed.summary).toBe("string");
+    expect(parsed.validationResult).toBe("passed");
+    expect(parsed.acceptanceCriteriaResult).toBe("passed");
+  });
+
+  it("aiqt checkpoint --example --json is rejected with exit code 3", () => {
+    dir = makeTempDir();
+    const res = runCli(["checkpoint", "--example", "--json"], dir);
+    expect(res.status).toBe(3);
+    const parsed = JSON.parse(res.stderr);
+    expect(parsed.exitCode).toBe(3);
+  });
 });

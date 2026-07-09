@@ -1,0 +1,26 @@
+{
+  "summary": "Partially implemented the work unit; validation failed.",
+  "completed": ["Added the command handler."],
+  "notCompleted": ["Add integration tests."],
+  "filesChanged": ["src/cli/commands/example.command.ts"],
+  "validationResult": "failed",
+  "acceptanceCriteriaResult": "partial",
+  "validationCommands": [
+    {
+      "command": "pnpm validate",
+      "result": "failed",
+      "summary": "One test failed."
+    }
+  ],
+  "acceptanceCriteria": [],
+  "issues": [
+    {
+      "title": "Test failure in integration suite",
+      "description": "One assertion fails intermittently.",
+      "severity": "medium",
+      "status": "open",
+      "agentCanFix": true
+    }
+  ],
+  "notes": []
+}
