@@ -9,6 +9,7 @@ import { ExitCode } from "../../core/output/exit-codes.js";
 import type { Issue, IssueSeverity } from "../../core/output/issue.js";
 import { aiqtDirExists, loadProject } from "./load-project.js";
 import { runReview } from "../../services/review-service.js";
+import { readAgentPacketIds } from "../../state/runlog-store.js";
 import type { ReviewFinding } from "../../schema/review-finding.schema.js";
 
 function findingToIssue(finding: ReviewFinding): Issue {
@@ -50,9 +51,10 @@ export function runReviewCommand(ctx: CommandContext): CommandResult {
       });
     }
 
-    const { project, state, runlogHealth, warnings } = loadProject(ctx);
+    const { paths, project, state, runlogHealth, warnings } = loadProject(ctx);
 
-    const result = runReview(project, state);
+    const knownPacketIds = readAgentPacketIds(paths.runlogFile, state.lastAgentPacket);
+    const result = runReview(project, state, knownPacketIds);
     const hasBlocking = result.blockingFindingCount > 0;
 
     const status: CommandStatus = hasBlocking

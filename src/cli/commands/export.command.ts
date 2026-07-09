@@ -13,6 +13,7 @@ import {
   appendRunlogEvent,
   buildExportGeneratedEvent,
   readRunlogEventIds,
+  readAgentPacketIds,
 } from "../../state/runlog-store.js";
 import { nextId } from "../../state/ids.js";
 import { runReview } from "../../services/review-service.js";
@@ -141,7 +142,8 @@ export function runExport(
     // Gate 7: target-specific availability. status-report needs review
     // counts for its Findings Summary section, and export's own
     // nextRecommendedCommand reuses review's precedence exactly (§17.2).
-    const review = runReview(project, state);
+    const knownPacketIds = readAgentPacketIds(paths.runlogFile, state.lastAgentPacket);
+    const review = runReview(project, state, knownPacketIds);
     const targets = resolveTargets(target);
     const plans = planExportDocuments({
       targets,

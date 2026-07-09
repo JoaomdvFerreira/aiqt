@@ -32,6 +32,7 @@ const ACTIONABLE_STATUSES = new Set(["ready", "in_progress", "needs_review", "do
 export function collectIntegrityFindings(
   _project: ProjectModel,
   state: StateModel,
+  knownPacketIds: readonly string[],
 ): ReviewFindingCandidate[] {
   const findings: ReviewFindingCandidate[] = [];
   const milestoneIds = new Set(state.workGraph.milestones.map((m) => m.id));
@@ -99,6 +100,8 @@ export function collectIntegrityFindings(
     });
   }
 
+  const knownPacketIdSet = new Set(knownPacketIds);
+
   for (const checkpoint of state.checkpoints) {
     if (!workUnitIds.has(checkpoint.workUnitId)) {
       findings.push({
@@ -109,6 +112,24 @@ export function collectIntegrityFindings(
         title: "Checkpoint references a missing work unit",
         message: `Checkpoint "${checkpoint.id}" references workUnitId "${checkpoint.workUnitId}", which does not exist.`,
         relatedIds: [checkpoint.id, checkpoint.workUnitId],
+        suggestedAction: "Repair state.checkpoints in .aiqt/state.json.",
+        nextRecommendedCommand: "aiqt review",
+      });
+    }
+
+    if (!checkpoint.packetId || !knownPacketIdSet.has(checkpoint.packetId)) {
+      findings.push({
+        ruleKey: `integrity.checkpoint-missing-packet.${checkpoint.id}`,
+        category: "integrity",
+        severity: "high",
+        blocking: true,
+        title: "Checkpoint references a missing agent packet",
+        message: checkpoint.packetId
+          ? `Checkpoint "${checkpoint.id}" references packetId "${checkpoint.packetId}", which does not exist in state.lastAgentPacket or runlog packet history.`
+          : `Checkpoint "${checkpoint.id}" has no packetId recorded.`,
+        relatedIds: checkpoint.packetId
+          ? [checkpoint.id, checkpoint.packetId]
+          : [checkpoint.id],
         suggestedAction: "Repair state.checkpoints in .aiqt/state.json.",
         nextRecommendedCommand: "aiqt review",
       });

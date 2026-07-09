@@ -196,3 +196,106 @@ describe("aiqt review", () => {
     expect(data.recommendedExportTargets).not.toContain("project-summary");
   });
 });
+
+describe("aiqt review: checkpoint packet ID integrity", () => {
+  let dir: string | null = null;
+  afterEach(() => {
+    if (dir) removeDir(dir);
+    dir = null;
+  });
+
+  it("does not flag a checkpoint whose packetId matches state.lastAgentPacket.id", async () => {
+    dir = makeTempDir();
+    await makeInProgressProject(dir);
+    const checkpointResult = runCheckpoint(contextFor(dir), {
+      fromFile: join(CHECKPOINT_FIXTURES, "valid-done.json"),
+    });
+    expect(checkpointResult.exitCode).toBe(ExitCode.Success);
+    const state = readState(dir);
+    expect(state.checkpoints[0].packetId).toBe("PKT-001");
+
+    const result = runReviewCommand(contextFor(dir));
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const data = result.data as { blockingFindingCount: number };
+    expect(data.blockingFindingCount).toBe(0);
+  });
+
+  it("does not flag a historical checkpoint whose packetId is superseded by a newer lastAgentPacket but recorded in runlog agent_packet.created history", async () => {
+    dir = makeTempDir();
+    await makeInProgressProject(dir, "valid-plan-with-dependencies.json");
+
+    // WU001 checkpoint captured with packetId PKT-001 (current at that time).
+    const doneResult = runCheckpoint(contextFor(dir), {
+      fromFile: join(CHECKPOINT_FIXTURES, "valid-done.json"),
+    });
+    expect(doneResult.exitCode).toBe(ExitCode.Success);
+
+    // WU002 becomes ready and is selected next, generating PKT-002 and
+    // superseding state.lastAgentPacket -- WU001's checkpoint now references
+    // a "historical" packet ID that only exists in runlog history.
+    const nextResult = runNext(contextFor(dir));
+    expect(nextResult.exitCode).toBe(ExitCode.Success);
+
+    const state = readState(dir);
+    expect(state.checkpoints[0].packetId).toBe("PKT-001");
+    expect(state.lastAgentPacket.id).toBe("PKT-002");
+    expect(state.lastAgentPacket.id).not.toBe(state.checkpoints[0].packetId);
+
+    const result = runReviewCommand(contextFor(dir));
+    const data = result.data as {
+      blockingFindingCount: number;
+      findings: Array<{ category: string; message: string }>;
+    };
+    const packetFindings = data.findings.filter((f) =>
+      f.message.includes("does not exist in state.lastAgentPacket or runlog packet history"),
+    );
+    expect(packetFindings).toHaveLength(0);
+  });
+
+  it("fails with exit code 1 and a blocking integrity finding when a checkpoint references an unknown packet ID", async () => {
+    dir = makeTempDir();
+    await makeInProgressProject(dir);
+    const checkpointResult = runCheckpoint(contextFor(dir), {
+      fromFile: join(CHECKPOINT_FIXTURES, "valid-done.json"),
+    });
+    expect(checkpointResult.exitCode).toBe(ExitCode.Success);
+
+    const state = readState(dir);
+    state.checkpoints[0].packetId = "PKT-999";
+    writeState(dir, state);
+
+    const result = runReviewCommand(contextFor(dir));
+    expect(result.exitCode).toBe(ExitCode.ValidationFailed);
+    expect(result.status).toBe("failed");
+    const data = result.data as {
+      findings: Array<{
+        category: string;
+        severity: string;
+        blocking: boolean;
+        relatedIds: string[];
+        nextRecommendedCommand: string | null;
+      }>;
+    };
+    const finding = data.findings.find((f) => f.relatedIds.includes("PKT-999"));
+    expect(finding).toBeDefined();
+    expect(finding?.category).toBe("integrity");
+    expect(finding?.severity).toBe("high");
+    expect(finding?.blocking).toBe(true);
+    expect(finding?.relatedIds).toEqual(expect.arrayContaining(["C001", "PKT-999"]));
+    expect(finding?.nextRecommendedCommand).toBe("aiqt review");
+    expect(result.blockingIssues.some((i) => i.affectedItems?.includes("PKT-999"))).toBe(true);
+  });
+
+  it("does not crash and still reports malformed-runlog warnings when packet history includes bad lines", async () => {
+    dir = makeTempDir();
+    await makeInProgressProject(dir);
+    runCheckpoint(contextFor(dir), { fromFile: join(CHECKPOINT_FIXTURES, "valid-done.json") });
+    const runlogPath = join(dir, ".aiqt", "runlog.jsonl");
+    const existing = readFileSync(runlogPath, "utf8");
+    writeFileSync(runlogPath, existing + "{ not valid jsonl\n");
+
+    const result = runReviewCommand(contextFor(dir));
+    expect(result.exitCode).toBe(ExitCode.Success);
+    expect(result.warnings.length).toBeGreaterThan(0);
+  });
+});

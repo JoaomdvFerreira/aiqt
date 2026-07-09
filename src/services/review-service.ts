@@ -63,9 +63,13 @@ export function computeRecommendedExportTargets(
 }
 
 /** Run all review rule collectors and assemble the full ReviewResult. */
-export function runReview(project: ProjectModel, state: StateModel): ReviewResult {
+export function runReview(
+  project: ProjectModel,
+  state: StateModel,
+  knownPacketIds: readonly string[] = [],
+): ReviewResult {
   const candidates = [
-    ...collectIntegrityFindings(project, state),
+    ...collectIntegrityFindings(project, state, knownPacketIds),
     ...collectWorkflowFindings(project, state),
     ...collectContextFindings(project, state),
     ...collectQualityFindings(project, state),
