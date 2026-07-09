@@ -1,0 +1,10 @@
+{
+  "summary": "Claiming completion despite a failed validation run.",
+  "completed": ["Added the command handler."],
+  "notCompleted": [],
+  "filesChanged": ["src/cli/commands/example.command.ts"],
+  "validationResult": "failed",
+  "acceptanceCriteriaResult": "passed",
+  "issues": [],
+  "targetStatus": "done"
+}

@@ -41,3 +41,9 @@ export interface RawPlanOptions {
   fromFile?: string;
   example?: boolean;
 }
+
+export interface RawCheckpointOptions {
+  json?: boolean;
+  fromFile?: string;
+  example?: boolean;
+}

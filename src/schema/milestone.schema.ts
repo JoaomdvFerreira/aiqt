@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const MilestoneStatusSchema = z.enum(["ready", "planned", "in_progress"]);
+export const MilestoneStatusSchema = z.enum(["ready", "planned", "in_progress", "done"]);
 export type MilestoneStatus = z.infer<typeof MilestoneStatusSchema>;
 
 export const MilestoneSchema = z.object({

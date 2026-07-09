@@ -1,0 +1,5 @@
+{
+  "summary": "Missing required fields and has an unknown key.",
+  "validationResult": "passed",
+  "unknownField": true
+}
