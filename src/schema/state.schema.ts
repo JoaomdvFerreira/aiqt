@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { WorkGraphSchema } from "./work-graph.schema.js";
 import { CheckpointSchema } from "./checkpoint.schema.js";
+import { AgentPacketMetadataSchema } from "./agent-packet.schema.js";
 
 export const ProjectStatusSchema = z.enum([
   "draft",
@@ -18,7 +19,7 @@ export const StateModelSchema = z.object({
   currentWorkUnitId: z.string().nullable(),
   workGraph: WorkGraphSchema,
   checkpoints: z.array(CheckpointSchema),
-  lastAgentPacket: z.unknown().nullable(),
+  lastAgentPacket: AgentPacketMetadataSchema.nullable(),
   nextRecommendedCommand: z.string().nullable(),
   lastUpdatedAt: z.string(),
 });
