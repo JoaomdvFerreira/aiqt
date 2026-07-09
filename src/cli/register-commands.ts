@@ -7,6 +7,7 @@ import {
   type RawUpdateOptions,
   type RawPlanOptions,
   type RawCheckpointOptions,
+  type RawExportOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -16,6 +17,8 @@ import { runPlan } from "./commands/plan.command.js";
 import { EXAMPLE_PLAN_INPUT } from "./commands/plan-example.js";
 import { runCheckpoint } from "./commands/checkpoint.command.js";
 import { EXAMPLE_CHECKPOINT_INPUT } from "./commands/checkpoint-example.js";
+import { runReviewCommand } from "./commands/review.command.js";
+import { runExport } from "./commands/export.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -187,6 +190,33 @@ export function buildProgram(): Command {
 
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runCheckpoint(ctx, { fromFile: raw.fromFile });
+      emit(result, ctx.json);
+    });
+
+  program
+    .command("review")
+    .description("Evaluate canonical state for integrity, workflow, context, quality, and checkpoint findings")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: { json?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runReviewCommand(ctx);
+      emit(result, ctx.json);
+    });
+
+  program
+    .command("export")
+    .description("Generate a markdown export document from canonical state")
+    .argument("[target]", "export target: project-plan, technical-spec, status-report, agent-packet, or all")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--format <format>", "export format (only markdown is supported)")
+    .option("--dry-run", "plan the export without writing files or logging", false)
+    .action((target: string | undefined, raw: RawExportOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runExport(ctx, {
+        target,
+        format: raw.format,
+        dryRun: Boolean(raw.dryRun),
+      });
       emit(result, ctx.json);
     });
 
