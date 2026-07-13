@@ -53,3 +53,13 @@ export interface RawExportOptions {
   format?: string;
   dryRun?: boolean;
 }
+
+export interface RawPromptOptions {
+  json?: boolean;
+  out?: string;
+}
+
+export interface RawImportOptions {
+  json?: boolean;
+  fromFile?: string;
+}
