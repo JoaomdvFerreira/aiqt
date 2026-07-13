@@ -54,7 +54,7 @@ export function computeGuidance(ctx: GuidanceContext): GuidanceResultData {
       alternativeCommands: ["aiqt prompt update"],
       promptCommand: "aiqt prompt update",
       expectedInputPath: ".aiqt/inputs/update.json",
-      followUpCommand: "aiqt import update --from-file .aiqt/inputs/update.json",
+      followUpCommand: "aiqt import update --stdin",
       canProceedWithoutAgent: true,
     };
   }
@@ -69,7 +69,7 @@ export function computeGuidance(ctx: GuidanceContext): GuidanceResultData {
       alternativeCommands: ["aiqt plan --from-file <path>"],
       promptCommand: "aiqt prompt plan --out .aiqt/inputs/plan.prompt.md",
       expectedInputPath: ".aiqt/inputs/plan.json",
-      followUpCommand: "aiqt import plan --from-file .aiqt/inputs/plan.json",
+      followUpCommand: "aiqt import plan --stdin",
       canProceedWithoutAgent: false,
     };
   }
@@ -103,7 +103,7 @@ export function computeGuidance(ctx: GuidanceContext): GuidanceResultData {
       alternativeCommands: ["aiqt checkpoint --from-file <path>"],
       promptCommand: "aiqt prompt checkpoint --out .aiqt/inputs/checkpoint.prompt.md",
       expectedInputPath: ".aiqt/inputs/checkpoint.json",
-      followUpCommand: "aiqt import checkpoint --from-file .aiqt/inputs/checkpoint.json",
+      followUpCommand: "aiqt import checkpoint --stdin",
       canProceedWithoutAgent: checkpointInputExists,
     };
   }

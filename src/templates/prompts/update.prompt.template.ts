@@ -62,7 +62,12 @@ export function renderUpdatePrompt(project: ProjectModel): string {
   lines.push("Create an update JSON with this shape (all fields optional, include only what should change):");
   lines.push(JSON.stringify(UPDATE_JSON_SHAPE, null, 2));
   lines.push("");
-  lines.push("Save the returned JSON to .aiqt/inputs/update.json.");
-  lines.push("Then run: aiqt import update --from-file .aiqt/inputs/update.json");
+  lines.push("Preferred agent path:");
+  lines.push("Pipe the JSON directly into:");
+  lines.push("aiqt import update --stdin");
+  lines.push("");
+  lines.push("Optional human-review path:");
+  lines.push("Save the JSON under .aiqt/inputs/ and run:");
+  lines.push("aiqt import update --from-file .aiqt/inputs/update.json");
   return lines.join("\n");
 }

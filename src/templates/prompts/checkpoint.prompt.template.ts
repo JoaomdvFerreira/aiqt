@@ -44,7 +44,12 @@ export function renderCheckpointPrompt(
   lines.push("Create a checkpoint JSON with this shape:");
   lines.push(JSON.stringify(CHECKPOINT_JSON_SHAPE, null, 2));
   lines.push("");
-  lines.push("Save the returned JSON to .aiqt/inputs/checkpoint.json.");
-  lines.push("Then run: aiqt import checkpoint --from-file .aiqt/inputs/checkpoint.json");
+  lines.push("Preferred agent path:");
+  lines.push("Pipe the JSON directly into:");
+  lines.push("aiqt import checkpoint --stdin");
+  lines.push("");
+  lines.push("Optional human-review path:");
+  lines.push("Save the JSON under .aiqt/inputs/ and run:");
+  lines.push("aiqt import checkpoint --from-file .aiqt/inputs/checkpoint.json");
   return lines.join("\n");
 }

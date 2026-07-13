@@ -29,23 +29,7 @@ import {
 } from "../../services/project-update-service.js";
 import { collectInteractiveInput } from "../prompts/update-prompts.js";
 
-function loadUpdatePatchFromFile(path: string): UpdateInput {
-  let raw: unknown;
-  try {
-    raw = readJsonFile(path);
-  } catch (err) {
-    if (err instanceof FileReadError || err instanceof JsonParseError) {
-      throw new AiqtError(err.message, ExitCode.InvalidInput, {
-        id: "UPDATE-FROM-FILE-INVALID",
-        severity: "critical",
-        area: "input",
-        message: err.message,
-        agentCanFix: false,
-      });
-    }
-    throw err;
-  }
-
+function validateUpdateInput(raw: unknown): UpdateInput {
   const parsed = UpdateInputSchema.safeParse(raw);
   if (!parsed.success) {
     const message = `Invalid update input: ${parsed.error.issues
@@ -62,6 +46,25 @@ function loadUpdatePatchFromFile(path: string): UpdateInput {
   return parsed.data;
 }
 
+function loadUpdatePatchFromFile(path: string): UpdateInput {
+  let raw: unknown;
+  try {
+    raw = readJsonFile(path);
+  } catch (err) {
+    if (err instanceof FileReadError || err instanceof JsonParseError) {
+      throw new AiqtError(err.message, ExitCode.InvalidInput, {
+        id: "UPDATE-FROM-FILE-INVALID",
+        severity: "critical",
+        area: "input",
+        message: err.message,
+        agentCanFix: false,
+      });
+    }
+    throw err;
+  }
+  return validateUpdateInput(raw);
+}
+
 function isTty(): boolean {
   return Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY);
 }
@@ -75,6 +78,7 @@ export async function runUpdate(
 
     const hasDirectInput =
       Boolean(raw.fromFile) ||
+      raw.input !== undefined ||
       Boolean(raw.objective) ||
       (raw.targetUser?.length ?? 0) > 0 ||
       Boolean(raw.agent) ||
@@ -83,7 +87,11 @@ export async function runUpdate(
     let mergedPatch: UpdateInput;
 
     if (hasDirectInput) {
-      const filePatch = raw.fromFile ? loadUpdatePatchFromFile(raw.fromFile) : undefined;
+      const filePatch = raw.input !== undefined
+        ? validateUpdateInput(raw.input)
+        : raw.fromFile
+          ? loadUpdatePatchFromFile(raw.fromFile)
+          : undefined;
       mergedPatch = mergeFileAndFlagPatches(filePatch, {
         objective: raw.objective,
         targetUsers: raw.targetUser,

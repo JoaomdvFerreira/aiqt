@@ -249,12 +249,13 @@ export function buildProgram(): Command {
   program
     .command("prompt")
     .description("Generate a copy-paste prompt for an external coding agent")
-    .argument("<kind>", "prompt kind: update, plan, or checkpoint")
+    .argument("<kind>", "prompt kind: update, plan, checkpoint, driver, or interview")
     .option("--json", "emit machine-readable JSON output", false)
-    .option("--out <path>", "write the prompt to a file under .aiqt/inputs/")
+    .option("--out <path>", "write the prompt to a file under .aiqt/inputs/ (update/plan/checkpoint only)")
+    .option("--idea <idea>", "rough product idea (driver/interview only)")
     .action((kind: string, raw: RawPromptOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
-      const result = runPrompt(ctx, { kind, out: raw.out });
+      const result = runPrompt(ctx, { kind, out: raw.out, idea: raw.idea });
 
       // No --out, human mode, success: print the raw prompt text so it is
       // directly copy-pasteable, matching aiqt next's packet bypass pattern.
@@ -276,9 +277,14 @@ export function buildProgram(): Command {
     .argument("<type>", "import type: update, plan, or checkpoint")
     .option("--json", "emit machine-readable JSON output", false)
     .option("--from-file <path>", "path to the agent-generated JSON file")
+    .option("--stdin", "read the agent-generated JSON from standard input", false)
     .action(async (type: string, raw: RawImportOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
-      const result = await runImport(ctx, { importType: type, fromFile: raw.fromFile });
+      const result = await runImport(ctx, {
+        importType: type,
+        fromFile: raw.fromFile,
+        stdin: Boolean(raw.stdin),
+      });
       emit(result, ctx.json);
     });
 

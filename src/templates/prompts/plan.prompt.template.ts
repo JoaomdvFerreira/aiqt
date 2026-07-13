@@ -1,4 +1,5 @@
 import type { ProjectModel } from "../../schema/project.schema.js";
+import { detectsFullStackSignals } from "../../workflow/full-stack-detection.js";
 
 function listOrNone(items: readonly string[]): string {
   return items.length > 0 ? items.join(", ") : "(none)";
@@ -74,10 +75,42 @@ export function renderPlanPrompt(project: ProjectModel): string {
     "- If no specific record is directly relevant, omit agentContextRefs and rely on the work unit's own scope and acceptanceCriteria.",
   );
   lines.push("");
+
+  const detectionText = [
+    project.project.objective,
+    project.context.technologyPreferences.join(" "),
+    project.context.constraints.join(" "),
+    project.context.architectureNotes.join(" "),
+  ].join(" ");
+  if (detectsFullStackSignals(detectionText)) {
+    lines.push("Full-stack planning guidance:");
+    lines.push(
+      "This project appears to be a full-stack/web application. For each relevant work unit, consider:",
+    );
+    lines.push("- data model/schema and seed data assumptions");
+    lines.push("- auth boundaries, roles, permissions, and protected routes");
+    lines.push("- routes/pages in the Next.js App Router or equivalent router");
+    lines.push("- UI components and forms");
+    lines.push("- server actions, API routes, or backend service functions");
+    lines.push("- form validation, error states, loading states, and empty states");
+    lines.push("- environment variables and integration assumptions");
+    lines.push("- test and validation strategy");
+    lines.push("- deployment assumptions and non-goals");
+    lines.push(
+      "Keep work units bounded. Do not create one massive work unit for the whole app.",
+    );
+    lines.push("");
+  }
+
   lines.push("Create a plan JSON with this shape:");
   lines.push(JSON.stringify(PLAN_JSON_SHAPE, null, 2));
   lines.push("");
-  lines.push("Save the returned JSON to .aiqt/inputs/plan.json.");
-  lines.push("Then run: aiqt import plan --from-file .aiqt/inputs/plan.json");
+  lines.push("Preferred agent path:");
+  lines.push("Pipe the JSON directly into:");
+  lines.push("aiqt import plan --stdin");
+  lines.push("");
+  lines.push("Optional human-review path:");
+  lines.push("Save the JSON under .aiqt/inputs/ and run:");
+  lines.push("aiqt import plan --from-file .aiqt/inputs/plan.json");
   return lines.join("\n");
 }

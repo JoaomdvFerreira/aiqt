@@ -7,7 +7,14 @@ import { computeReviewNextCommand } from "../workflow/review-next-command.js";
 import { renderUpdatePrompt } from "../templates/prompts/update.prompt.template.js";
 import { renderPlanPrompt } from "../templates/prompts/plan.prompt.template.js";
 import { renderCheckpointPrompt } from "../templates/prompts/checkpoint.prompt.template.js";
-import type { PromptKind, PromptResultData } from "../schema/prompt-result.schema.js";
+import { renderDriverPrompt } from "../templates/prompts/driver.prompt.template.js";
+import { renderInterviewPrompt } from "../templates/prompts/interview.prompt.template.js";
+import type {
+  FileBasedPromptKind,
+  PromptResultData,
+  DriverPromptData,
+  InterviewPromptData,
+} from "../schema/prompt-result.schema.js";
 
 export type PromptAvailability =
   | { available: true }
@@ -16,10 +23,12 @@ export type PromptAvailability =
 /**
  * §9 required-state gates for each prompt kind, §13.2-13.4. update is always
  * available once initialized; plan requires a ready-but-empty context; and
- * checkpoint requires an in_progress work unit with a matching packet.
+ * checkpoint requires an in_progress work unit with a matching packet. Driver
+ * and interview have no gate -- they are handled separately in
+ * prompt.command.ts since they must work even before aiqt init.
  */
 export function checkPromptAvailability(
-  kind: PromptKind,
+  kind: FileBasedPromptKind,
   project: ProjectModel,
   state: StateModel,
 ): PromptAvailability {
@@ -66,16 +75,24 @@ export function checkPromptAvailability(
   return { available: true };
 }
 
-function suggestedPathFor(kind: PromptKind): string {
+function suggestedPathFor(kind: FileBasedPromptKind): string {
   return `.aiqt/inputs/${kind}.json`;
 }
 
-function followUpFor(kind: PromptKind): string {
-  return `aiqt import ${kind} --from-file .aiqt/inputs/${kind}.json`;
+/**
+ * M8 §9: the preferred agent path is now piping JSON directly into
+ * aiqt import <kind> --stdin, rather than saving a temporary file first.
+ */
+function followUpFor(kind: FileBasedPromptKind): string {
+  return `aiqt import ${kind} --stdin`;
 }
 
 /** Render prompt text for an available prompt kind. Caller must have already checked availability. */
-export function renderPrompt(kind: PromptKind, project: ProjectModel, state: StateModel): string {
+export function renderPrompt(
+  kind: FileBasedPromptKind,
+  project: ProjectModel,
+  state: StateModel,
+): string {
   switch (kind) {
     case "update":
       return renderUpdatePrompt(project);
@@ -92,7 +109,7 @@ export function renderPrompt(kind: PromptKind, project: ProjectModel, state: Sta
 }
 
 export function buildPromptResultData(params: {
-  kind: PromptKind;
+  kind: FileBasedPromptKind;
   prompt: string;
   project: ProjectModel;
   state: StateModel;
@@ -114,6 +131,50 @@ export function buildPromptResultData(params: {
     },
     wroteFile,
     outputPath,
+  };
+}
+
+/**
+ * Build DriverPromptData for aiqt prompt driver (§6.1, §15). project/state
+ * are null when .aiqt/ does not exist yet -- driver must remain usable
+ * before init, unlike the file-based prompt kinds.
+ */
+export function buildDriverPromptData(params: {
+  project: ProjectModel | null;
+  state: StateModel | null;
+  idea: string | null;
+}): DriverPromptData {
+  const { project, state, idea } = params;
+  const prompt = renderDriverPrompt({ project, state, idea });
+  const nextRecommendedCommand = !project || !state ? "aiqt init" : (state.nextRecommendedCommand ?? "aiqt start");
+  return {
+    promptType: "driver",
+    idea,
+    prompt,
+    preferredInputMode: "stdin",
+    optionalInputMode: "from-file",
+    nextRecommendedCommand,
+  };
+}
+
+/**
+ * Build InterviewPromptData for aiqt prompt interview (§7, §15). project is
+ * null when .aiqt/ does not exist yet -- interview must remain usable
+ * before init, unlike the file-based prompt kinds.
+ */
+export function buildInterviewPromptData(params: {
+  project: ProjectModel | null;
+  idea: string | null;
+}): InterviewPromptData {
+  const { project, idea } = params;
+  const { prompt, questions, detectedProjectType } = renderInterviewPrompt(project, idea);
+  return {
+    promptType: "interview",
+    idea,
+    detectedProjectType,
+    questions,
+    prompt,
+    followUpCommand: "aiqt import update --stdin",
   };
 }
 
