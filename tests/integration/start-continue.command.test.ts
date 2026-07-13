@@ -9,6 +9,7 @@ import { runNext } from "../../src/cli/commands/next.command.js";
 import { runCheckpoint } from "../../src/cli/commands/checkpoint.command.js";
 import { runStart } from "../../src/cli/commands/start.command.js";
 import { runContinue } from "../../src/cli/commands/continue.command.js";
+import { runReviewCommand } from "../../src/cli/commands/review.command.js";
 import { normalizeInitOptions } from "../../src/cli/options.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
 import { makeTempDir, removeDir, contextFor } from "../helpers.js";
@@ -207,3 +208,39 @@ for (const [label, run] of [
     });
   });
 }
+
+describe("RC1: all-done recommendation is consistent across start, continue, and review", () => {
+  let dir: string | null = null;
+  afterEach(() => {
+    if (dir) removeDir(dir);
+    dir = null;
+  });
+
+  it("start, continue, and review all agree on aiqt export all once review has no blocking findings", async () => {
+    dir = makeTempDir();
+    await makeInProgressProject(dir);
+    const checkpointResult = runCheckpoint(contextFor(dir), {
+      fromFile: join(CHECKPOINT_FIXTURES, "valid-done.json"),
+    });
+    expect(checkpointResult.exitCode).toBe(ExitCode.Success);
+
+    const startResult = runStart(contextFor(dir));
+    const continueResult = runContinue(contextFor(dir));
+    const startData = startResult.data as { followUpCommand: string | null };
+    const continueData = continueResult.data as { followUpCommand: string | null };
+    expect(startData.followUpCommand).toBe("aiqt export all");
+    expect(continueData.followUpCommand).toBe("aiqt export all");
+
+    const reviewResult = runReviewCommand(contextFor(dir));
+    expect(reviewResult.exitCode).toBe(ExitCode.Success);
+    const reviewData = reviewResult.data as { blockingFindingCount: number };
+    expect(reviewData.blockingFindingCount).toBe(0);
+
+    // Once review confirms no blocking findings, review's own next command
+    // must equal the same "aiqt export all" that start/continue already
+    // pointed to -- the CLI must never disagree with itself here.
+    expect(reviewResult.nextRecommendedCommand).toBe("aiqt export all");
+    expect(reviewResult.nextRecommendedCommand).toBe(startData.followUpCommand);
+    expect(reviewResult.nextRecommendedCommand).toBe(continueData.followUpCommand);
+  });
+});

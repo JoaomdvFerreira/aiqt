@@ -110,6 +110,32 @@ describe("renderAgentPacket", () => {
     expect(depsSection).toContain("Must exist first.");
   });
 
+  it("RC1: does not duplicate punctuation when a dependency reason already ends in a period", () => {
+    const packet = renderAgentPacket(
+      baseContext({
+        dependencies: [
+          { id: "DEP-001", fromId: "WU000", toId: "WU001", type: "blocks", reason: "Must exist first." },
+        ],
+      }),
+    );
+    const depsSection = packet.split("## Dependencies")[1].split("## Acceptance Criteria")[0];
+    expect(depsSection).not.toContain("..");
+    expect(depsSection).toContain("blocks from WU000: Must exist first.");
+  });
+
+  it("RC1: does not duplicate punctuation when a dependency reason ends in ! or ?", () => {
+    const packet = renderAgentPacket(
+      baseContext({
+        dependencies: [
+          { id: "DEP-001", fromId: "WU000", toId: "WU001", type: "requires", reason: "Is this ready?" },
+        ],
+      }),
+    );
+    const depsSection = packet.split("## Dependencies")[1].split("## Acceptance Criteria")[0];
+    expect(depsSection).not.toMatch(/\?\.|!\.|\.\./);
+    expect(depsSection).toContain("requires from WU000: Is this ready.");
+  });
+
   it("renders referenced requirement/decision/risk/assumption/open-question records", () => {
     const packet = renderAgentPacket(
       baseContext({

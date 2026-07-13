@@ -133,6 +133,51 @@ describe("aiqt prompt", () => {
     expect(data.outputPath).toBe(".aiqt/inputs/plan.prompt.md");
   });
 
+  it("RC1: prompt update --out recommends the guided followUpCommand, not the raw update state command", async () => {
+    dir = makeTempDir();
+    runInit(contextFor(dir), normalizeInitOptions({}));
+    const result = runPrompt(contextFor(dir), { kind: "update", out: ".aiqt/inputs/update.prompt.md" });
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const data = result.data as { followUpCommand: string };
+    expect(data.followUpCommand).toBe("aiqt import update --from-file .aiqt/inputs/update.json");
+    expect(result.nextRecommendedCommand).toBe(data.followUpCommand);
+  });
+
+  it("RC1: prompt plan --out recommends the guided followUpCommand, not the raw plan command", async () => {
+    dir = makeTempDir();
+    await makeReadyProject(dir);
+    const result = runPrompt(contextFor(dir), { kind: "plan", out: ".aiqt/inputs/plan.prompt.md" });
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const data = result.data as { followUpCommand: string };
+    expect(data.followUpCommand).toBe("aiqt import plan --from-file .aiqt/inputs/plan.json");
+    expect(result.nextRecommendedCommand).toBe("aiqt import plan --from-file .aiqt/inputs/plan.json");
+  });
+
+  it("RC1: prompt checkpoint --out recommends the guided followUpCommand, not the raw checkpoint command", async () => {
+    dir = makeTempDir();
+    await makeInProgressProject(dir);
+    const result = runPrompt(contextFor(dir), {
+      kind: "checkpoint",
+      out: ".aiqt/inputs/checkpoint.prompt.md",
+    });
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const data = result.data as { followUpCommand: string };
+    expect(data.followUpCommand).toBe("aiqt import checkpoint --from-file .aiqt/inputs/checkpoint.json");
+    expect(result.nextRecommendedCommand).toBe(
+      "aiqt import checkpoint --from-file .aiqt/inputs/checkpoint.json",
+    );
+  });
+
+  it("RC1: prompt update stdout (no --out) also recommends the guided followUpCommand", async () => {
+    dir = makeTempDir();
+    runInit(contextFor(dir), normalizeInitOptions({}));
+    const result = runPrompt(contextFor(dir), { kind: "update" });
+    expect(result.exitCode).toBe(ExitCode.Success);
+    expect(result.nextRecommendedCommand).toBe(
+      "aiqt import update --from-file .aiqt/inputs/update.json",
+    );
+  });
+
   it("does not overwrite an existing --out file by default", async () => {
     dir = makeTempDir();
     await makeReadyProject(dir);

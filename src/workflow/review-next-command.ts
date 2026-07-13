@@ -47,8 +47,11 @@ export function computeReviewNextCommand(
   }
 
   // 8. All work units are done and no blocking review finding exists.
+  // RC1: canonical all-done recommendation is "aiqt export all" (the full
+  // generated document set), matching aiqt start/continue's guidance so the
+  // CLI never disagrees with itself at this workflow state.
   if (workUnits.length > 0 && workUnits.every((wu) => wu.status === "done")) {
-    return "aiqt export status-report";
+    return "aiqt export all";
   }
 
   // 9. No immediate workflow action can be determined.

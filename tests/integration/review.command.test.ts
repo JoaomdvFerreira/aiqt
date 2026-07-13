@@ -181,7 +181,7 @@ describe("aiqt review", () => {
     }
   });
 
-  it("passes with no findings recommendation of aiqt export status-report when all work is done", async () => {
+  it("passes with no findings recommendation of aiqt export all when all work is done (RC1 canonical all-done recommendation)", async () => {
     dir = makeTempDir();
     await makeInProgressProject(dir);
     const checkpointResult = runCheckpoint(contextFor(dir), {
@@ -190,7 +190,7 @@ describe("aiqt review", () => {
     expect(checkpointResult.exitCode).toBe(ExitCode.Success);
     const result = runReviewCommand(contextFor(dir));
     expect(result.exitCode).toBe(ExitCode.Success);
-    expect(result.nextRecommendedCommand).toBe("aiqt export status-report");
+    expect(result.nextRecommendedCommand).toBe("aiqt export all");
     const data = result.data as { recommendedExportTargets: string[] };
     expect(data.recommendedExportTargets).toContain("status-report");
     expect(data.recommendedExportTargets).not.toContain("project-summary");

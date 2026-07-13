@@ -142,6 +142,15 @@ export function runPrompt(ctx: CommandContext, options: RunPromptOptions): Comma
       mkdirSync(paths.inputsDir, { recursive: true });
       writeTextFile(resolvedPath, prompt);
 
+      const writtenData = buildPromptResultData({
+        kind,
+        prompt,
+        project,
+        state,
+        wroteFile: true,
+        outputPath: options.out,
+      });
+
       return makeResult({
         status: "passed",
         action: "prompt",
@@ -152,18 +161,23 @@ export function runPrompt(ctx: CommandContext, options: RunPromptOptions): Comma
         completedActions: ["Read project.json", "Read state.json", "Rendered prompt", "Wrote prompt file"],
         changedFiles: [resolvedPath],
         affectedItems: [project.project.id],
-        nextRecommendedCommand: state.nextRecommendedCommand,
+        // Recommend the guided follow-up (e.g. "aiqt import plan --from-file
+        // ...") rather than the raw state.nextRecommendedCommand, so users
+        // are not steered back toward hand-authoring JSON.
+        nextRecommendedCommand: writtenData.followUpCommand,
         exitCode: ExitCode.Success,
-        data: buildPromptResultData({
-          kind,
-          prompt,
-          project,
-          state,
-          wroteFile: true,
-          outputPath: options.out,
-        }),
+        data: writtenData,
       });
     }
+
+    const stdoutData = buildPromptResultData({
+      kind,
+      prompt,
+      project,
+      state,
+      wroteFile: false,
+      outputPath: null,
+    });
 
     return makeResult({
       status: "passed",
@@ -175,16 +189,9 @@ export function runPrompt(ctx: CommandContext, options: RunPromptOptions): Comma
       completedActions: ["Read project.json", "Read state.json", "Rendered prompt"],
       changedFiles: [],
       affectedItems: [project.project.id],
-      nextRecommendedCommand: state.nextRecommendedCommand,
+      nextRecommendedCommand: stdoutData.followUpCommand,
       exitCode: ExitCode.Success,
-      data: buildPromptResultData({
-        kind,
-        prompt,
-        project,
-        state,
-        wroteFile: false,
-        outputPath: null,
-      }),
+      data: stdoutData,
     });
   } catch (err) {
     return errorToResult("prompt", err);
