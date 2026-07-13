@@ -228,8 +228,8 @@ export function collectWorkflowFindings(
       title: "All work units are done",
       message: "Every work unit in the work graph has status done.",
       relatedIds: [project.project.id],
-      suggestedAction: "Run aiqt export status-report to generate a summary.",
-      nextRecommendedCommand: "aiqt export status-report",
+      suggestedAction: "Run aiqt export all to generate the full export document set.",
+      nextRecommendedCommand: "aiqt export all",
     });
   }
 

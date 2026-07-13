@@ -8,8 +8,14 @@ function bulletList(items: readonly string[]): string {
     .join("\n");
 }
 
+/** Strip trailing sentence punctuation so the template's own period is never duplicated. */
+function normalizeReason(reason: string): string {
+  return reason.trim().replace(/[.!?]+$/, "");
+}
+
 function renderDependency(dep: Dependency): string {
-  return `- ${dep.type} from ${dep.fromId}${dep.reason ? `: ${dep.reason}` : ""}.`;
+  const reason = dep.reason ? normalizeReason(dep.reason) : null;
+  return `- ${dep.type} from ${dep.fromId}${reason ? `: ${reason}` : ""}.`;
 }
 
 /**

@@ -98,6 +98,34 @@ describe("renderPlanPrompt", () => {
     expect(prompt).toContain(".aiqt/inputs/plan.json");
     expect(prompt).toContain("aiqt import plan --from-file .aiqt/inputs/plan.json");
   });
+
+  it("RC1: warns against broad category-level agentContextRefs and recommends specific record ids", () => {
+    expect(prompt).toMatch(/agentContextRefs/);
+    expect(prompt).toMatch(/EVERY record of that category/);
+    expect(prompt).toMatch(/prefer a specific record id/);
+    expect(prompt).toContain('["REQ-001"]');
+  });
+
+  it("RC1: shows requirement ids alongside titles so the agent can reference a specific one", () => {
+    const withRequirements = renderPlanPrompt(
+      baseProject({
+        requirements: [
+          {
+            id: "REQ-001",
+            title: "Add item",
+            description: "d",
+            priority: "medium",
+            type: "functional",
+            acceptanceCriteria: [],
+            status: "accepted",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      }),
+    );
+    expect(withRequirements).toContain("[REQ-001] Add item");
+  });
 });
 
 describe("renderCheckpointPrompt", () => {

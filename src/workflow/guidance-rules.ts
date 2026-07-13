@@ -21,7 +21,7 @@ function mapFallbackStage(command: string): GuidanceStage {
       return "ready_for_handoff";
     case "aiqt checkpoint":
       return "awaiting_checkpoint";
-    case "aiqt export status-report":
+    case "aiqt export all":
       return "ready_for_export";
     default:
       return "needs_review";

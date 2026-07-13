@@ -152,7 +152,7 @@ describe("computeReviewNextCommand", () => {
     expect(computeReviewNextCommand(project, state, [])).toBe("aiqt next");
   });
 
-  it("recommends aiqt export status-report when every work unit is done", () => {
+  it("recommends aiqt export all when every work unit is done (RC1 canonical all-done recommendation)", () => {
     const project = baseProject();
     const state = baseState({
       workGraph: {
@@ -163,7 +163,7 @@ describe("computeReviewNextCommand", () => {
         dependencies: [],
       },
     });
-    expect(computeReviewNextCommand(project, state, [])).toBe("aiqt export status-report");
+    expect(computeReviewNextCommand(project, state, [])).toBe("aiqt export all");
   });
 });
 

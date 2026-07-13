@@ -128,6 +128,63 @@ describe("aiqt import", () => {
     expect(result.status).toBe("failed");
   });
 
+  it("RC1: import update after successful update recommends the guided aiqt prompt plan path", async () => {
+    dir = makeTempDir();
+    runInit(contextFor(dir), normalizeInitOptions({}));
+    const patchPath = join(dir, "update.json");
+    writeFileSync(
+      patchPath,
+      JSON.stringify({
+        project: { objective: "Ship it", targetUsers: ["devs"] },
+        context: { constraints: ["Local files are the source of truth"] },
+      }),
+    );
+    const result = await runImport(contextFor(dir), { importType: "update", fromFile: patchPath });
+    expect(result.exitCode).toBe(ExitCode.Success);
+    expect(result.nextRecommendedCommand).toBe("aiqt prompt plan");
+    const data = result.data as { import: { followUpCommand: string | null } };
+    expect(data.import.followUpCommand).toBe("aiqt prompt plan");
+  });
+
+  it("RC1: import missing file reports the file problem, not a workflow-position gate that would also fail", async () => {
+    dir = makeTempDir();
+    await makeReadyProject(dir);
+    const planPath = join(dir, "plan.json");
+    writeFileSync(planPath, readFileSync(join(PLAN_FIXTURES, "valid-plan.json")));
+    // Work graph now exists, so aiqt plan's own workflow-position gate would
+    // also fail here ("A work graph already exists...") -- the file problem
+    // must still be reported, not masked by that gate.
+    runPlan(contextFor(dir), { fromFile: planPath });
+
+    const missingPath = join(dir, ".aiqt", "inputs", "missing.json");
+    const result = await runImport(contextFor(dir), { importType: "plan", fromFile: missingPath });
+    expect(result.exitCode).toBe(ExitCode.InvalidInput);
+    expect(result.status).toBe("failed");
+    expect(result.summary).toContain("File not found");
+    expect(result.blockingIssues[0].id).toBe("IMPORT-FILE-NOT-FOUND");
+    expect(result.nextRecommendedCommand).toBe("aiqt prompt plan");
+  });
+
+  it("RC1: import invalid JSON reports the JSON problem, not a workflow-position gate that would also fail, with no mutation", async () => {
+    dir = makeTempDir();
+    await makeReadyProject(dir);
+    const planPath = join(dir, "plan.json");
+    writeFileSync(planPath, readFileSync(join(PLAN_FIXTURES, "valid-plan.json")));
+    // Work graph now exists, so aiqt plan's own workflow-position gate would
+    // also fail here -- the malformed-JSON problem must still be reported.
+    runPlan(contextFor(dir), { fromFile: planPath });
+    const stateBefore = readState(dir);
+
+    const badPath = join(dir, "bad.json");
+    writeFileSync(badPath, "{ not valid json");
+    const result = await runImport(contextFor(dir), { importType: "plan", fromFile: badPath });
+    expect(result.exitCode).toBe(ExitCode.InvalidInput);
+    expect(result.status).toBe("failed");
+    expect(result.summary).toContain("Malformed JSON");
+    expect(result.blockingIssues[0].id).toBe("IMPORT-FILE-INVALID-JSON");
+    expect(readState(dir)).toEqual(stateBefore);
+  });
+
   it("does not append runlog events beyond the delegated command's own behavior on a blocked import", async () => {
     dir = makeTempDir();
     runInit(contextFor(dir), normalizeInitOptions({}));

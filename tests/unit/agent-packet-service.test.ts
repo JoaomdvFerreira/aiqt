@@ -96,6 +96,17 @@ describe("resolveAgentContextRefs", () => {
     const result = resolveAgentContextRefs(["risks", "RISK-001"], project);
     expect(result.risks).toHaveLength(1);
   });
+
+  it("RC1: a specific requirement id ref includes only that requirement, not the whole category", () => {
+    const project = baseProject();
+    project.requirements = [
+      { id: "REQ-001", title: "Add item", description: "D1", priority: "high", type: "functional", acceptanceCriteria: [], status: "accepted", createdAt: T1, updatedAt: T1 },
+      { id: "REQ-002", title: "Mark bought", description: "D2", priority: "medium", type: "functional", acceptanceCriteria: [], status: "accepted", createdAt: T1, updatedAt: T1 },
+    ];
+    const result = resolveAgentContextRefs(["REQ-001"], project);
+    expect(result.requirements.map((r) => r.id)).toEqual(["REQ-001"]);
+    expect(result.requirements.map((r) => r.id)).not.toContain("REQ-002");
+  });
 });
 
 describe("buildUnresolvedRefWarnings", () => {
