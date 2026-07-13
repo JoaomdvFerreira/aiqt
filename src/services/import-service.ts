@@ -6,11 +6,23 @@ export function isValidImportType(value: string): value is ImportType {
   return (IMPORT_TYPES as readonly string[]).includes(value);
 }
 
+/**
+ * M8 §15: extends the M7 contract additively. delegatedAction is unchanged
+ * from M7 and must not be renamed. source/sourcePath/delegatedResultSummary
+ * are new in M8.
+ *
+ * sourcePath behavior: "file" mode -> the supplied --from-file path string;
+ * "stdin" mode -> null.
+ * delegatedResultSummary is copied verbatim from the delegated command's own
+ * result summary -- it must never invent a second, independent summary.
+ */
 export interface ImportResultData {
   importType: ImportType;
-  sourcePath: string;
   delegatedAction: ImportType;
+  source: "file" | "stdin";
+  sourcePath: string | null;
   followUpCommand: string | null;
+  delegatedResultSummary: string;
 }
 
 /**

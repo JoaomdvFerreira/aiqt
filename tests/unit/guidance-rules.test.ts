@@ -111,7 +111,7 @@ describe("computeGuidance", () => {
     expect(guidance.stage).toBe("needs_plan");
     expect(guidance.recommendedCommand).toBe("aiqt prompt plan");
     expect(guidance.expectedInputPath).toBe(".aiqt/inputs/plan.json");
-    expect(guidance.followUpCommand).toBe("aiqt import plan --from-file .aiqt/inputs/plan.json");
+    expect(guidance.followUpCommand).toBe("aiqt import plan --stdin");
     expect(guidance.canProceedWithoutAgent).toBe(false);
   });
 

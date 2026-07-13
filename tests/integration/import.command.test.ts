@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { PassThrough } from "node:stream";
 import { runInit } from "../../src/cli/commands/init.command.js";
 import { runUpdate } from "../../src/cli/commands/update.command.js";
 import { runPlan } from "../../src/cli/commands/plan.command.js";
@@ -10,6 +11,14 @@ import { runImport } from "../../src/cli/commands/import.command.js";
 import { normalizeInitOptions } from "../../src/cli/options.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
 import { makeTempDir, removeDir, contextFor } from "../helpers.js";
+
+/** A real PassThrough stream pre-loaded with text, standing in for process.stdin. */
+function stdinWith(text: string, isTTY = false): PassThrough & { isTTY?: boolean } {
+  const stream = new PassThrough() as PassThrough & { isTTY?: boolean };
+  stream.isTTY = isTTY;
+  stream.end(text);
+  return stream;
+}
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PLAN_FIXTURES = join(here, "..", "fixtures", "plans");
@@ -65,12 +74,22 @@ describe("aiqt import", () => {
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(result.status).toBe("passed");
     expect(result.action).toBe("import");
-    const data = result.data as { import: { importType: string; delegatedAction: string; sourcePath: string } };
+    const data = result.data as {
+      import: {
+        importType: string;
+        delegatedAction: string;
+        source: string;
+        sourcePath: string;
+        delegatedResultSummary: string;
+      };
+    };
     expect(data.import).toEqual({
       importType: "update",
-      sourcePath: patchPath,
       delegatedAction: "update",
+      source: "file",
+      sourcePath: patchPath,
       followUpCommand: result.nextRecommendedCommand,
+      delegatedResultSummary: result.summary,
     });
     expect(readState(dir).nextRecommendedCommand).toBeDefined();
     const project = JSON.parse(readFileSync(join(dir, ".aiqt", "project.json"), "utf8"));
@@ -196,5 +215,160 @@ describe("aiqt import", () => {
     expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
     const runlogAfter = readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8").trim().split(/\r?\n/).length;
     expect(runlogAfter).toBe(runlogBefore);
+  });
+
+  describe("M8: --stdin input transport", () => {
+    it("import update --stdin delegates and mutates identically to --from-file", async () => {
+      dir = makeTempDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+      const payload = JSON.stringify({ project: { objective: "Ship it", targetUsers: ["devs"] } });
+      const result = await runImport(
+        contextFor(dir),
+        { importType: "update", stdin: true },
+        { stdin: stdinWith(payload) },
+      );
+      expect(result.exitCode).toBe(ExitCode.Success);
+      expect(result.status).toBe("passed");
+      const data = result.data as {
+        import: {
+          importType: string;
+          delegatedAction: string;
+          source: string;
+          sourcePath: string | null;
+          followUpCommand: string | null;
+          delegatedResultSummary: string;
+        };
+      };
+      expect(data.import).toEqual({
+        importType: "update",
+        delegatedAction: "update",
+        source: "stdin",
+        sourcePath: null,
+        followUpCommand: result.nextRecommendedCommand,
+        delegatedResultSummary: result.summary,
+      });
+      const project = JSON.parse(readFileSync(join(dir, ".aiqt", "project.json"), "utf8"));
+      expect(project.project.objective).toBe("Ship it");
+    });
+
+    it("import plan --stdin delegates and mutates identically to --from-file", async () => {
+      dir = makeTempDir();
+      await makeReadyProject(dir);
+      const planText = readFileSync(join(PLAN_FIXTURES, "valid-plan.json"), "utf8");
+      const result = await runImport(
+        contextFor(dir),
+        { importType: "plan", stdin: true },
+        { stdin: stdinWith(planText) },
+      );
+      expect(result.exitCode).toBe(ExitCode.Success);
+      const state = readState(dir);
+      expect(state.workGraph.milestones).toHaveLength(1);
+      expect(state.workGraph.workUnits[0].status).toBe("ready");
+    });
+
+    it("import checkpoint --stdin delegates and mutates identically to --from-file", async () => {
+      dir = makeTempDir();
+      await makeReadyProject(dir);
+      const planPath = join(dir, "plan.json");
+      writeFileSync(planPath, readFileSync(join(PLAN_FIXTURES, "valid-plan.json")));
+      runPlan(contextFor(dir), { fromFile: planPath });
+      runNext(contextFor(dir));
+
+      const checkpointText = readFileSync(join(CHECKPOINT_FIXTURES, "valid-done.json"), "utf8");
+      const result = await runImport(
+        contextFor(dir),
+        { importType: "checkpoint", stdin: true },
+        { stdin: stdinWith(checkpointText) },
+      );
+      expect(result.exitCode).toBe(ExitCode.Success);
+      const state = readState(dir);
+      expect(state.workGraph.workUnits[0].status).toBe("done");
+    });
+
+    it("fails with exit code 3 and no mutation on empty stdin", async () => {
+      dir = makeTempDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+      const stateBefore = readState(dir);
+      const result = await runImport(
+        contextFor(dir),
+        { importType: "update", stdin: true },
+        { stdin: stdinWith("") },
+      );
+      expect(result.exitCode).toBe(ExitCode.InvalidInput);
+      expect(result.status).toBe("failed");
+      expect(result.blockingIssues[0].id).toBe("IMPORT-STDIN-EMPTY");
+      expect(readState(dir)).toEqual(stateBefore);
+    });
+
+    it("fails with exit code 3 and no mutation on whitespace-only stdin", async () => {
+      dir = makeTempDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+      const result = await runImport(
+        contextFor(dir),
+        { importType: "update", stdin: true },
+        { stdin: stdinWith("   \n  ") },
+      );
+      expect(result.exitCode).toBe(ExitCode.InvalidInput);
+      expect(result.blockingIssues[0].id).toBe("IMPORT-STDIN-EMPTY");
+    });
+
+    it("fails with exit code 3 and no mutation on malformed JSON on stdin", async () => {
+      dir = makeTempDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+      const stateBefore = readState(dir);
+      const result = await runImport(
+        contextFor(dir),
+        { importType: "update", stdin: true },
+        { stdin: stdinWith("{ not valid json") },
+      );
+      expect(result.exitCode).toBe(ExitCode.InvalidInput);
+      expect(result.blockingIssues[0].id).toBe("IMPORT-STDIN-INVALID-JSON");
+      expect(readState(dir)).toEqual(stateBefore);
+    });
+
+    it("fails with exit code 3 and does not block/hang when stdin is an interactive TTY", async () => {
+      dir = makeTempDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+      const result = await runImport(
+        contextFor(dir),
+        { importType: "update", stdin: true },
+        { stdin: stdinWith("irrelevant", true) },
+      );
+      expect(result.exitCode).toBe(ExitCode.InvalidInput);
+      expect(result.status).toBe("failed");
+      expect(result.blockingIssues[0].id).toBe("IMPORT-STDIN-TTY");
+      expect(result.summary).toBe("--stdin requires piped input or redirected input.");
+    });
+
+    it("fails with exit code 3 when both --stdin and --from-file are supplied", async () => {
+      dir = makeTempDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+      const result = await runImport(contextFor(dir), {
+        importType: "update",
+        stdin: true,
+        fromFile: "some.json",
+      });
+      expect(result.exitCode).toBe(ExitCode.InvalidInput);
+      expect(result.blockingIssues[0].id).toBe("IMPORT-INPUT-MODE-CONFLICT");
+    });
+
+    it("valid stdin JSON that is schema-invalid for the delegated type fails via the delegated command's own validation", async () => {
+      dir = makeTempDir();
+      await makeReadyProject(dir);
+      const planPath = join(dir, "plan.json");
+      writeFileSync(planPath, readFileSync(join(PLAN_FIXTURES, "valid-plan.json")));
+      runPlan(contextFor(dir), { fromFile: planPath });
+      runNext(contextFor(dir));
+
+      // Feed plan-shaped JSON into checkpoint via stdin -- invalid for the delegated type.
+      const planText = readFileSync(join(PLAN_FIXTURES, "valid-plan.json"), "utf8");
+      const result = await runImport(
+        contextFor(dir),
+        { importType: "checkpoint", stdin: true },
+        { stdin: stdinWith(planText) },
+      );
+      expect(result.exitCode).toBe(ExitCode.InvalidInput);
+      expect(result.status).toBe("failed");
+    });
   });
 });

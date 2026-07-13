@@ -10,38 +10,58 @@ import {
   checkPromptAvailability,
   renderPrompt,
   buildPromptResultData,
+  buildDriverPromptData,
+  buildInterviewPromptData,
   validateOutPath,
 } from "../../services/prompt-service.js";
 
 export interface RunPromptOptions {
   kind?: string;
   out?: string;
+  idea?: string;
+}
+
+/**
+ * aiqt prompt driver / aiqt prompt interview (§6, §7): unlike the file-based
+ * prompt kinds, these must remain usable before aiqt init, so .aiqt/ is
+ * loaded best-effort rather than required. A malformed project/state file
+ * still surfaces as a normal failure via the outer catch in runPrompt.
+ */
+function runDriverOrInterviewPrompt(
+  ctx: CommandContext,
+  kind: "driver" | "interview",
+  idea: string | null,
+): CommandResult {
+  const dirExists = aiqtDirExists(ctx);
+  const loaded = dirExists ? loadProject(ctx) : null;
+  const project = loaded?.project ?? null;
+  const state = loaded?.state ?? null;
+
+  const data = kind === "driver"
+    ? buildDriverPromptData({ project, state, idea })
+    : buildInterviewPromptData({ project, idea });
+  const nextRecommendedCommand = kind === "driver"
+    ? (data as ReturnType<typeof buildDriverPromptData>).nextRecommendedCommand
+    : (data as ReturnType<typeof buildInterviewPromptData>).followUpCommand;
+
+  return makeResult({
+    status: "passed",
+    action: "prompt",
+    projectStatus: state?.projectStatus ?? null,
+    currentMilestoneId: state?.currentMilestoneId ?? null,
+    currentWorkUnitId: state?.currentWorkUnitId ?? null,
+    summary: kind === "driver" ? "Generated agent driver prompt." : "Generated planning interview prompt.",
+    completedActions: [kind === "driver" ? "Rendered driver prompt" : "Rendered interview prompt"],
+    changedFiles: [],
+    affectedItems: project ? [project.project.id] : [],
+    nextRecommendedCommand,
+    exitCode: ExitCode.Success,
+    data,
+  });
 }
 
 export function runPrompt(ctx: CommandContext, options: RunPromptOptions): CommandResult {
   try {
-    // .aiqt/ missing: exit code 3, not 2 (only valid workflow-position
-    // blocks use exit code 2).
-    if (!aiqtDirExists(ctx)) {
-      return makeResult({
-        status: "failed",
-        action: "prompt",
-        summary: "No AIQT project found. Run aiqt init to create the canonical state files.",
-        nextRecommendedCommand: "aiqt init",
-        exitCode: ExitCode.InvalidInput,
-        blockingIssues: [
-          {
-            id: "PROMPT-NO-PROJECT",
-            severity: "high",
-            area: "workflow",
-            message: ".aiqt/ not found in the current folder.",
-            suggestedAction: "Run aiqt init.",
-            agentCanFix: false,
-          },
-        ],
-      });
-    }
-
     if (!options.kind || !isValidPromptKind(options.kind)) {
       const message = `Unsupported prompt kind "${options.kind ?? ""}".`;
       return makeResult({
@@ -62,6 +82,33 @@ export function runPrompt(ctx: CommandContext, options: RunPromptOptions): Comma
       });
     }
     const kind: PromptKind = options.kind;
+
+    if (kind === "driver" || kind === "interview") {
+      return runDriverOrInterviewPrompt(ctx, kind, options.idea ?? null);
+    }
+
+    // .aiqt/ missing: exit code 3, not 2 (only valid workflow-position
+    // blocks use exit code 2). update/plan/checkpoint prompts require an
+    // initialized project; driver/interview (handled above) do not.
+    if (!aiqtDirExists(ctx)) {
+      return makeResult({
+        status: "failed",
+        action: "prompt",
+        summary: "No AIQT project found. Run aiqt init to create the canonical state files.",
+        nextRecommendedCommand: "aiqt init",
+        exitCode: ExitCode.InvalidInput,
+        blockingIssues: [
+          {
+            id: "PROMPT-NO-PROJECT",
+            severity: "high",
+            area: "workflow",
+            message: ".aiqt/ not found in the current folder.",
+            suggestedAction: "Run aiqt init.",
+            agentCanFix: false,
+          },
+        ],
+      });
+    }
 
     const { paths, project, state } = loadProject(ctx);
 

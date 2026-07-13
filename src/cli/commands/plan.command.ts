@@ -24,6 +24,23 @@ import { buildWorkGraphFromPlanInput } from "../../services/planning-service.js"
 import { isPlanningContextReady } from "../../workflow/planning-readiness.js";
 import type { StateModel } from "../../schema/state.schema.js";
 
+function validatePlanInput(raw: unknown): PlanInput {
+  const parsed = PlanInputSchema.safeParse(raw);
+  if (!parsed.success) {
+    const message = `Invalid plan input: ${parsed.error.issues
+      .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
+      .join("; ")}`;
+    throw new AiqtError(message, ExitCode.InvalidInput, {
+      id: "PLAN-INPUT-SCHEMA-INVALID",
+      severity: "critical",
+      area: "input",
+      message,
+      agentCanFix: false,
+    });
+  }
+  return parsed.data;
+}
+
 function loadPlanInputFromFile(path: string): PlanInput {
   let raw: unknown;
   try {
@@ -40,21 +57,7 @@ function loadPlanInputFromFile(path: string): PlanInput {
     }
     throw err;
   }
-
-  const parsed = PlanInputSchema.safeParse(raw);
-  if (!parsed.success) {
-    const message = `Invalid plan input: ${parsed.error.issues
-      .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
-      .join("; ")}`;
-    throw new AiqtError(message, ExitCode.InvalidInput, {
-      id: "PLAN-INPUT-SCHEMA-INVALID",
-      severity: "critical",
-      area: "input",
-      message,
-      agentCanFix: false,
-    });
-  }
-  return parsed.data;
+  return validatePlanInput(raw);
 }
 
 function blockedOnState(
@@ -86,6 +89,8 @@ function blockedOnState(
 
 export interface RunPlanOptions {
   fromFile?: string;
+  /** Pre-parsed plan JSON (e.g. from aiqt import plan --stdin). Takes precedence over fromFile when set. */
+  input?: unknown;
 }
 
 export function runPlan(
@@ -96,7 +101,7 @@ export function runPlan(
     const { paths, project, state } = loadProject(ctx);
 
     // Gate: no-input must be evaluated before planningContextReady.
-    if (!options.fromFile) {
+    if (!options.fromFile && options.input === undefined) {
       return makeResult({
         status: "needs_input",
         action: "plan",
@@ -131,7 +136,9 @@ export function runPlan(
 
     let built;
     try {
-      const planInput = loadPlanInputFromFile(options.fromFile);
+      const planInput = options.input !== undefined
+        ? validatePlanInput(options.input)
+        : loadPlanInputFromFile(options.fromFile!);
       const timestamp = new Date().toISOString();
       built = { planInput, timestamp, result: buildWorkGraphFromPlanInput(planInput, timestamp) };
     } catch (err) {

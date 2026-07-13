@@ -115,4 +115,51 @@ describe("aiqt CLI entrypoint", () => {
     const parsed = JSON.parse(res.stderr);
     expect(parsed.exitCode).toBe(3);
   });
+
+  it("M8: aiqt import update --stdin reads real piped stdin end-to-end", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const payload = JSON.stringify({ project: { objective: "Ship it", targetUsers: ["devs"] } });
+    const res = spawnSync(process.execPath, [tsxCli, entry, "import", "update", "--stdin", "--json"], {
+      cwd: dir,
+      encoding: "utf8",
+      input: payload,
+    });
+    expect(res.status).toBe(0);
+    const parsed = JSON.parse(res.stdout);
+    expect(parsed.data.import.source).toBe("stdin");
+    expect(parsed.data.import.sourcePath).toBeNull();
+  });
+
+  it("M8: aiqt import update --stdin exits 3 without hanging when stdin is empty", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = spawnSync(process.execPath, [tsxCli, entry, "import", "update", "--stdin", "--json"], {
+      cwd: dir,
+      encoding: "utf8",
+      input: "",
+    });
+    expect(res.status).toBe(3);
+    const parsed = JSON.parse(res.stdout || res.stderr);
+    expect(parsed.exitCode).toBe(3);
+  });
+
+  it("M8: aiqt prompt driver --json works before aiqt init", () => {
+    dir = makeTempDir();
+    const res = runCli(["prompt", "driver", "--idea", "Build a marketplace", "--json"], dir);
+    expect(res.status).toBe(0);
+    const parsed = JSON.parse(res.stdout);
+    expect(parsed.data.promptType).toBe("driver");
+    expect(parsed.data.idea).toBe("Build a marketplace");
+    expect(parsed.nextRecommendedCommand).toBe("aiqt init");
+  });
+
+  it("M8: aiqt prompt interview --json detects full-stack signals from --idea", () => {
+    dir = makeTempDir();
+    const res = runCli(["prompt", "interview", "--idea", "Build a marketplace", "--json"], dir);
+    expect(res.status).toBe(0);
+    const parsed = JSON.parse(res.stdout);
+    expect(parsed.data.promptType).toBe("interview");
+    expect(parsed.data.detectedProjectType).toBe("full-stack web application");
+  });
 });

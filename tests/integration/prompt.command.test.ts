@@ -133,27 +133,27 @@ describe("aiqt prompt", () => {
     expect(data.outputPath).toBe(".aiqt/inputs/plan.prompt.md");
   });
 
-  it("RC1: prompt update --out recommends the guided followUpCommand, not the raw update state command", async () => {
+  it("M8: prompt update --out recommends the guided --stdin followUpCommand, not --from-file", async () => {
     dir = makeTempDir();
     runInit(contextFor(dir), normalizeInitOptions({}));
     const result = runPrompt(contextFor(dir), { kind: "update", out: ".aiqt/inputs/update.prompt.md" });
     expect(result.exitCode).toBe(ExitCode.Success);
     const data = result.data as { followUpCommand: string };
-    expect(data.followUpCommand).toBe("aiqt import update --from-file .aiqt/inputs/update.json");
+    expect(data.followUpCommand).toBe("aiqt import update --stdin");
     expect(result.nextRecommendedCommand).toBe(data.followUpCommand);
   });
 
-  it("RC1: prompt plan --out recommends the guided followUpCommand, not the raw plan command", async () => {
+  it("M8: prompt plan --out recommends the guided --stdin followUpCommand, not --from-file", async () => {
     dir = makeTempDir();
     await makeReadyProject(dir);
     const result = runPrompt(contextFor(dir), { kind: "plan", out: ".aiqt/inputs/plan.prompt.md" });
     expect(result.exitCode).toBe(ExitCode.Success);
     const data = result.data as { followUpCommand: string };
-    expect(data.followUpCommand).toBe("aiqt import plan --from-file .aiqt/inputs/plan.json");
-    expect(result.nextRecommendedCommand).toBe("aiqt import plan --from-file .aiqt/inputs/plan.json");
+    expect(data.followUpCommand).toBe("aiqt import plan --stdin");
+    expect(result.nextRecommendedCommand).toBe("aiqt import plan --stdin");
   });
 
-  it("RC1: prompt checkpoint --out recommends the guided followUpCommand, not the raw checkpoint command", async () => {
+  it("M8: prompt checkpoint --out recommends the guided --stdin followUpCommand, not --from-file", async () => {
     dir = makeTempDir();
     await makeInProgressProject(dir);
     const result = runPrompt(contextFor(dir), {
@@ -162,20 +162,16 @@ describe("aiqt prompt", () => {
     });
     expect(result.exitCode).toBe(ExitCode.Success);
     const data = result.data as { followUpCommand: string };
-    expect(data.followUpCommand).toBe("aiqt import checkpoint --from-file .aiqt/inputs/checkpoint.json");
-    expect(result.nextRecommendedCommand).toBe(
-      "aiqt import checkpoint --from-file .aiqt/inputs/checkpoint.json",
-    );
+    expect(data.followUpCommand).toBe("aiqt import checkpoint --stdin");
+    expect(result.nextRecommendedCommand).toBe("aiqt import checkpoint --stdin");
   });
 
-  it("RC1: prompt update stdout (no --out) also recommends the guided followUpCommand", async () => {
+  it("M8: prompt update stdout (no --out) also recommends the guided --stdin followUpCommand", async () => {
     dir = makeTempDir();
     runInit(contextFor(dir), normalizeInitOptions({}));
     const result = runPrompt(contextFor(dir), { kind: "update" });
     expect(result.exitCode).toBe(ExitCode.Success);
-    expect(result.nextRecommendedCommand).toBe(
-      "aiqt import update --from-file .aiqt/inputs/update.json",
-    );
+    expect(result.nextRecommendedCommand).toBe("aiqt import update --stdin");
   });
 
   it("does not overwrite an existing --out file by default", async () => {
@@ -218,5 +214,87 @@ describe("aiqt prompt", () => {
     for (const forbidden of ["AIQT.md", "AGENTS.md", "CLAUDE.md", "docs", ".milestones", ".tasks"]) {
       expect(existsSync(join(dir, forbidden))).toBe(false);
     }
+  });
+
+  describe("M8: aiqt prompt driver", () => {
+    it("succeeds before aiqt init, recommending aiqt init", () => {
+      dir = makeTempDir();
+      const result = runPrompt(contextFor(dir), { kind: "driver" });
+      expect(result.exitCode).toBe(ExitCode.Success);
+      expect(result.status).toBe("passed");
+      expect(result.nextRecommendedCommand).toBe("aiqt init");
+      const data = result.data as { promptType: string; prompt: string; idea: string | null };
+      expect(data.promptType).toBe("driver");
+      expect(data.idea).toBeNull();
+      expect(data.prompt).toContain("Run aiqt init first.");
+    });
+
+    it("includes the supplied --idea text", () => {
+      dir = makeTempDir();
+      const result = runPrompt(contextFor(dir), { kind: "driver", idea: "Build a marketplace" });
+      const data = result.data as { idea: string | null; prompt: string };
+      expect(data.idea).toBe("Build a marketplace");
+      expect(data.prompt).toContain("Build a marketplace");
+    });
+
+    it("succeeds after aiqt init, recommending the state's next command", async () => {
+      dir = makeTempDir();
+      await makeReadyProject(dir);
+      const result = runPrompt(contextFor(dir), { kind: "driver" });
+      expect(result.exitCode).toBe(ExitCode.Success);
+      const data = result.data as { prompt: string; preferredInputMode: string; optionalInputMode: string };
+      expect(data.preferredInputMode).toBe("stdin");
+      expect(data.optionalInputMode).toBe("from-file");
+      expect(data.prompt).not.toContain("Run aiqt init first.");
+    });
+
+    it("never mutates project.json, state.json, or runlog.jsonl", async () => {
+      dir = makeTempDir();
+      await makeReadyProject(dir);
+      const stateBefore = readState(dir);
+      const runlogBefore = readRunlogLines(dir).length;
+      runPrompt(contextFor(dir), { kind: "driver", idea: "idea" });
+      expect(readState(dir)).toEqual(stateBefore);
+      expect(readRunlogLines(dir)).toHaveLength(runlogBefore);
+    });
+  });
+
+  describe("M8: aiqt prompt interview", () => {
+    it("succeeds before aiqt init", () => {
+      dir = makeTempDir();
+      const result = runPrompt(contextFor(dir), { kind: "interview", idea: "Build a marketplace" });
+      expect(result.exitCode).toBe(ExitCode.Success);
+      expect(result.status).toBe("passed");
+      const data = result.data as { promptType: string; detectedProjectType: string | null; questions: string[] };
+      expect(data.promptType).toBe("interview");
+      expect(data.detectedProjectType).toBe("full-stack web application");
+      expect(data.questions.length).toBe(15);
+    });
+
+    it("asks only base questions when no full-stack signal is present", () => {
+      dir = makeTempDir();
+      const result = runPrompt(contextFor(dir), { kind: "interview", idea: "A CLI tool for renaming files" });
+      const data = result.data as { detectedProjectType: string | null; questions: string[] };
+      expect(data.detectedProjectType).toBeNull();
+      expect(data.questions.length).toBe(7);
+    });
+
+    it("recommends aiqt import update --stdin as the follow-up command", () => {
+      dir = makeTempDir();
+      const result = runPrompt(contextFor(dir), { kind: "interview", idea: "idea" });
+      expect(result.nextRecommendedCommand).toBe("aiqt import update --stdin");
+      const data = result.data as { followUpCommand: string };
+      expect(data.followUpCommand).toBe("aiqt import update --stdin");
+    });
+
+    it("never mutates project.json, state.json, or runlog.jsonl", async () => {
+      dir = makeTempDir();
+      await makeReadyProject(dir);
+      const stateBefore = readState(dir);
+      const runlogBefore = readRunlogLines(dir).length;
+      runPrompt(contextFor(dir), { kind: "interview", idea: "idea" });
+      expect(readState(dir)).toEqual(stateBefore);
+      expect(readRunlogLines(dir)).toHaveLength(runlogBefore);
+    });
   });
 });

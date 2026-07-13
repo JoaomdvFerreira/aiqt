@@ -87,23 +87,7 @@ function failedOnState(
   });
 }
 
-function loadCheckpointInputFromFile(path: string): CheckpointInput {
-  let raw: unknown;
-  try {
-    raw = readJsonFile(path);
-  } catch (err) {
-    if (err instanceof FileReadError || err instanceof JsonParseError) {
-      throw new AiqtError(err.message, ExitCode.InvalidInput, {
-        id: "CHECKPOINT-FROM-FILE-INVALID",
-        severity: "critical",
-        area: "input",
-        message: err.message,
-        agentCanFix: false,
-      });
-    }
-    throw err;
-  }
-
+function validateCheckpointInput(raw: unknown): CheckpointInput {
   const parsed = CheckpointInputSchema.safeParse(raw);
   if (!parsed.success) {
     const message = `Invalid checkpoint input: ${parsed.error.issues
@@ -120,8 +104,29 @@ function loadCheckpointInputFromFile(path: string): CheckpointInput {
   return parsed.data;
 }
 
+function loadCheckpointInputFromFile(path: string): CheckpointInput {
+  let raw: unknown;
+  try {
+    raw = readJsonFile(path);
+  } catch (err) {
+    if (err instanceof FileReadError || err instanceof JsonParseError) {
+      throw new AiqtError(err.message, ExitCode.InvalidInput, {
+        id: "CHECKPOINT-FROM-FILE-INVALID",
+        severity: "critical",
+        area: "input",
+        message: err.message,
+        agentCanFix: false,
+      });
+    }
+    throw err;
+  }
+  return validateCheckpointInput(raw);
+}
+
 export interface RunCheckpointOptions {
   fromFile?: string;
+  /** Pre-parsed checkpoint JSON (e.g. from aiqt import checkpoint --stdin). Takes precedence over fromFile when set. */
+  input?: unknown;
 }
 
 export function runCheckpoint(
@@ -210,7 +215,7 @@ export function runCheckpoint(
       );
     }
 
-    if (!options.fromFile) {
+    if (!options.fromFile && options.input === undefined) {
       return makeResult({
         status: "needs_input",
         action: "checkpoint",
@@ -225,11 +230,15 @@ export function runCheckpoint(
       });
     }
 
-    const retryHint = `aiqt checkpoint --from-file ${options.fromFile}`;
+    const retryHint = options.input !== undefined
+      ? "aiqt prompt checkpoint"
+      : `aiqt checkpoint --from-file ${options.fromFile}`;
 
     let result;
     try {
-      const input = loadCheckpointInputFromFile(options.fromFile);
+      const input = options.input !== undefined
+        ? validateCheckpointInput(options.input)
+        : loadCheckpointInputFromFile(options.fromFile!);
       const timestamp = new Date().toISOString();
       const checkpointId = nextId("C", state.checkpoints.map((c) => c.id), "");
       result = {

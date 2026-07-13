@@ -25,6 +25,8 @@ export function normalizeInitOptions(raw: RawInitOptions): InitOptions {
 export interface RawUpdateOptions {
   json?: boolean;
   fromFile?: string;
+  /** Pre-parsed update JSON (e.g. from aiqt import update --stdin). Not a CLI flag; set internally by import.command.ts. */
+  input?: unknown;
   objective?: string;
   targetUser?: string[];
   agent?: string;
@@ -57,9 +59,11 @@ export interface RawExportOptions {
 export interface RawPromptOptions {
   json?: boolean;
   out?: string;
+  idea?: string;
 }
 
 export interface RawImportOptions {
   json?: boolean;
   fromFile?: string;
+  stdin?: boolean;
 }
