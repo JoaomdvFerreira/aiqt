@@ -18,7 +18,11 @@ export type WorkflowAction =
   | "checkpoint"
   | "review"
   | "export"
-  | "status";
+  | "status"
+  | "start"
+  | "continue"
+  | "prompt"
+  | "import";
 
 export interface CommandResult<TData = unknown> {
   status: CommandStatus;

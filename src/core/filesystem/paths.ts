@@ -9,6 +9,8 @@ export interface AiqtPaths {
   stateFile: string;
   runlogFile: string;
   exportsDir: string;
+  /** Non-canonical, optional working area for M7 prompts/agent-produced JSON. Not created by init. */
+  inputsDir: string;
 }
 
 /** Resolve all canonical AIQT paths relative to a project root folder. */
@@ -21,5 +23,6 @@ export function resolveAiqtPaths(root: string): AiqtPaths {
     stateFile: join(aiqtDir, "state.json"),
     runlogFile: join(aiqtDir, "runlog.jsonl"),
     exportsDir: join(aiqtDir, "exports"),
+    inputsDir: join(aiqtDir, "inputs"),
   };
 }

@@ -8,6 +8,8 @@ import {
   type RawPlanOptions,
   type RawCheckpointOptions,
   type RawExportOptions,
+  type RawPromptOptions,
+  type RawImportOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -19,6 +21,10 @@ import { runCheckpoint } from "./commands/checkpoint.command.js";
 import { EXAMPLE_CHECKPOINT_INPUT } from "./commands/checkpoint-example.js";
 import { runReviewCommand } from "./commands/review.command.js";
 import { runExport } from "./commands/export.command.js";
+import { runStart } from "./commands/start.command.js";
+import { runContinue } from "./commands/continue.command.js";
+import { runPrompt } from "./commands/prompt.command.js";
+import { runImport } from "./commands/import.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -217,6 +223,62 @@ export function buildProgram(): Command {
         format: raw.format,
         dryRun: Boolean(raw.dryRun),
       });
+      emit(result, ctx.json);
+    });
+
+  program
+    .command("start")
+    .description("Show the next guided step for the current workflow state")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: { json?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runStart(ctx);
+      emit(result, ctx.json);
+    });
+
+  program
+    .command("continue")
+    .description("Show the next guided step for the current workflow state (equivalent to aiqt start)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: { json?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runContinue(ctx);
+      emit(result, ctx.json);
+    });
+
+  program
+    .command("prompt")
+    .description("Generate a copy-paste prompt for an external coding agent")
+    .argument("<kind>", "prompt kind: update, plan, or checkpoint")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--out <path>", "write the prompt to a file under .aiqt/inputs/")
+    .action((kind: string, raw: RawPromptOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runPrompt(ctx, { kind, out: raw.out });
+
+      // No --out, human mode, success: print the raw prompt text so it is
+      // directly copy-pasteable, matching aiqt next's packet bypass pattern.
+      if (!ctx.json && !raw.out && result.exitCode === ExitCode.Success) {
+        const data = result.data as { prompt?: string } | undefined;
+        if (typeof data?.prompt === "string") {
+          process.stdout.write(data.prompt + "\n");
+          process.exitCode = result.exitCode;
+          return;
+        }
+      }
+
+      emit(result, ctx.json);
+    });
+
+  program
+    .command("import")
+    .description("Import agent-generated JSON through the existing update/plan/checkpoint engine")
+    .argument("<type>", "import type: update, plan, or checkpoint")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "path to the agent-generated JSON file")
+    .action(async (type: string, raw: RawImportOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runImport(ctx, { importType: type, fromFile: raw.fromFile });
       emit(result, ctx.json);
     });
 
