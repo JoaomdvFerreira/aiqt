@@ -253,7 +253,6 @@ function bulletListOrNone(items: readonly string[]): string {
  * `aiqt manage` and `aiqt review --mode` so all three surfaces agree.
  */
 export function renderFinalReview(
-  project: ProjectModel,
   state: StateModel,
   review: ReviewResult,
   report: ManageReport,
@@ -313,29 +312,16 @@ export function renderFinalReview(
   lines.push(bulletListOrNone(report.userActionRequired), "");
 
   lines.push("## External Verification Gaps", "");
-  lines.push(
-    bulletListOrNone(report.externalVerificationGaps.map((f) => `[${f.findingKey}] ${f.message}`)),
-    "",
-  );
+  lines.push(bulletListOrNone(report.externalVerificationGaps), "");
 
   lines.push("## Agent-Fixable Unresolved Issues", "");
   lines.push(bulletListOrNone(report.agentFixableIssues), "");
 
   lines.push("## Release Blockers", "");
-  lines.push(
-    report.productionReady
-      ? "- None."
-      : bulletListOrNone(
-          report.activeFindings.filter((f) => f.blocking).map((f) => `[${f.findingKey}] ${f.message}`),
-        ),
-    "",
-  );
+  lines.push(bulletListOrNone(report.releaseBlockers), "");
 
   lines.push("## Post-MVP Backlog Candidates", "");
-  lines.push(
-    bulletListOrNone(project.openQuestions.filter((q) => q.status === "open").map((q) => q.question)),
-    "",
-  );
+  lines.push(bulletListOrNone(report.postMvpBacklogCandidates), "");
 
   lines.push("## Recommended Next Actions", "");
   lines.push(`- ${report.recommendedCommand}`);

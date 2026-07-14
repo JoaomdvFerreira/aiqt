@@ -11,6 +11,7 @@ import type {
   Assumption,
   OpenQuestion,
 } from "../schema/common.schema.js";
+import type { DetectedIntegration } from "./skills-detection-service.js";
 
 export interface PacketContext {
   projectId: string;
@@ -27,6 +28,8 @@ export interface PacketContext {
   referencedAssumptions: Assumption[];
   referencedOpenQuestions: OpenQuestion[];
   dependencies: Dependency[];
+  /** M10 §12: detected/recommended integrations this work unit's own text touches. Advisory only. */
+  relevantSkills: DetectedIntegration[];
 }
 
 export interface ResolvedContextRefs {
@@ -136,6 +139,38 @@ export function buildUnresolvedRefWarnings(
   }));
 }
 
+/** M10 §12: substring keywords used to decide whether a work unit's own text "touches" a detected integration. */
+const INTEGRATION_TOUCH_KEYWORDS: Record<DetectedIntegration["id"], readonly string[]> = {
+  supabase: ["supabase"],
+  clerk: ["clerk"],
+  "shadcn-ui": ["shadcn"],
+};
+
+/**
+ * M10 §12: filter detected integrations down to the ones this work unit's
+ * own text (title, objective, scope, outOfScope, suggestedFiles) actually
+ * touches, so packet skill hints stay concise and relevant rather than
+ * listing every integration detected anywhere in the repository.
+ */
+export function selectRelevantSkills(
+  workUnit: WorkUnit,
+  detectedIntegrations: readonly DetectedIntegration[],
+): DetectedIntegration[] {
+  const text = [
+    workUnit.title,
+    workUnit.objective,
+    ...workUnit.scope,
+    ...workUnit.outOfScope,
+    ...workUnit.suggestedFiles,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return detectedIntegrations.filter((integration) =>
+    INTEGRATION_TOUCH_KEYWORDS[integration.id].some((keyword) => text.includes(keyword)),
+  );
+}
+
 /** Build the bounded PacketContext for a single selected work unit. */
 export function buildPacketContext(
   project: ProjectModel,
@@ -143,6 +178,7 @@ export function buildPacketContext(
   workUnit: WorkUnit,
   milestone: Milestone,
   resolved: ResolvedContextRefs,
+  relevantSkills: DetectedIntegration[] = [],
 ): PacketContext {
   const dependencies = workUnit.dependencies
     .map((depId) => state.workGraph.dependencies.find((d) => d.id === depId))
@@ -163,5 +199,6 @@ export function buildPacketContext(
     referencedAssumptions: resolved.assumptions,
     referencedOpenQuestions: resolved.openQuestions,
     dependencies,
+    relevantSkills,
   };
 }

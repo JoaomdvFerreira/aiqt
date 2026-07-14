@@ -74,15 +74,16 @@ export function renderManageReportText(params: {
   lines.push(bulletList(report.userActionRequired), "");
 
   lines.push("## External Verification Gaps", "");
-  lines.push(
-    report.externalVerificationGaps.length > 0
-      ? bulletList(report.externalVerificationGaps.map((f) => `[${f.findingKey}] ${f.message}`))
-      : "- None.",
-    "",
-  );
+  lines.push(bulletList(report.externalVerificationGaps), "");
 
   lines.push("## Agent-Fixable Unresolved Issues", "");
   lines.push(bulletList(report.agentFixableIssues), "");
+
+  lines.push("## Release Blockers", "");
+  lines.push(bulletList(report.releaseBlockers), "");
+
+  lines.push("## Post-MVP Backlog Candidates", "");
+  lines.push(bulletList(report.postMvpBacklogCandidates), "");
 
   lines.push("## Development-Complete Classification", "");
   lines.push(`- Development complete: ${report.developmentComplete ? "yes" : "no"}`, "");

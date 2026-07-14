@@ -86,3 +86,7 @@ export interface RawNextOptions {
 export interface RawManageOptions {
   json?: boolean;
 }
+
+export interface RawSkillsPlanOptions {
+  json?: boolean;
+}

@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeTempDir, removeDir } from "../helpers.js";
@@ -197,5 +197,42 @@ describe("aiqt CLI entrypoint", () => {
     expect(res.status).toBe(3);
     const parsed = JSON.parse(res.stderr);
     expect(parsed.action).toBe("review");
+  });
+
+  it("M10: aiqt skills plan exits 0 in human mode", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(["skills", "plan"], dir);
+    expect(res.status).toBe(0);
+    expect(res.stdout).toContain("# AIQT Skills Plan");
+  });
+
+  it("M10: aiqt skills plan --json exits 0 and matches the deterministic contract shape", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(["skills", "plan", "--json"], dir);
+    expect(res.status).toBe(0);
+    const parsed = JSON.parse(res.stdout);
+    expect(parsed.action).toBe("skills");
+    expect(parsed.data.detectedIntegrations).toEqual([]);
+    expect(parsed.data.notDetectedIntegrations).toEqual(["supabase", "clerk", "shadcn-ui"]);
+    expect(parsed.data.safetyNotes).toHaveLength(3);
+  });
+
+  it("M10: aiqt skills plan does not mutate state.json or runlog.jsonl", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const before = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
+    runCli(["skills", "plan"], dir);
+    expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(before);
+  });
+
+  it("M10: aiqt export final-review is rejected -- aiqt export all remains the only way to generate final-review.md", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(["export", "final-review", "--json"], dir);
+    expect(res.status).toBe(3);
+    const parsed = JSON.parse(res.stderr);
+    expect(parsed.status).toBe("failed");
   });
 });

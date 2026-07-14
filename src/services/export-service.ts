@@ -15,8 +15,7 @@ export type ConcreteExportTarget =
   | "project-plan"
   | "status-report"
   | "technical-spec"
-  | "agent-packet"
-  | "final-review";
+  | "agent-packet";
 export type ExportTarget = ConcreteExportTarget | "all";
 
 export const CONCRETE_EXPORT_TARGETS: readonly ConcreteExportTarget[] = [
@@ -24,7 +23,6 @@ export const CONCRETE_EXPORT_TARGETS: readonly ConcreteExportTarget[] = [
   "status-report",
   "technical-spec",
   "agent-packet",
-  "final-review",
 ];
 
 const ALL_EXPORT_TARGETS: readonly ExportTarget[] = [...CONCRETE_EXPORT_TARGETS, "all"];
@@ -33,11 +31,22 @@ export function isValidExportTarget(value: string): value is ExportTarget {
   return (ALL_EXPORT_TARGETS as readonly string[]).includes(value);
 }
 
-export function resolveTargets(target: ExportTarget): ConcreteExportTarget[] {
-  return target === "all" ? [...CONCRETE_EXPORT_TARGETS] : [target];
+/**
+ * M10 §8.1: final-review.md is generated only as a side effect of
+ * `aiqt export all`. It is deliberately excluded from `ConcreteExportTarget`
+ * / `ExportTarget` (the publicly selectable target enum), so
+ * `aiqt export final-review` is rejected as an unsupported target -- adding
+ * it as a standalone target would require extending the target enum, CLI
+ * help, validation, and tests, which is explicitly out of scope for M10.
+ */
+export type InternalExportTarget = ConcreteExportTarget | "final-review";
+const FINAL_REVIEW_TARGET = "final-review" as const;
+
+export function resolveTargets(target: ExportTarget): InternalExportTarget[] {
+  return target === "all" ? [...CONCRETE_EXPORT_TARGETS, FINAL_REVIEW_TARGET] : [target];
 }
 
-function exportFileName(target: ConcreteExportTarget, state: StateModel): string {
+function exportFileName(target: InternalExportTarget, state: StateModel): string {
   if (target === "agent-packet") {
     const packetId = state.lastAgentPacket?.id ?? "unknown";
     return `agent-packet-${packetId}.md`;
@@ -50,10 +59,11 @@ export interface TargetAvailability {
   reason: string | null;
 }
 
-/** §11/13 step 7: status-report, project-plan, technical-spec are always
- * available after initialization; agent-packet requires lastAgentPacket. */
+/** §11/13 step 7: status-report, project-plan, technical-spec, final-review
+ * are always available after initialization; agent-packet requires
+ * lastAgentPacket. */
 export function checkTargetAvailability(
-  target: ConcreteExportTarget,
+  target: InternalExportTarget,
   state: StateModel,
 ): TargetAvailability {
   if (target === "agent-packet") {
@@ -65,7 +75,7 @@ export function checkTargetAvailability(
 }
 
 function renderExportDocument(
-  target: ConcreteExportTarget,
+  target: InternalExportTarget,
   project: ProjectModel,
   state: StateModel,
   review: ReviewResult,
@@ -80,12 +90,12 @@ function renderExportDocument(
     case "agent-packet":
       return renderAgentPacketExport(state);
     case "final-review":
-      return renderFinalReview(project, state, review, buildManageReport(project, state, review));
+      return renderFinalReview(state, review, buildManageReport(project, state, review));
   }
 }
 
 export interface ExportDocumentPlan {
-  target: ConcreteExportTarget;
+  target: InternalExportTarget;
   path: string;
   relativePath: string;
   available: boolean;
@@ -95,7 +105,7 @@ export interface ExportDocumentPlan {
 
 /** Build the plan (availability + rendered content) for each requested target. */
 export function planExportDocuments(params: {
-  targets: readonly ConcreteExportTarget[];
+  targets: readonly InternalExportTarget[];
   project: ProjectModel;
   state: StateModel;
   review: ReviewResult;

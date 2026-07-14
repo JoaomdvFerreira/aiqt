@@ -23,7 +23,8 @@ export type WorkflowAction =
   | "continue"
   | "prompt"
   | "import"
-  | "manage";
+  | "manage"
+  | "skills";
 
 export interface CommandResult<TData = unknown> {
   status: CommandStatus;
