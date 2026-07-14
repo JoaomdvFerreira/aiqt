@@ -2,18 +2,21 @@ import { join } from "node:path";
 import type { ProjectModel } from "../schema/project.schema.js";
 import type { StateModel } from "../schema/state.schema.js";
 import type { ReviewResult } from "./review-service.js";
+import { buildManageReport } from "./manage-service.js";
 import {
   renderProjectPlan,
   renderStatusReport,
   renderTechnicalSpec,
   renderAgentPacketExport,
+  renderFinalReview,
 } from "./export-templates.js";
 
 export type ConcreteExportTarget =
   | "project-plan"
   | "status-report"
   | "technical-spec"
-  | "agent-packet";
+  | "agent-packet"
+  | "final-review";
 export type ExportTarget = ConcreteExportTarget | "all";
 
 export const CONCRETE_EXPORT_TARGETS: readonly ConcreteExportTarget[] = [
@@ -21,6 +24,7 @@ export const CONCRETE_EXPORT_TARGETS: readonly ConcreteExportTarget[] = [
   "status-report",
   "technical-spec",
   "agent-packet",
+  "final-review",
 ];
 
 const ALL_EXPORT_TARGETS: readonly ExportTarget[] = [...CONCRETE_EXPORT_TARGETS, "all"];
@@ -75,6 +79,8 @@ function renderExportDocument(
       return renderTechnicalSpec(project, state);
     case "agent-packet":
       return renderAgentPacketExport(state);
+    case "final-review":
+      return renderFinalReview(project, state, review, buildManageReport(project, state, review));
   }
 }
 

@@ -11,6 +11,7 @@ import {
   contextFor,
   copyFixture,
 } from "../helpers.js";
+import { buildDogfoodTerminalState } from "../dogfood-fixture.js";
 
 describe("aiqt status", () => {
   let dir: string | null = null;
@@ -63,5 +64,24 @@ describe("aiqt status", () => {
     dir = makeTempDir();
     const result = runStatus(contextFor(dir));
     expect(result.exitCode).toBe(ExitCode.InvalidInput);
+  });
+
+  it("M9: no longer emits the stale NEXT-NOT-IMPLEMENTED warning", () => {
+    dir = makeTempDir();
+    runInit(contextFor(dir), normalizeInitOptions({}));
+    const result = runStatus(contextFor(dir));
+    expect(result.warnings.some((w) => w.id === "NEXT-NOT-IMPLEMENTED")).toBe(false);
+  });
+
+  it("M9: recommends aiqt manage with the replacement reason once all work units are done", async () => {
+    dir = makeTempDir();
+    await buildDogfoodTerminalState(dir);
+    const result = runStatus(contextFor(dir));
+    expect(result.nextRecommendedCommand).toBe("aiqt manage");
+    const data = result.data as { nextActionReason: string };
+    expect(data.nextActionReason).toBe(
+      "All work units are done. Project is in review state. Run aiqt manage or aiqt export all.",
+    );
+    expect(result.warnings.some((w) => w.id === "NEXT-NOT-IMPLEMENTED")).toBe(false);
   });
 });

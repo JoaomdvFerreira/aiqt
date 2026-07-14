@@ -242,6 +242,128 @@ export function buildExportGeneratedEvent(input: {
   };
 }
 
+export interface ReviewFindingAcknowledgedEventData {
+  findingKey: string;
+  reason: string;
+  sourceCommand: string;
+}
+
+/** Build the review.finding_acknowledged event appended by `aiqt review acknowledge` (M9 §10.1). */
+export function buildReviewFindingAcknowledgedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ReviewFindingAcknowledgedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "review.finding_acknowledged",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Acknowledged review finding ${input.data.findingKey}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface PacketCancelledEventData {
+  packetId: string;
+  workUnitId: string;
+  milestoneId: string;
+  restoredWorkUnitStatus: string;
+  previousLastAgentPacketId: string | null;
+  sourceCommand: string;
+}
+
+/** Build the packet.cancelled event appended by `aiqt next cancel` (M9 §10.2). */
+export function buildPacketCancelledEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: PacketCancelledEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "packet.cancelled",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Cancelled agent packet ${input.data.packetId} for work unit ${input.data.workUnitId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+/**
+ * Find the most recent agent_packet.created event whose packetId is not
+ * `excludePacketId`, scanning runlog history in chronological (append) order.
+ * Used by `aiqt next cancel` (M9 §8.5) to restore lastAgentPacket to the
+ * previously valid packet, since state only ever tracks the single current
+ * packet directly.
+ */
+export function findPreviousAgentPacketMetadata(
+  path: string,
+  excludePacketId: string,
+): {
+  id: string;
+  workUnitId: string;
+  milestoneId: string;
+  createdAt: string;
+  format: "markdown";
+  contentHash: string;
+  sourceCommand: "aiqt next";
+} | null {
+  if (!isFile(path)) return null;
+  let raw: string;
+  try {
+    raw = readTextFile(path);
+  } catch {
+    return null;
+  }
+
+  let previous: {
+    id: string;
+    workUnitId: string;
+    milestoneId: string;
+    createdAt: string;
+    format: "markdown";
+    contentHash: string;
+    sourceCommand: "aiqt next";
+  } | null = null;
+
+  for (const line of raw.split(/\r?\n/)) {
+    if (line.trim() === "") continue;
+    try {
+      const parsed = JSON.parse(line);
+      const result = RunlogEventSchema.safeParse(parsed);
+      if (result.success && result.data.type === "agent_packet.created") {
+        const data = result.data.data as
+          | { packetId?: unknown; workUnitId?: unknown; milestoneId?: unknown; contentHash?: unknown }
+          | undefined;
+        if (
+          typeof data?.packetId === "string" &&
+          data.packetId !== excludePacketId &&
+          typeof data.workUnitId === "string" &&
+          typeof data.milestoneId === "string" &&
+          typeof data.contentHash === "string"
+        ) {
+          previous = {
+            id: data.packetId,
+            workUnitId: data.workUnitId,
+            milestoneId: data.milestoneId,
+            createdAt: result.data.timestamp,
+            format: "markdown",
+            contentHash: data.contentHash,
+            sourceCommand: "aiqt next",
+          };
+        }
+      }
+    } catch {
+      // skip malformed lines
+    }
+  }
+  return previous;
+}
+
 /**
  * Read every PKT- packet id discoverable from runlog agent_packet.created
  * events, plus `lastAgentPacket.id` when present. Used to continue the

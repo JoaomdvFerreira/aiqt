@@ -159,6 +159,7 @@ describe("aiqt export", () => {
         ".aiqt/exports/project-plan.md",
         ".aiqt/exports/technical-spec.md",
         ".aiqt/exports/status-report.md",
+        ".aiqt/exports/final-review.md",
       ]),
     );
     expect(result.changedFiles.some((f) => f.includes("agent-packet"))).toBe(false);
@@ -169,11 +170,13 @@ describe("aiqt export", () => {
     }>;
     const exportEvent = lines.find((e) => e.type === "export.generated");
     expect(exportEvent).toBeDefined();
-    expect(exportEvent!.data!.files).toHaveLength(3);
+    // M9: final-review.md is a 5th always-available target, so export all
+    // now writes 4 files when only agent-packet is skipped (was 3 pre-M9).
+    expect(exportEvent!.data!.files).toHaveLength(4);
     expect(exportEvent!.data!.skippedTargets).toEqual(["agent-packet"]);
   });
 
-  it("export all after a done checkpoint writes all four targets", async () => {
+  it("export all after a done checkpoint writes all five targets", async () => {
     dir = makeTempDir();
     await makeInProgressProject(dir);
     const checkpointResult = runCheckpoint(contextFor(dir), {
@@ -183,7 +186,8 @@ describe("aiqt export", () => {
     const result = runExport(contextFor(dir), { target: "all" });
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(result.status).toBe("passed");
-    expect(result.changedFiles).toHaveLength(4);
+    // M9: project-plan, status-report, technical-spec, agent-packet, final-review.
+    expect(result.changedFiles).toHaveLength(5);
   });
 
   it("status-report.md reflects blocking findings from a broken dependency reference", async () => {
@@ -211,5 +215,83 @@ describe("aiqt export", () => {
     for (const forbidden of ["AIQT.md", "AGENTS.md", "CLAUDE.md", "docs", ".milestones", ".tasks"]) {
       expect(existsSync(join(dir, forbidden))).toBe(false);
     }
+  });
+
+  describe("M9: final-review.md", () => {
+    it("aiqt export all generates final-review.md", async () => {
+      dir = makeTempDir();
+      await makeReadyProject(dir);
+      const result = runExport(contextFor(dir), { target: "all" });
+      expect(result.exitCode).toBe(ExitCode.Success);
+      expect(existsSync(join(dir, ".aiqt", "exports", "final-review.md"))).toBe(true);
+    });
+
+    it("includes development completion and production readiness status", async () => {
+      dir = makeTempDir();
+      await makeReadyProject(dir);
+      runExport(contextFor(dir), { target: "final-review" });
+      const content = readFileSync(join(dir, ".aiqt", "exports", "final-review.md"), "utf8");
+      expect(content).toContain("## Development Completion Status");
+      expect(content).toContain("## Production Readiness Status");
+      expect(content).toContain("Development complete: no");
+      expect(content).toContain("Production ready: no");
+    });
+
+    it("includes release blockers and acknowledged findings sections", async () => {
+      dir = makeTempDir();
+      await makeReadyProject(dir);
+      runExport(contextFor(dir), { target: "final-review" });
+      const content = readFileSync(join(dir, ".aiqt", "exports", "final-review.md"), "utf8");
+      expect(content).toContain("## Release Blockers");
+      expect(content).toContain("## Acknowledged Findings");
+      expect(content).toContain("## User-Action-Required Checklist");
+    });
+
+    it("is available even before a work graph exists (like project-plan)", async () => {
+      dir = makeTempDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+      const result = runExport(contextFor(dir), { target: "final-review" });
+      expect(result.exitCode).toBe(ExitCode.Success);
+    });
+  });
+
+  describe("M9: export quality fixes", () => {
+    it("project-plan.md no longer shows a requirement status label", async () => {
+      dir = makeTempDir();
+      await makeReadyProject(dir);
+      const patchPath = join(dir, "req-patch.json");
+      writeFileSync(
+        patchPath,
+        JSON.stringify({
+          requirements: [
+            {
+              title: "Add item",
+              description: "Users can add an item",
+              priority: "medium",
+              type: "functional",
+              acceptanceCriteria: ["Works"],
+              status: "draft",
+            },
+          ],
+        }),
+      );
+      await runUpdate(contextFor(dir), { fromFile: patchPath });
+      runExport(contextFor(dir), { target: "project-plan" });
+      const content = readFileSync(join(dir, ".aiqt", "exports", "project-plan.md"), "utf8");
+      expect(content).toContain("Add item - Users can add an item");
+      expect(content).not.toContain("(draft)");
+    });
+
+    it("agent-packet export clarifies that full packet text is unavailable", async () => {
+      dir = makeTempDir();
+      await makeInProgressProject(dir);
+      runExport(contextFor(dir), { target: "agent-packet" });
+      const state = readState(dir);
+      const content = readFileSync(
+        join(dir, ".aiqt", "exports", `agent-packet-${state.lastAgentPacket.id}.md`),
+        "utf8",
+      );
+      expect(content).toContain("Full packet text is unavailable because it is not stored in canonical state.");
+    });
   });
 });

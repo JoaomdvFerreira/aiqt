@@ -67,3 +67,22 @@ export interface RawImportOptions {
   fromFile?: string;
   stdin?: boolean;
 }
+
+export interface RawReviewOptions {
+  json?: boolean;
+  mode?: string;
+}
+
+export interface RawReviewAcknowledgeOptions {
+  json?: boolean;
+  reason?: string;
+}
+
+export interface RawNextOptions {
+  json?: boolean;
+  preview?: boolean;
+}
+
+export interface RawManageOptions {
+  json?: boolean;
+}

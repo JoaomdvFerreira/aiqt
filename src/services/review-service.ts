@@ -8,6 +8,7 @@ import {
   collectQualityFindings,
   collectCheckpointFindings,
 } from "../workflow/review-rules.js";
+import { collectGraphAndPlanQualityWarnings } from "../workflow/warning-rules.js";
 import { sortAndAssignFindingIds } from "../workflow/review-findings.js";
 import { computeReviewNextCommand } from "../workflow/review-next-command.js";
 
@@ -74,6 +75,7 @@ export function runReview(
     ...collectContextFindings(project, state),
     ...collectQualityFindings(project, state),
     ...collectCheckpointFindings(project, state),
+    ...collectGraphAndPlanQualityWarnings(project, state),
   ];
 
   const findings = sortAndAssignFindingIds(candidates);
