@@ -5,6 +5,11 @@ import type {
   ReviewFindingSeverity,
 } from "../schema/review-finding.schema.js";
 import { isPlanningContextReady } from "./planning-readiness.js";
+import { findCycle } from "./dependency-graph.js";
+import {
+  getCheckpointAmendments,
+  computeEffectiveCheckpointResult,
+} from "../services/checkpoint-amendment-service.js";
 
 /**
  * A finding before FIND-### assignment. `ruleKey` is a stable, internal
@@ -451,6 +456,7 @@ export function collectCheckpointFindings(
   state: StateModel,
 ): ReviewFindingCandidate[] {
   const findings: ReviewFindingCandidate[] = [];
+  const amendments = getCheckpointAmendments(state);
   const checkpointsByWorkUnit = new Map<string, typeof state.checkpoints>();
   for (const cp of state.checkpoints) {
     const list = checkpointsByWorkUnit.get(cp.workUnitId) ?? [];
@@ -502,34 +508,38 @@ export function collectCheckpointFindings(
 
     if (wu.status === "done" && wuCheckpoints.length > 0) {
       const latest = wuCheckpoints[wuCheckpoints.length - 1];
-      if (latest.validationResult === "failed" || latest.validationResult === "partial") {
+      // M12 §9: use the effective (amendment-overlaid) result, not the raw
+      // original checkpoint value, so an amendment can remove this finding
+      // entirely without rewriting the original checkpoint record.
+      const effective = computeEffectiveCheckpointResult(latest, amendments);
+      if (effective.validationResult === "failed" || effective.validationResult === "partial") {
         findings.push({
           ruleKey: `checkpoint.done-validation-not-passed.${wu.id}`,
           // Matches §7.3's checkpoint:<workUnitId>:<field>:<value> pattern.
-          findingKey: `checkpoint:${wu.id}:validationResult:${latest.validationResult}`,
+          findingKey: `checkpoint:${wu.id}:validationResult:${effective.validationResult}`,
           category: "checkpoint",
           severity: "high",
           blocking: true,
           title: "Done work unit's latest checkpoint did not pass validation",
-          message: `Work unit "${wu.id}" is done but its latest checkpoint has validationResult "${latest.validationResult}".`,
+          message: `Work unit "${wu.id}" is done but its latest checkpoint has effective validationResult "${effective.validationResult}".`,
           relatedIds: [wu.id, latest.id],
           suggestedAction: "Investigate the validation result recorded on this checkpoint.",
           nextRecommendedCommand: "aiqt review",
         });
       }
       if (
-        latest.acceptanceCriteriaResult === "failed" ||
-        latest.acceptanceCriteriaResult === "partial"
+        effective.acceptanceCriteriaResult === "failed" ||
+        effective.acceptanceCriteriaResult === "partial"
       ) {
         findings.push({
           ruleKey: `checkpoint.done-acceptance-not-passed.${wu.id}`,
           // Required dogfood key (§7.3): checkpoint:WU003:acceptanceCriteriaResult:partial
-          findingKey: `checkpoint:${wu.id}:acceptanceCriteriaResult:${latest.acceptanceCriteriaResult}`,
+          findingKey: `checkpoint:${wu.id}:acceptanceCriteriaResult:${effective.acceptanceCriteriaResult}`,
           category: "checkpoint",
           severity: "high",
           blocking: true,
           title: "Done work unit's latest checkpoint did not pass acceptance criteria",
-          message: `Work unit "${wu.id}" is done but its latest checkpoint has acceptanceCriteriaResult "${latest.acceptanceCriteriaResult}".`,
+          message: `Work unit "${wu.id}" is done but its latest checkpoint has effective acceptanceCriteriaResult "${effective.acceptanceCriteriaResult}".`,
           relatedIds: [wu.id, latest.id],
           suggestedAction: "Investigate the acceptance criteria result recorded on this checkpoint.",
           nextRecommendedCommand: "aiqt review",
@@ -559,4 +569,40 @@ export function collectCheckpointFindings(
   }
 
   return findings;
+}
+
+// ---------------------------------------------------------------------------
+// M12 §8.3/§11: dependency graph cycle detection (category: integrity).
+// Reused by both aiqt review and aiqt graph validate -- a single collector,
+// not a forked/duplicated cycle check.
+// ---------------------------------------------------------------------------
+
+/**
+ * A cycle in the blocking/requires dependency graph is a structural defect:
+ * no work unit in the cycle could ever legitimately become ready. relates_to
+ * edges are informational and excluded from cycle detection.
+ */
+export function collectDependencyCycleFindings(state: StateModel): ReviewFindingCandidate[] {
+  const nodes = state.workGraph.workUnits.map((wu) => wu.id);
+  const edges = state.workGraph.dependencies
+    .filter((d) => d.type === "blocks" || d.type === "requires")
+    .map((d) => ({ from: d.fromId, to: d.toId }));
+  const cycle = findCycle(nodes, edges);
+  if (!cycle) return [];
+
+  const cycleIds = [...new Set(cycle)];
+  return [
+    {
+      ruleKey: "integrity.dependency-cycle",
+      findingKey: `state:workGraph:dependency-cycle:${cycleIds.join(">")}`,
+      category: "integrity",
+      severity: "critical",
+      blocking: true,
+      title: "Blocking/requires dependency graph contains a cycle",
+      message: `A cycle was detected in the blocking/requires dependency graph: ${cycle.join(" -> ")}.`,
+      relatedIds: cycleIds,
+      suggestedAction: "Correct dependency types or repair the work graph in .aiqt/state.json.",
+      nextRecommendedCommand: "aiqt graph validate",
+    },
+  ];
 }

@@ -344,6 +344,62 @@ export function buildIssuePromotedEvent(input: {
   };
 }
 
+export interface CheckpointAmendedEventData {
+  amendmentId: string;
+  checkpointId: string;
+  workUnitId: string;
+  acceptanceCriteriaResult?: string;
+  validationResult?: string;
+  reason: string;
+  sourceCommand: string;
+}
+
+/** Build the checkpoint.amended event appended by `aiqt checkpoint amend` (M12 §12.1). */
+export function buildCheckpointAmendedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: CheckpointAmendedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "checkpoint.amended",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Amended checkpoint ${input.data.checkpointId} for work unit ${input.data.workUnitId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface DependencyUpdatedEventData {
+  dependencyId: string;
+  fromWorkUnitId: string;
+  toWorkUnitId: string;
+  previousType: string;
+  newType: string;
+  reason: string;
+  sourceCommand: string;
+}
+
+/** Build the dependency.updated event appended by `aiqt dependency update` (M12 §12.2). */
+export function buildDependencyUpdatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: DependencyUpdatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "dependency.updated",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Updated dependency ${input.data.dependencyId} from ${input.data.previousType} to ${input.data.newType}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 /**
  * Find the most recent agent_packet.created event whose packetId is not
  * `excludePacketId`, scanning runlog history in chronological (append) order.

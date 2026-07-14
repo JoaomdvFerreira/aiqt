@@ -296,4 +296,65 @@ describe("aiqt CLI entrypoint", () => {
     const res = runCli(["issue", "update", "some-key", "--json"], dir);
     expect(res.status).toBe(3);
   });
+
+  it("M12: --json on checkpoint amend (nested subcommand with its own --checkpoint/--acceptance/--reason) parses correctly", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(
+      ["checkpoint", "amend", "--checkpoint", "C999", "--acceptance", "passed", "--reason", "x", "--json"],
+      dir,
+    );
+    // Unknown checkpoint -> exit 3, but the output must actually be JSON
+    // (guards the same Commander positional-options regression class as M9).
+    expect(res.status).toBe(3);
+    const parsed = JSON.parse(res.stderr);
+    expect(parsed.action).toBe("checkpoint");
+  });
+
+  it("M12: aiqt checkpoint amend missing --reason returns exit 3", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(["checkpoint", "amend", "--checkpoint", "C001", "--acceptance", "passed", "--json"], dir);
+    expect(res.status).toBe(3);
+  });
+
+  it("M12: --json on dependency update (nested subcommand with its own --type/--reason) parses correctly", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(
+      ["dependency", "update", "DEP-999", "--type", "blocks", "--reason", "x", "--json"],
+      dir,
+    );
+    expect(res.status).toBe(3);
+    const parsed = JSON.parse(res.stderr);
+    expect(parsed.action).toBe("dependency");
+  });
+
+  it("M12: aiqt graph validate --json exits 0 on a bare project", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(["graph", "validate", "--json"], dir);
+    expect(res.status).toBe(0);
+    const parsed = JSON.parse(res.stdout);
+    expect(parsed.action).toBe("graph");
+    expect(parsed.data.blockingErrors).toEqual([]);
+  });
+
+  it("M12: aiqt graph repair missing --dry-run returns exit 3", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(["graph", "repair", "--json"], dir);
+    expect(res.status).toBe(3);
+    const parsed = JSON.parse(res.stderr);
+    expect(parsed.action).toBe("graph");
+  });
+
+  it("M12: aiqt graph repair --dry-run parses through the nested subcommand in human mode", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(["graph", "repair", "--dry-run"], dir);
+    // A bare project has no deterministic repair suggestions -> exit 2, not 0;
+    // still confirms --dry-run parses correctly through the nested subcommand.
+    expect(res.status).toBe(2);
+  });
 });

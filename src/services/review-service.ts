@@ -7,6 +7,7 @@ import {
   collectContextFindings,
   collectQualityFindings,
   collectCheckpointFindings,
+  collectDependencyCycleFindings,
 } from "../workflow/review-rules.js";
 import { collectGraphAndPlanQualityWarnings } from "../workflow/warning-rules.js";
 import { sortAndAssignFindingIds } from "../workflow/review-findings.js";
@@ -71,6 +72,7 @@ export function runReview(
 ): ReviewResult {
   const candidates = [
     ...collectIntegrityFindings(project, state, knownPacketIds),
+    ...collectDependencyCycleFindings(state),
     ...collectWorkflowFindings(project, state),
     ...collectContextFindings(project, state),
     ...collectQualityFindings(project, state),
