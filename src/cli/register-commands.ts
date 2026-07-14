@@ -19,6 +19,10 @@ import {
   type RawIssueUpdateOptions,
   type RawIssuePromoteOptions,
   type RawRepairPlanOptions,
+  type RawCheckpointAmendOptions,
+  type RawDependencyUpdateOptions,
+  type RawGraphValidateOptions,
+  type RawGraphRepairOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -50,6 +54,10 @@ import { runRepairPlan } from "./commands/repair-plan.command.js";
 import { renderIssueListText, renderRepairPlanText } from "../services/issue-report-template.js";
 import type { IssueListData } from "./commands/issue-list.command.js";
 import type { RepairPlanData } from "./commands/repair-plan.command.js";
+import { runCheckpointAmend } from "./commands/checkpoint-amend.command.js";
+import { runDependencyUpdate } from "./commands/dependency-update.command.js";
+import { runGraphValidate } from "./commands/graph-validate.command.js";
+import { runGraphRepair } from "./commands/graph-repair.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -203,7 +211,7 @@ export function buildProgram(): Command {
       emit(result, ctx.json);
     });
 
-  program
+  const checkpointCommand = program
     .command("checkpoint")
     .description("Capture the result of the current work unit's execution cycle")
     .option("--json", "emit machine-readable JSON output", false)
@@ -237,6 +245,25 @@ export function buildProgram(): Command {
 
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runCheckpoint(ctx, { fromFile: raw.fromFile });
+      emit(result, ctx.json);
+    });
+
+  checkpointCommand
+    .command("amend")
+    .description("Amend the effective validation/acceptance result of an existing checkpoint")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--checkpoint <checkpointId>", "the checkpoint id to amend")
+    .option("--acceptance <result>", "effective acceptance result: passed, failed, partial, or not_checked")
+    .option("--validation <result>", "effective validation result: passed, failed, partial, or not_run")
+    .option("--reason <reason>", "reason for this amendment")
+    .action((raw: RawCheckpointAmendOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runCheckpointAmend(ctx, {
+        checkpointId: raw.checkpoint,
+        acceptance: raw.acceptance,
+        validation: raw.validation,
+        reason: raw.reason,
+      });
       emit(result, ctx.json);
     });
 
@@ -476,6 +503,47 @@ export function buildProgram(): Command {
         }
       }
 
+      emit(result, ctx.json);
+    });
+
+  const dependencyCommand = program
+    .command("dependency")
+    .description("Correct dependency type mistakes with cycle validation and readiness recalculation");
+
+  dependencyCommand
+    .command("update <dependencyId>")
+    .description("Update the type of an existing dependency")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--type <type>", "dependency type: blocks, requires, or relates_to")
+    .option("--reason <reason>", "reason for this dependency type change")
+    .action((dependencyId: string, raw: RawDependencyUpdateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runDependencyUpdate(ctx, { dependencyId, type: raw.type, reason: raw.reason });
+      emit(result, ctx.json);
+    });
+
+  const graphCommand = program
+    .command("graph")
+    .description("Read-only graph validation and dry-run repair planning");
+
+  graphCommand
+    .command("validate")
+    .description("Validate work graph structure, cycles, and readiness semantics")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: RawGraphValidateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runGraphValidate(ctx);
+      emit(result, ctx.json);
+    });
+
+  graphCommand
+    .command("repair")
+    .description("Propose candidate graph repairs without applying them")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--dry-run", "required: propose repairs without mutating state", false)
+    .action((raw: RawGraphRepairOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runGraphRepair(ctx, { dryRun: Boolean(raw.dryRun) });
       emit(result, ctx.json);
     });
 

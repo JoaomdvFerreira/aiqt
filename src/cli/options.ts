@@ -111,3 +111,26 @@ export interface RawIssuePromoteOptions {
 export interface RawRepairPlanOptions {
   json?: boolean;
 }
+
+export interface RawCheckpointAmendOptions {
+  json?: boolean;
+  checkpoint?: string;
+  acceptance?: string;
+  validation?: string;
+  reason?: string;
+}
+
+export interface RawDependencyUpdateOptions {
+  json?: boolean;
+  type?: string;
+  reason?: string;
+}
+
+export interface RawGraphValidateOptions {
+  json?: boolean;
+}
+
+export interface RawGraphRepairOptions {
+  json?: boolean;
+  dryRun?: boolean;
+}
