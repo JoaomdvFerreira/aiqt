@@ -26,8 +26,10 @@ import {
   resolveAgentContextRefs,
   buildUnresolvedRefWarnings,
   buildPacketContext,
+  selectRelevantSkills,
 } from "../../services/agent-packet-service.js";
 import { renderAgentPacket } from "../../services/agent-packet-template.js";
+import { buildSkillsPlan } from "../../services/skills-detection-service.js";
 import type { StateModel } from "../../schema/state.schema.js";
 import type { AgentPacketMetadata } from "../../schema/agent-packet.schema.js";
 
@@ -143,12 +145,19 @@ export function runNext(ctx: CommandContext): CommandResult {
     const resolved = resolveAgentContextRefs(workUnit.agentContextRefs, project);
     const warnings: Issue[] = buildUnresolvedRefWarnings(resolved.unresolvedRefs);
 
+    // M10 §12: concise, advisory integration skill hints when this work
+    // unit's own text touches a detected integration. Read-only repository
+    // scan; never blocks or mutates packet generation on its own.
+    const skillsPlan = buildSkillsPlan(paths.root, project);
+    const relevantSkills = selectRelevantSkills(workUnit, skillsPlan.detectedIntegrations);
+
     const packetContext = buildPacketContext(
       project,
       state,
       workUnit,
       selectedMilestone,
       resolved,
+      relevantSkills,
     );
     const packetBody = renderAgentPacket(packetContext);
     const contentHash = sha256Hex(packetBody);

@@ -229,7 +229,7 @@ describe("aiqt export", () => {
     it("includes development completion and production readiness status", async () => {
       dir = makeTempDir();
       await makeReadyProject(dir);
-      runExport(contextFor(dir), { target: "final-review" });
+      runExport(contextFor(dir), { target: "all" });
       const content = readFileSync(join(dir, ".aiqt", "exports", "final-review.md"), "utf8");
       expect(content).toContain("## Development Completion Status");
       expect(content).toContain("## Production Readiness Status");
@@ -240,18 +240,27 @@ describe("aiqt export", () => {
     it("includes release blockers and acknowledged findings sections", async () => {
       dir = makeTempDir();
       await makeReadyProject(dir);
-      runExport(contextFor(dir), { target: "final-review" });
+      runExport(contextFor(dir), { target: "all" });
       const content = readFileSync(join(dir, ".aiqt", "exports", "final-review.md"), "utf8");
       expect(content).toContain("## Release Blockers");
       expect(content).toContain("## Acknowledged Findings");
       expect(content).toContain("## User-Action-Required Checklist");
     });
 
-    it("is available even before a work graph exists (like project-plan)", async () => {
+    it("is available even before a work graph exists (like project-plan), generated via aiqt export all", async () => {
       dir = makeTempDir();
       runInit(contextFor(dir), normalizeInitOptions({}));
-      const result = runExport(contextFor(dir), { target: "final-review" });
+      const result = runExport(contextFor(dir), { target: "all" });
       expect(result.exitCode).toBe(ExitCode.Success);
+      expect(existsSync(join(dir, ".aiqt", "exports", "final-review.md"))).toBe(true);
+    });
+
+    it("M10: aiqt export final-review is rejected as an unsupported target", async () => {
+      dir = makeTempDir();
+      await makeReadyProject(dir);
+      const result = runExport(contextFor(dir), { target: "final-review" });
+      expect(result.exitCode).toBe(ExitCode.InvalidInput);
+      expect(result.status).toBe("failed");
     });
   });
 

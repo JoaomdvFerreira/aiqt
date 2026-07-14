@@ -208,7 +208,7 @@ describe("classifyFindings", () => {
     const project = baseProject();
     const state = baseState();
     const classification = classifyFindings(project, state, reviewFor(project, state));
-    expect(classification.externalVerificationGaps.some((f) => f.findingKey === DOGFOOD_KEY)).toBe(true);
+    expect(classification.externalVerificationGaps.some((s) => s.includes(DOGFOOD_KEY))).toBe(true);
   });
 
   it("developmentComplete is false when work remains ready/planned even with no blocking findings", () => {
@@ -289,8 +289,12 @@ describe("buildManageReport", () => {
     const report = buildManageReport(project, state, review);
     expect(report.developmentComplete).toBe(true);
     expect(report.productionReady).toBe(false);
-    expect(report.recommendedCommand).toBe("aiqt review --mode release");
-    expect(report.reason).toBe("All work units are done, but production-readiness blockers remain.");
+    // M10 §10.1: developmentComplete && !productionReady with release
+    // blockers present recommends "aiqt manage" (not "aiqt review --mode
+    // release" directly), so the terminal-state guidance loop does not just
+    // point back at review and repeat the same blocker.
+    expect(report.recommendedCommand).toBe("aiqt manage");
+    expect(report.reason).toBe("Resolve release blockers, then rerun aiqt review --mode release.");
   });
 
   it("recommends aiqt export all once fully production ready", () => {
@@ -301,5 +305,6 @@ describe("buildManageReport", () => {
     expect(report.developmentComplete).toBe(true);
     expect(report.productionReady).toBe(true);
     expect(report.recommendedCommand).toBe("aiqt export all");
+    expect(report.reason).toBe("Development-complete export is available.");
   });
 });

@@ -53,6 +53,7 @@ function baseContext(overrides: Partial<PacketContext> = {}): PacketContext {
     referencedAssumptions: [],
     referencedOpenQuestions: [],
     dependencies: [],
+    relevantSkills: [],
     ...overrides,
   };
 }

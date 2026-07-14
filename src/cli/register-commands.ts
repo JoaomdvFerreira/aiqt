@@ -14,6 +14,7 @@ import {
   type RawReviewAcknowledgeOptions,
   type RawNextOptions,
   type RawManageOptions,
+  type RawSkillsPlanOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -35,6 +36,9 @@ import { runImport } from "./commands/import.command.js";
 import { runManage } from "./commands/manage.command.js";
 import { renderManageReportText } from "../services/manage-report-template.js";
 import type { ManageReport } from "../services/manage-service.js";
+import { runSkillsPlan } from "./commands/skills-plan.command.js";
+import { renderSkillsPlanText } from "../services/skills-plan-template.js";
+import type { SkillsPlan } from "../services/skills-detection-service.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -250,7 +254,7 @@ export function buildProgram(): Command {
   program
     .command("export")
     .description("Generate a markdown export document from canonical state")
-    .argument("[target]", "export target: project-plan, technical-spec, status-report, agent-packet, final-review, or all")
+    .argument("[target]", "export target: project-plan, technical-spec, status-report, agent-packet, or all")
     .option("--json", "emit machine-readable JSON output", false)
     .option("--format <format>", "export format (only markdown is supported)")
     .option("--dry-run", "plan the export without writing files or logging", false)
@@ -330,6 +334,32 @@ export function buildProgram(): Command {
             currentWorkUnitId: result.currentWorkUnitId,
           });
           process.stdout.write(text + "\n");
+          process.exitCode = result.exitCode;
+          return;
+        }
+      }
+
+      emit(result, ctx.json);
+    });
+
+  const skillsCommand = program
+    .command("skills")
+    .description("Read-only integration skills planning (no installation, no network calls)");
+
+  skillsCommand
+    .command("plan")
+    .description("Generate a deterministic integration skills bootstrap plan")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: RawSkillsPlanOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runSkillsPlan(ctx);
+
+      // Human mode: print the dedicated skills plan report text, matching
+      // aiqt manage/next/prompt's raw-text bypass pattern.
+      if (!ctx.json && result.exitCode === ExitCode.Success) {
+        const data = result.data as SkillsPlan | undefined;
+        if (data) {
+          process.stdout.write(renderSkillsPlanText(data) + "\n");
           process.exitCode = result.exitCode;
           return;
         }

@@ -102,12 +102,31 @@ export function runReviewCommand(
 
     // M9 §8.2: development mode ignores acknowledged blocking findings for
     // pass/fail purposes; release mode ignores acknowledgment entirely, so an
-    // acknowledged finding can still block release.
+    // acknowledged finding can still block release. M10 §8.3/§9: release
+    // mode's blocker set is now the full releaseBlockers bucket (blocking
+    // review findings PLUS checkpoint-issue-derived release blockers such as
+    // required live setup/verification, branch protection, or legal review),
+    // so aiqt review --mode release stays consistent with aiqt
+    // manage/final-review.md's productionReady classification.
     const modeBlockingFindings =
       reviewMode === "development"
         ? classification.unacknowledgedBlockingFindings
         : classification.blockingFindingsIgnoringAcknowledgment;
-    const hasBlocking = modeBlockingFindings.length > 0;
+    const modeBlockingCount =
+      reviewMode === "development"
+        ? modeBlockingFindings.length
+        : classification.releaseBlockers.length;
+    const hasBlocking = modeBlockingCount > 0;
+
+    // Checkpoint-issue-derived release blockers have no ReviewFinding to map
+    // through findingToIssue; releaseBlockers is ordered
+    // [...findingBased, ...issueBased], so the tail slice past
+    // blockingFindingsIgnoringAcknowledgment.length is exactly the
+    // issue-based entries.
+    const releaseOnlyIssueBlockers =
+      reviewMode === "release"
+        ? classification.releaseBlockers.slice(classification.blockingFindingsIgnoringAcknowledgment.length)
+        : [];
 
     const status: CommandStatus = hasBlocking
       ? "failed"
@@ -117,7 +136,7 @@ export function runReviewCommand(
     const exitCode = hasBlocking ? ExitCode.ValidationFailed : ExitCode.Success;
 
     const summary = hasBlocking
-      ? `Review (${reviewMode} mode) completed with ${modeBlockingFindings.length} blocking finding(s).`
+      ? `Review (${reviewMode} mode) completed with ${modeBlockingCount} blocking finding(s).`
       : result.findingCount > 0
         ? `Review (${reviewMode} mode) completed with non-blocking findings.`
         : `Review (${reviewMode} mode) completed with no findings.`;
@@ -143,7 +162,20 @@ export function runReviewCommand(
       completedActions: ["Read project.json", "Read state.json", "Evaluated review rules"],
       changedFiles: [],
       affectedItems: [project.project.id],
-      blockingIssues: hasBlocking ? modeBlockingFindings.map(findingToIssue) : [],
+      blockingIssues: hasBlocking
+        ? [
+            ...modeBlockingFindings.map(findingToIssue),
+            ...releaseOnlyIssueBlockers.map(
+              (label): Issue => ({
+                id: "REVIEW-RELEASE-CHECKPOINT-ISSUE-BLOCKER",
+                severity: "high",
+                area: "checkpoint",
+                message: label,
+                agentCanFix: false,
+              }),
+            ),
+          ]
+        : [],
       warnings,
       nextRecommendedCommand,
       exitCode,

@@ -4,6 +4,7 @@ import type { ReviewFinding } from "../schema/review-finding.schema.js";
 import type { AcknowledgedFinding } from "../schema/review-acknowledgment.schema.js";
 import type { ReviewResult } from "./review-service.js";
 import { workUnitCountsByStatus } from "../workflow/statuses.js";
+import { classifyCheckpointIssue } from "../workflow/issue-classification.js";
 
 /** M9 §7.1: missing state.review must be treated as an empty acknowledgment list. */
 export function getAcknowledgedFindings(state: StateModel): AcknowledgedFinding[] {
@@ -30,12 +31,12 @@ export interface AcknowledgedFindingView extends AcknowledgedFinding {
  * A checkpoint-category finding whose findingKey uses the
  * "checkpoint:<workUnitId>:<field>:<value>" pattern represents an unresolved
  * validation/acceptance-criteria gap on a done work unit -- exactly the
- * dogfood WU003 case (a live external-service verification gap). Reused here
- * as the "external verification gaps" bucket for aiqt manage/final-review.
+ * dogfood WU003 case (a live external-service verification gap). Combined
+ * with checkpoint-issue-derived gaps (M10 §8.3) into the final bucket.
  */
 const EXTERNAL_VERIFICATION_KEY_PREFIX = "checkpoint:";
 
-function allWorkDone(state: StateModel): boolean {
+export function isAllWorkDone(state: StateModel): boolean {
   const workUnits = state.workGraph.workUnits;
   return workUnits.length > 0 && workUnits.every((wu) => wu.status === "done");
 }
@@ -47,23 +48,33 @@ export interface FindingClassification {
   unacknowledgedBlockingFindings: FindingView[];
   /** All blocking findings, regardless of acknowledgment -- what release mode cares about. */
   blockingFindingsIgnoringAcknowledgment: FindingView[];
-  externalVerificationGaps: FindingView[];
+  /** M10 §8.3: operator/user-controlled setup or action, review findings + checkpoint issues combined. */
+  userActionRequired: string[];
+  /** M10 §8.3: live runtime/service verification gaps, review findings + checkpoint issues combined. */
+  externalVerificationGaps: string[];
+  /** M10 §8.3: issues an agent can resolve without external/user setup. */
+  agentFixableIssues: string[];
+  /** M10 §8.3: blocking review findings + checkpoint issues requiring release-blocking setup/verification. */
+  releaseBlockers: string[];
+  /** M10 §8.3: low/medium non-blocking issues suitable for later optimization. */
+  postMvpBacklogCandidates: string[];
   developmentComplete: boolean;
   productionReady: boolean;
 }
 
 /**
  * Shared classification core reused by aiqt manage, aiqt review --mode, and
- * the final-review.md export, so all three surfaces agree on exactly what
- * "development complete" and "production ready" mean (§8.1/§8.2/§8.6).
+ * the final-review.md export, so all surfaces agree on exactly what
+ * "development complete," "production ready," and each M10 §8.3
+ * classification bucket mean.
  *
  * developmentComplete: every work unit is done AND no unacknowledged blocking
  * finding remains -- acknowledgment fully exempts a finding from this check.
  *
- * productionReady: developmentComplete AND no blocking finding exists at all,
- * ignoring acknowledgment entirely -- an acknowledged finding still blocks
- * release, per §8.2's "Acknowledged findings remain visible and may still
- * block release."
+ * productionReady: developmentComplete AND no release blocker exists at all
+ * (review findings ignoring acknowledgment, plus checkpoint-issue-derived
+ * release blockers) -- an acknowledged finding still blocks release, per
+ * §8.2's "Acknowledged findings remain visible and may still block release."
  */
 export function classifyFindings(
   _project: ProjectModel,
@@ -87,20 +98,60 @@ export function classifyFindings(
     (f) => f.blocking && !f.acknowledged,
   );
   const blockingFindingsIgnoringAcknowledgment = activeFindings.filter((f) => f.blocking);
-  const externalVerificationGaps = activeFindings.filter((f) =>
-    f.findingKey.startsWith(EXTERNAL_VERIFICATION_KEY_PREFIX),
-  );
 
-  const developmentComplete = allWorkDone(state) && unacknowledgedBlockingFindings.length === 0;
-  const productionReady =
-    developmentComplete && blockingFindingsIgnoringAcknowledgment.length === 0;
+  const findingExternalVerificationGaps = activeFindings
+    .filter((f) => f.findingKey.startsWith(EXTERNAL_VERIFICATION_KEY_PREFIX))
+    .map((f) => `[${f.findingKey}] ${f.message}`);
+
+  // §8.2/§8.3: classify every open checkpoint issue via the deterministic
+  // text-heuristic classifier, respecting agentCanFix precedence.
+  const issueUserActionRequired: string[] = [];
+  const issueExternalVerificationGaps: string[] = [];
+  const agentFixableIssues: string[] = [];
+  const issueReleaseBlockers: string[] = [];
+  const postMvpBacklogCandidates: string[] = [];
+
+  for (const cp of state.checkpoints) {
+    for (const issue of cp.issues) {
+      const label = `${cp.workUnitId}: ${issue.title}`;
+      const classification = classifyCheckpointIssue(issue);
+      if (classification.userActionRequired) issueUserActionRequired.push(label);
+      if (classification.externalVerificationGap) issueExternalVerificationGaps.push(label);
+      if (classification.agentFixable) agentFixableIssues.push(label);
+      if (classification.releaseBlocking) issueReleaseBlockers.push(label);
+      if (classification.backlogCandidate) postMvpBacklogCandidates.push(label);
+    }
+  }
+
+  // §8.4: a blocking, unacknowledged "context" review finding (e.g. a
+  // blocking open question) is itself a human-decision-required item.
+  const blockingContextUserAction = activeFindings
+    .filter((f) => f.category === "context" && f.blocking && !f.acknowledged)
+    .map((f) => f.message);
+
+  const userActionRequired = [...blockingContextUserAction, ...issueUserActionRequired];
+  const externalVerificationGaps = [
+    ...findingExternalVerificationGaps,
+    ...issueExternalVerificationGaps,
+  ];
+  const releaseBlockers = [
+    ...blockingFindingsIgnoringAcknowledgment.map((f) => `[${f.findingKey}] ${f.message}`),
+    ...issueReleaseBlockers,
+  ];
+
+  const developmentComplete = isAllWorkDone(state) && unacknowledgedBlockingFindings.length === 0;
+  const productionReady = developmentComplete && releaseBlockers.length === 0;
 
   return {
     activeFindings,
     acknowledgedFindings,
     unacknowledgedBlockingFindings,
     blockingFindingsIgnoringAcknowledgment,
+    userActionRequired,
     externalVerificationGaps,
+    agentFixableIssues,
+    releaseBlockers,
+    postMvpBacklogCandidates,
     developmentComplete,
     productionReady,
   };
@@ -123,26 +174,6 @@ export function findingsForMode(
   );
 }
 
-function collectCheckpointIssueBuckets(state: StateModel): {
-  userActionRequired: string[];
-  agentFixableIssues: string[];
-} {
-  const userActionRequired: string[] = [];
-  const agentFixableIssues: string[] = [];
-  for (const cp of state.checkpoints) {
-    for (const issue of cp.issues) {
-      if (issue.status !== "open") continue;
-      const label = `${cp.workUnitId}: ${issue.title}`;
-      if (issue.agentCanFix) {
-        agentFixableIssues.push(label);
-      } else {
-        userActionRequired.push(label);
-      }
-    }
-  }
-  return { userActionRequired, agentFixableIssues };
-}
-
 export interface ManageReport {
   projectStatus: string;
   developmentComplete: boolean;
@@ -153,8 +184,65 @@ export interface ManageReport {
   activeFindings: FindingView[];
   acknowledgedFindings: AcknowledgedFindingView[];
   userActionRequired: string[];
-  externalVerificationGaps: FindingView[];
+  externalVerificationGaps: string[];
   agentFixableIssues: string[];
+  releaseBlockers: string[];
+  postMvpBacklogCandidates: string[];
+  /** M10 §9: explicit named counts so aiqt manage and final-review.md are testably identical. */
+  releaseBlockerCount: number;
+  userActionRequiredCount: number;
+  externalVerificationGapCount: number;
+  agentFixableIssueCount: number;
+}
+
+/**
+ * M10 §10: the centralized terminal/release nextRecommendedCommand
+ * refinement, reused by both aiqt manage and final-review.md so recommendation
+ * logic is not scattered across review/manage/export/status. Always resolves
+ * to exactly one command string; multi-step guidance lives in `reason` only.
+ */
+function computeManageRecommendation(
+  classification: FindingClassification,
+  review: ReviewResult,
+): { recommendedCommand: string; reason: string } {
+  if (!classification.developmentComplete) {
+    // §10.1 case: release review failed with unacknowledged development
+    // blockers -- once all work is done, repeatedly recommending "aiqt
+    // review" would just repeat the same blocker forever.
+    if (classification.unacknowledgedBlockingFindings.length > 0) {
+      return {
+        recommendedCommand: "aiqt review acknowledge",
+        reason: "Acknowledge accepted historical findings or fix the blocker.",
+      };
+    }
+    return {
+      recommendedCommand: review.nextRecommendedCommand,
+      reason: `Development is not yet complete. Recommended next step: ${review.nextRecommendedCommand}.`,
+    };
+  }
+
+  // developmentComplete is true from here on.
+  if (classification.releaseBlockers.length > 0) {
+    return {
+      recommendedCommand: "aiqt manage",
+      reason: "Resolve release blockers, then rerun aiqt review --mode release.",
+    };
+  }
+
+  if (
+    classification.userActionRequired.length > 0 ||
+    classification.externalVerificationGaps.length > 0
+  ) {
+    return {
+      recommendedCommand: "aiqt manage",
+      reason: "Complete user-action-required setup and live verification.",
+    };
+  }
+
+  return {
+    recommendedCommand: "aiqt export all",
+    reason: "Development-complete export is available.",
+  };
 }
 
 /**
@@ -168,26 +256,7 @@ export function buildManageReport(
   review: ReviewResult,
 ): ManageReport {
   const classification = classifyFindings(project, state, review);
-  const { userActionRequired, agentFixableIssues } = collectCheckpointIssueBuckets(state);
-
-  const blockingContextUserAction = classification.activeFindings
-    .filter((f) => f.category === "context" && f.blocking && !f.acknowledged)
-    .map((f) => f.message);
-
-  const allUserActionRequired = [...blockingContextUserAction, ...userActionRequired];
-
-  let recommendedCommand: string;
-  let reason: string;
-  if (classification.developmentComplete && classification.productionReady) {
-    recommendedCommand = "aiqt export all";
-    reason = "All work is done and no release blockers remain.";
-  } else if (classification.developmentComplete && !classification.productionReady) {
-    recommendedCommand = "aiqt review --mode release";
-    reason = "All work units are done, but production-readiness blockers remain.";
-  } else {
-    recommendedCommand = review.nextRecommendedCommand;
-    reason = `Development is not yet complete. Recommended next step: ${review.nextRecommendedCommand}.`;
-  }
+  const { recommendedCommand, reason } = computeManageRecommendation(classification, review);
 
   return {
     projectStatus: state.projectStatus,
@@ -198,8 +267,14 @@ export function buildManageReport(
     counts: workUnitCountsByStatus(state),
     activeFindings: classification.activeFindings,
     acknowledgedFindings: classification.acknowledgedFindings,
-    userActionRequired: allUserActionRequired,
+    userActionRequired: classification.userActionRequired,
     externalVerificationGaps: classification.externalVerificationGaps,
-    agentFixableIssues,
+    agentFixableIssues: classification.agentFixableIssues,
+    releaseBlockers: classification.releaseBlockers,
+    postMvpBacklogCandidates: classification.postMvpBacklogCandidates,
+    releaseBlockerCount: classification.releaseBlockers.length,
+    userActionRequiredCount: classification.userActionRequired.length,
+    externalVerificationGapCount: classification.externalVerificationGaps.length,
+    agentFixableIssueCount: classification.agentFixableIssues.length,
   };
 }

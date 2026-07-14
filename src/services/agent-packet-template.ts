@@ -1,5 +1,13 @@
 import type { PacketContext } from "./agent-packet-service.js";
 import type { Dependency } from "../schema/dependency.schema.js";
+import type { DetectedIntegration } from "./skills-detection-service.js";
+
+/** M10 §12: concise, advisory blurb per integration for the packet's "Relevant Skills" section. */
+const SKILL_HINT_BLURBS: Record<DetectedIntegration["id"], string> = {
+  supabase: "Supabase agent skills may help with migrations, RLS, Storage, and local validation.",
+  clerk: "Clerk skills may help with auth, middleware, sessions, JWT claims, and webhooks.",
+  "shadcn-ui": "shadcn/ui skills may help with component generation, theming, and accessible UI patterns.",
+};
 
 function bulletList(items: readonly string[]): string {
   return items
@@ -126,6 +134,26 @@ export function renderAgentPacket(context: PacketContext): string {
   lines.push(context.workUnit.validationCommands.join("\n"));
   lines.push("```");
   lines.push("");
+
+  // M10 §12: packet scope/constraints/repository code always take priority
+  // over generic skill guidance -- this section is advisory only, added
+  // only when the work unit's own text touches a detected integration.
+  if (context.relevantSkills.length > 0) {
+    lines.push("## Relevant Skills");
+    lines.push("");
+    for (const skill of context.relevantSkills) {
+      lines.push(`- ${SKILL_HINT_BLURBS[skill.id]}`);
+      lines.push(`  Install command: ${skill.recommendedSkill.installCommand}`);
+    }
+    lines.push("");
+    lines.push("Priority:");
+    lines.push("1. AIQT packet scope and out-of-scope");
+    lines.push("2. Project-specific constraints");
+    lines.push("3. Current repository code");
+    lines.push("4. Installed/recommended skills");
+    lines.push("5. Generic model knowledge");
+    lines.push("");
+  }
 
   lines.push("## Required Agent Output");
   lines.push("");

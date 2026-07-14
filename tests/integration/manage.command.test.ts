@@ -99,6 +99,8 @@ describe("aiqt manage", () => {
     const data = result.data as { developmentComplete: boolean; productionReady: boolean; recommendedCommand: string };
     expect(data.developmentComplete).toBe(true);
     expect(data.productionReady).toBe(false);
-    expect(data.recommendedCommand).toBe("aiqt review --mode release");
+    // M10 §10.1: release blockers exist -> "aiqt manage", not a direct
+    // "aiqt review --mode release" that would just repeat the same blocker.
+    expect(data.recommendedCommand).toBe("aiqt manage");
   });
 });
