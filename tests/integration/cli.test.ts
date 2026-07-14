@@ -162,4 +162,40 @@ describe("aiqt CLI entrypoint", () => {
     expect(parsed.data.promptType).toBe("interview");
     expect(parsed.data.detectedProjectType).toBe("full-stack web application");
   });
+
+  it("M9: aiqt manage --json is valid JSON", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(["manage", "--json"], dir);
+    expect(res.status).toBe(0);
+    const parsed = JSON.parse(res.stdout);
+    expect(parsed.action).toBe("manage");
+    expect(parsed.data.developmentComplete).toBe(false);
+  });
+
+  it("M9: --json on a nested subcommand (next cancel) parses correctly, not swallowed by the parent's own --json option", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(["next", "cancel", "--json"], dir);
+    // No current packet to cancel -> exit 2, but critically the output must
+    // actually be JSON (Commander's positional-options handling regression:
+    // a same-named --json declared on both "next" and its "cancel"
+    // subcommand can otherwise silently reset to the parent's default).
+    expect(res.status).toBe(2);
+    const parsed = JSON.parse(res.stderr);
+    expect(parsed.action).toBe("next");
+  });
+
+  it("M9: --json on review acknowledge (nested subcommand with its own --reason) parses correctly", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(
+      ["review", "acknowledge", "checkpoint:WU001:acceptanceCriteriaResult:partial", "--reason", "x", "--json"],
+      dir,
+    );
+    // Unknown finding key -> exit 3, but the output must be JSON.
+    expect(res.status).toBe(3);
+    const parsed = JSON.parse(res.stderr);
+    expect(parsed.action).toBe("review");
+  });
 });

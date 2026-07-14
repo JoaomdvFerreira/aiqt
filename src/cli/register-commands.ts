@@ -10,21 +10,31 @@ import {
   type RawExportOptions,
   type RawPromptOptions,
   type RawImportOptions,
+  type RawReviewOptions,
+  type RawReviewAcknowledgeOptions,
+  type RawNextOptions,
+  type RawManageOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
 import { runNext } from "./commands/next.command.js";
+import { runNextPreview } from "./commands/next-preview.command.js";
+import { runNextCancel } from "./commands/next-cancel.command.js";
 import { runUpdate } from "./commands/update.command.js";
 import { runPlan } from "./commands/plan.command.js";
 import { EXAMPLE_PLAN_INPUT } from "./commands/plan-example.js";
 import { runCheckpoint } from "./commands/checkpoint.command.js";
 import { EXAMPLE_CHECKPOINT_INPUT } from "./commands/checkpoint-example.js";
 import { runReviewCommand } from "./commands/review.command.js";
+import { runReviewAcknowledge } from "./commands/review-acknowledge.command.js";
 import { runExport } from "./commands/export.command.js";
 import { runStart } from "./commands/start.command.js";
 import { runContinue } from "./commands/continue.command.js";
 import { runPrompt } from "./commands/prompt.command.js";
 import { runImport } from "./commands/import.command.js";
+import { runManage } from "./commands/manage.command.js";
+import { renderManageReportText } from "../services/manage-report-template.js";
+import type { ManageReport } from "../services/manage-service.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -50,6 +60,11 @@ export function buildProgram(): Command {
     .name("aiqt")
     .description("AIQT CLI - local workflow state engine")
     .version("0.5.0")
+    // M9: required so that a same-named option (e.g. --json) declared on
+    // both a parent command (next, review) and its nested subcommand
+    // (cancel, acknowledge) is parsed against the subcommand actually
+    // invoked, not silently overwritten by the parent's default value.
+    .enablePositionalOptions()
     // Unknown commands / bad input exit with code 3.
     .exitOverride((err) => {
       // commander throws for help/version (exit 0) and parse errors.
@@ -82,18 +97,19 @@ export function buildProgram(): Command {
       emit(result, ctx.json);
     });
 
-  program
+  const nextCommand = program
     .command("next")
     .description("Select the next ready work unit and generate its agent handoff packet")
     .option("--json", "emit machine-readable JSON output", false)
-    .action((raw: { json?: boolean }) => {
+    .option("--preview", "preview the next selection without mutating state", false)
+    .action((raw: RawNextOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
-      const result = runNext(ctx);
+      const result = raw.preview ? runNextPreview(ctx) : runNext(ctx);
 
-      // On successful packet generation, human-mode output is the packet
-      // text itself (paste-ready for a coding agent), not the usual
-      // CommandResult summary wrapper.
-      if (!ctx.json && result.exitCode === ExitCode.Success) {
+      // On successful packet generation (non-preview), human-mode output is
+      // the packet text itself (paste-ready for a coding agent), not the
+      // usual CommandResult summary wrapper.
+      if (!ctx.json && !raw.preview && result.exitCode === ExitCode.Success) {
         const data = result.data as { packet?: string } | undefined;
         if (typeof data?.packet === "string") {
           process.stdout.write(data.packet + "\n");
@@ -102,6 +118,16 @@ export function buildProgram(): Command {
         }
       }
 
+      emit(result, ctx.json);
+    });
+
+  nextCommand
+    .command("cancel")
+    .description("Cancel an in-progress, uncheckpointed agent packet selection")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: { json?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runNextCancel(ctx);
       emit(result, ctx.json);
     });
 
@@ -199,20 +225,32 @@ export function buildProgram(): Command {
       emit(result, ctx.json);
     });
 
-  program
+  const reviewCommand = program
     .command("review")
     .description("Evaluate canonical state for integrity, workflow, context, quality, and checkpoint findings")
     .option("--json", "emit machine-readable JSON output", false)
-    .action((raw: { json?: boolean }) => {
+    .option("--mode <mode>", "review mode: development (default) or release")
+    .action((raw: RawReviewOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
-      const result = runReviewCommand(ctx);
+      const result = runReviewCommand(ctx, { mode: raw.mode });
+      emit(result, ctx.json);
+    });
+
+  reviewCommand
+    .command("acknowledge <findingKey>")
+    .description("Acknowledge a known review finding without rewriting checkpoint history")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--reason <reason>", "reason for acknowledging this finding")
+    .action((findingKey: string, raw: RawReviewAcknowledgeOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runReviewAcknowledge(ctx, { findingKey, reason: raw.reason });
       emit(result, ctx.json);
     });
 
   program
     .command("export")
     .description("Generate a markdown export document from canonical state")
-    .argument("[target]", "export target: project-plan, technical-spec, status-report, agent-packet, or all")
+    .argument("[target]", "export target: project-plan, technical-spec, status-report, agent-packet, final-review, or all")
     .option("--json", "emit machine-readable JSON output", false)
     .option("--format <format>", "export format (only markdown is supported)")
     .option("--dry-run", "plan the export without writing files or logging", false)
@@ -263,6 +301,35 @@ export function buildProgram(): Command {
         const data = result.data as { prompt?: string } | undefined;
         if (typeof data?.prompt === "string") {
           process.stdout.write(data.prompt + "\n");
+          process.exitCode = result.exitCode;
+          return;
+        }
+      }
+
+      emit(result, ctx.json);
+    });
+
+  program
+    .command("manage")
+    .description("Produce a read-only project manager report")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: RawManageOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runManage(ctx);
+
+      // Human mode: print the dedicated multi-section manager report text
+      // rather than the generic CommandResult summary, matching aiqt
+      // next/aiqt prompt's raw-text bypass pattern.
+      if (!ctx.json && result.exitCode === ExitCode.Success) {
+        const data = result.data as ({ projectName: string } & ManageReport) | undefined;
+        if (data) {
+          const text = renderManageReportText({
+            projectName: data.projectName,
+            report: data,
+            currentMilestoneId: result.currentMilestoneId,
+            currentWorkUnitId: result.currentWorkUnitId,
+          });
+          process.stdout.write(text + "\n");
           process.exitCode = result.exitCode;
           return;
         }

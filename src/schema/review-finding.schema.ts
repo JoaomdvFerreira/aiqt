@@ -23,6 +23,12 @@ export type ReviewFindingSeverity = z.infer<typeof ReviewFindingSeveritySchema>;
 
 export const ReviewFindingSchema = z.object({
   id: z.string(),
+  /**
+   * M9 §7.3: stable, deterministic identity for acknowledgment, derived from
+   * canonical state fields (e.g. "checkpoint:WU003:acceptanceCriteriaResult:partial").
+   * Distinct from `id` (an ephemeral FIND-### display id recomputed every run).
+   */
+  findingKey: z.string(),
   category: ReviewFindingCategorySchema,
   severity: ReviewFindingSeveritySchema,
   blocking: z.boolean(),

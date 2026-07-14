@@ -63,21 +63,24 @@ export function computeNextAction(
     };
   }
 
+  if (
+    state.workGraph.workUnits.length > 0 &&
+    state.workGraph.workUnits.every((wu) => wu.status === "done")
+  ) {
+    return {
+      nextRecommendedCommand: "aiqt manage",
+      reason: "All work units are done. Project is in review state. Run aiqt manage or aiqt export all.",
+      blockingIssues: [],
+      warnings: [],
+    };
+  }
+
   return {
-    nextRecommendedCommand: null,
-    reason:
-      "A work graph exists, but no work unit is currently ready and full aiqt next (agent packet generation) arrives in a later milestone.",
+    nextRecommendedCommand: state.currentWorkUnitId ? "aiqt checkpoint" : "aiqt review",
+    reason: state.currentWorkUnitId
+      ? "A work unit is in progress. Run aiqt checkpoint to capture its result."
+      : "No ready work unit is currently available. Run aiqt review to see current findings.",
     blockingIssues: [],
-    warnings: [
-      {
-        id: "NEXT-NOT-IMPLEMENTED",
-        severity: "low",
-        area: "workflow",
-        message:
-          "Full aiqt next behavior (agent packet generation) is not implemented yet.",
-        suggestedAction: "Await a later AIQT milestone.",
-        agentCanFix: false,
-      },
-    ],
+    warnings: [],
   };
 }

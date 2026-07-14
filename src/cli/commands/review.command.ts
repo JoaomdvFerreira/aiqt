@@ -9,10 +9,22 @@ import { ExitCode } from "../../core/output/exit-codes.js";
 import type { Issue, IssueSeverity } from "../../core/output/issue.js";
 import { aiqtDirExists, loadProject } from "./load-project.js";
 import { runReview } from "../../services/review-service.js";
+import {
+  classifyFindings,
+  findingsForMode,
+  getAcknowledgedFindings,
+  type FindingView,
+} from "../../services/manage-service.js";
+import { computeReviewNextCommand } from "../../workflow/review-next-command.js";
 import { readAgentPacketIds } from "../../state/runlog-store.js";
-import type { ReviewFinding } from "../../schema/review-finding.schema.js";
 
-function findingToIssue(finding: ReviewFinding): Issue {
+export type ReviewMode = "development" | "release";
+
+export interface RunReviewOptions {
+  mode?: string;
+}
+
+function findingToIssue(finding: FindingView): Issue {
   const severity: IssueSeverity = finding.severity === "info" ? "low" : finding.severity;
   return {
     id: finding.id,
@@ -25,8 +37,38 @@ function findingToIssue(finding: ReviewFinding): Issue {
   };
 }
 
-export function runReviewCommand(ctx: CommandContext): CommandResult {
+/**
+ * aiqt review --mode development|release (M9 §8.2). Default mode is
+ * development, so `aiqt review` alone is equivalent to
+ * `aiqt review --mode development`.
+ */
+export function runReviewCommand(
+  ctx: CommandContext,
+  options: RunReviewOptions = {},
+): CommandResult {
   try {
+    const mode = options.mode ?? "development";
+    if (mode !== "development" && mode !== "release") {
+      const message = `Unsupported review mode "${mode}". Use "development" or "release".`;
+      return makeResult({
+        status: "failed",
+        action: "review",
+        summary: message,
+        nextRecommendedCommand: null,
+        exitCode: ExitCode.InvalidInput,
+        blockingIssues: [
+          {
+            id: "REVIEW-INVALID-MODE",
+            severity: "high",
+            area: "input",
+            message,
+            agentCanFix: false,
+          },
+        ],
+      });
+    }
+    const reviewMode: ReviewMode = mode;
+
     // .aiqt/ missing has a specific next-command hint ("aiqt init") per the
     // M6 error table; the generic AiqtError -> errorToResult path used for
     // other pre-state failures below always leaves nextRecommendedCommand
@@ -55,7 +97,17 @@ export function runReviewCommand(ctx: CommandContext): CommandResult {
 
     const knownPacketIds = readAgentPacketIds(paths.runlogFile, state.lastAgentPacket);
     const result = runReview(project, state, knownPacketIds);
-    const hasBlocking = result.blockingFindingCount > 0;
+    const classification = classifyFindings(project, state, result);
+    const acknowledgedRecords = getAcknowledgedFindings(state);
+
+    // M9 §8.2: development mode ignores acknowledged blocking findings for
+    // pass/fail purposes; release mode ignores acknowledgment entirely, so an
+    // acknowledged finding can still block release.
+    const modeBlockingFindings =
+      reviewMode === "development"
+        ? classification.unacknowledgedBlockingFindings
+        : classification.blockingFindingsIgnoringAcknowledgment;
+    const hasBlocking = modeBlockingFindings.length > 0;
 
     const status: CommandStatus = hasBlocking
       ? "failed"
@@ -65,10 +117,21 @@ export function runReviewCommand(ctx: CommandContext): CommandResult {
     const exitCode = hasBlocking ? ExitCode.ValidationFailed : ExitCode.Success;
 
     const summary = hasBlocking
-      ? `Review completed with ${result.blockingFindingCount} blocking finding(s).`
+      ? `Review (${reviewMode} mode) completed with ${modeBlockingFindings.length} blocking finding(s).`
       : result.findingCount > 0
-        ? "Review completed with non-blocking workflow findings."
-        : "Review completed with no findings.";
+        ? `Review (${reviewMode} mode) completed with non-blocking findings.`
+        : `Review (${reviewMode} mode) completed with no findings.`;
+
+    // Reuse the single authoritative next-command precedence, but only feed
+    // it the findings that are actually blocking under this mode, so a fully
+    // acknowledged development review can move past "aiqt review" to
+    // whatever comes next (e.g. aiqt export all).
+    const findingsForNextCommand = findingsForMode(result, acknowledgedRecords, reviewMode);
+    const nextRecommendedCommand = computeReviewNextCommand(
+      project,
+      state,
+      findingsForNextCommand,
+    );
 
     return makeResult({
       status,
@@ -80,18 +143,21 @@ export function runReviewCommand(ctx: CommandContext): CommandResult {
       completedActions: ["Read project.json", "Read state.json", "Evaluated review rules"],
       changedFiles: [],
       affectedItems: [project.project.id],
-      blockingIssues: hasBlocking
-        ? result.findings.filter((f) => f.blocking).map(findingToIssue)
-        : [],
+      blockingIssues: hasBlocking ? modeBlockingFindings.map(findingToIssue) : [],
       warnings,
-      nextRecommendedCommand: result.nextRecommendedCommand,
+      nextRecommendedCommand,
       exitCode,
       data: {
+        mode: reviewMode,
         findingCount: result.findingCount,
         blockingFindingCount: result.blockingFindingCount,
         warningFindingCount: result.warningFindingCount,
         infoFindingCount: result.infoFindingCount,
         recommendedExportTargets: result.recommendedExportTargets,
+        activeFindings: classification.activeFindings,
+        acknowledgedFindings: classification.acknowledgedFindings,
+        developmentComplete: classification.developmentComplete,
+        productionReady: classification.productionReady,
         findings: result.findings,
         runlogHealth,
       },

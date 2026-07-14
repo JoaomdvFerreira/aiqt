@@ -9,10 +9,14 @@ import { isPlanningContextReady } from "./planning-readiness.js";
 /**
  * A finding before FIND-### assignment. `ruleKey` is a stable, internal
  * tie-breaker used only for deterministic sorting; it is never exposed on
- * the final ReviewFinding record.
+ * the final ReviewFinding record. `findingKey` (M9 §7.3) is the durable,
+ * public identity used for `aiqt review acknowledge` -- deterministic,
+ * derived from canonical state fields, never based on display order or
+ * timestamps. See docs on each collector below for the key pattern used.
  */
 export interface ReviewFindingCandidate {
   ruleKey: string;
+  findingKey: string;
   category: ReviewFindingCategory;
   severity: ReviewFindingSeverity;
   blocking: boolean;
@@ -42,6 +46,7 @@ export function collectIntegrityFindings(
     if (!milestoneIds.has(wu.milestoneId)) {
       findings.push({
         ruleKey: `integrity.broken-milestone.${wu.id}`,
+        findingKey: `workunit:${wu.id}:unknown-milestone-ref`,
         category: "integrity",
         severity: "critical",
         blocking: true,
@@ -60,6 +65,7 @@ export function collectIntegrityFindings(
     if (unknownFrom || unknownTo) {
       findings.push({
         ruleKey: `integrity.broken-dependency.${dep.id}`,
+        findingKey: `dependency:${dep.id}:unknown-workunit-ref`,
         category: "integrity",
         severity: "critical",
         blocking: true,
@@ -75,6 +81,7 @@ export function collectIntegrityFindings(
   if (state.currentWorkUnitId !== null && !workUnitIds.has(state.currentWorkUnitId)) {
     findings.push({
       ruleKey: "integrity.missing-current-work-unit",
+      findingKey: "state:currentWorkUnitId:missing-workunit-ref",
       category: "integrity",
       severity: "critical",
       blocking: true,
@@ -89,6 +96,7 @@ export function collectIntegrityFindings(
   if (state.lastAgentPacket && !workUnitIds.has(state.lastAgentPacket.workUnitId)) {
     findings.push({
       ruleKey: "integrity.missing-packet-work-unit",
+      findingKey: "state:lastAgentPacket:missing-workunit-ref",
       category: "integrity",
       severity: "high",
       blocking: true,
@@ -106,6 +114,10 @@ export function collectIntegrityFindings(
     if (!workUnitIds.has(checkpoint.workUnitId)) {
       findings.push({
         ruleKey: `integrity.checkpoint-missing-work-unit.${checkpoint.id}`,
+        // Keyed by checkpoint id (state:<entityType>:<entityId>:<rule>) since
+        // the referenced workUnitId does not exist -- documented deviation
+        // from the workunit:<id>:<rule> pattern, per §7.3's fallback allowance.
+        findingKey: `state:checkpoint:${checkpoint.id}:missing-workunit-ref`,
         category: "integrity",
         severity: "high",
         blocking: true,
@@ -120,6 +132,7 @@ export function collectIntegrityFindings(
     if (!checkpoint.packetId || !knownPacketIdSet.has(checkpoint.packetId)) {
       findings.push({
         ruleKey: `integrity.checkpoint-missing-packet.${checkpoint.id}`,
+        findingKey: `state:checkpoint:${checkpoint.id}:missing-packet-ref`,
         category: "integrity",
         severity: "high",
         blocking: true,
@@ -155,6 +168,7 @@ export function collectWorkflowFindings(
     const ready = isPlanningContextReady(project);
     findings.push({
       ruleKey: "workflow.empty-graph",
+      findingKey: "review:empty-work-graph",
       category: "workflow",
       severity: "medium",
       blocking: false,
@@ -177,6 +191,7 @@ export function collectWorkflowFindings(
     if (wu?.status === "in_progress") {
       findings.push({
         ruleKey: "workflow.current-in-progress",
+        findingKey: `workunit:${wu.id}:awaiting-checkpoint`,
         category: "workflow",
         severity: "medium",
         blocking: false,
@@ -193,6 +208,7 @@ export function collectWorkflowFindings(
   if (needsReviewUnits.length > 0) {
     findings.push({
       ruleKey: "workflow.needs-review",
+      findingKey: "review:needs-review-units-present",
       category: "workflow",
       severity: "high",
       blocking: false,
@@ -208,6 +224,7 @@ export function collectWorkflowFindings(
   if (hasReady && state.currentWorkUnitId === null) {
     findings.push({
       ruleKey: "workflow.ready-available",
+      findingKey: "review:ready-workunit-available",
       category: "workflow",
       severity: "info",
       blocking: false,
@@ -222,6 +239,7 @@ export function collectWorkflowFindings(
   if (workUnits.length > 0 && workUnits.every((wu) => wu.status === "done")) {
     findings.push({
       ruleKey: "workflow.all-done",
+      findingKey: "review:all-workunits-done",
       category: "workflow",
       severity: "info",
       blocking: false,
@@ -250,6 +268,7 @@ export function collectContextFindings(
   if (project.project.objective.trim() === "") {
     findings.push({
       ruleKey: "context.empty-objective",
+      findingKey: "state:project:objective-empty",
       category: "context",
       severity: "medium",
       blocking: false,
@@ -264,6 +283,7 @@ export function collectContextFindings(
   if (project.project.targetUsers.length === 0) {
     findings.push({
       ruleKey: "context.no-target-users",
+      findingKey: "state:project:target-users-empty",
       category: "context",
       severity: "medium",
       blocking: false,
@@ -284,6 +304,7 @@ export function collectContextFindings(
   if (!hasAnyStructuralContext) {
     findings.push({
       ruleKey: "context.no-structural-context",
+      findingKey: "review:no-structural-context",
       category: "context",
       severity: "medium",
       blocking: false,
@@ -300,6 +321,7 @@ export function collectContextFindings(
     if (q.status === "open" && q.impact === "blocking") {
       findings.push({
         ruleKey: `context.blocking-open-question.${q.id}`,
+        findingKey: `state:openQuestion:${q.id}:blocking-unresolved`,
         category: "context",
         severity: "high",
         blocking: true,
@@ -316,6 +338,7 @@ export function collectContextFindings(
     if (req.status === "accepted" && req.acceptanceCriteria.length === 0) {
       findings.push({
         ruleKey: `context.accepted-requirement-no-criteria.${req.id}`,
+        findingKey: `state:requirement:${req.id}:accepted-no-criteria`,
         category: "context",
         severity: "high",
         blocking: true,
@@ -352,6 +375,7 @@ export function collectQualityFindings(
     if (wu.validationCommands.length === 0) {
       findings.push({
         ruleKey: `quality.no-validation-commands.${wu.id}`,
+        findingKey: `workunit:${wu.id}:no-validation-commands`,
         category: "quality",
         severity,
         blocking,
@@ -366,6 +390,7 @@ export function collectQualityFindings(
     if (wu.acceptanceCriteria.length === 0) {
       findings.push({
         ruleKey: `quality.no-acceptance-criteria.${wu.id}`,
+        findingKey: `workunit:${wu.id}:no-acceptance-criteria`,
         category: "quality",
         severity,
         blocking,
@@ -381,6 +406,7 @@ export function collectQualityFindings(
       if (wu.scope.length === 0 || wu.outOfScope.length === 0) {
         findings.push({
           ruleKey: `quality.empty-scope.${wu.id}`,
+          findingKey: `workunit:${wu.id}:empty-scope`,
           category: "quality",
           severity: "high",
           blocking: true,
@@ -399,6 +425,7 @@ export function collectQualityFindings(
       ) {
         findings.push({
           ruleKey: `quality.vague-scope.${wu.id}`,
+          findingKey: `workunit:${wu.id}:vague-scope`,
           category: "quality",
           severity: "medium",
           blocking: false,
@@ -437,6 +464,7 @@ export function collectCheckpointFindings(
     if (wu.status === "done" && wuCheckpoints.length === 0) {
       findings.push({
         ruleKey: `checkpoint.done-no-checkpoint.${wu.id}`,
+        findingKey: `workunit:${wu.id}:done-no-checkpoint`,
         category: "checkpoint",
         severity: "high",
         blocking: true,
@@ -459,6 +487,7 @@ export function collectCheckpointFindings(
       if (hasOpenHighCriticalIssue) {
         findings.push({
           ruleKey: `checkpoint.needs-review-open-issue.${wu.id}`,
+          findingKey: `workunit:${wu.id}:open-high-critical-issue`,
           category: "checkpoint",
           severity: "high",
           blocking: false,
@@ -476,6 +505,8 @@ export function collectCheckpointFindings(
       if (latest.validationResult === "failed" || latest.validationResult === "partial") {
         findings.push({
           ruleKey: `checkpoint.done-validation-not-passed.${wu.id}`,
+          // Matches §7.3's checkpoint:<workUnitId>:<field>:<value> pattern.
+          findingKey: `checkpoint:${wu.id}:validationResult:${latest.validationResult}`,
           category: "checkpoint",
           severity: "high",
           blocking: true,
@@ -492,6 +523,8 @@ export function collectCheckpointFindings(
       ) {
         findings.push({
           ruleKey: `checkpoint.done-acceptance-not-passed.${wu.id}`,
+          // Required dogfood key (§7.3): checkpoint:WU003:acceptanceCriteriaResult:partial
+          findingKey: `checkpoint:${wu.id}:acceptanceCriteriaResult:${latest.acceptanceCriteriaResult}`,
           category: "checkpoint",
           severity: "high",
           blocking: true,
@@ -512,6 +545,8 @@ export function collectCheckpointFindings(
   ) {
     findings.push({
       ruleKey: "checkpoint.packet-no-checkpoint",
+      // Matches §7.3's literal example key exactly (singleton state field, no entityId segment).
+      findingKey: "state:lastAgentPacket:stale-reference",
       category: "checkpoint",
       severity: "medium",
       blocking: false,
