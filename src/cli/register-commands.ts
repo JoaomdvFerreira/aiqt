@@ -15,6 +15,10 @@ import {
   type RawNextOptions,
   type RawManageOptions,
   type RawSkillsPlanOptions,
+  type RawIssueListOptions,
+  type RawIssueUpdateOptions,
+  type RawIssuePromoteOptions,
+  type RawRepairPlanOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -39,6 +43,13 @@ import type { ManageReport } from "../services/manage-service.js";
 import { runSkillsPlan } from "./commands/skills-plan.command.js";
 import { renderSkillsPlanText } from "../services/skills-plan-template.js";
 import type { SkillsPlan } from "../services/skills-detection-service.js";
+import { runIssueList } from "./commands/issue-list.command.js";
+import { runIssueUpdate } from "./commands/issue-update.command.js";
+import { runIssuePromote } from "./commands/issue-promote.command.js";
+import { runRepairPlan } from "./commands/repair-plan.command.js";
+import { renderIssueListText, renderRepairPlanText } from "../services/issue-report-template.js";
+import type { IssueListData } from "./commands/issue-list.command.js";
+import type { RepairPlanData } from "./commands/repair-plan.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -382,6 +393,89 @@ export function buildProgram(): Command {
         fromFile: raw.fromFile,
         stdin: Boolean(raw.stdin),
       });
+      emit(result, ctx.json);
+    });
+
+  const issueCommand = program
+    .command("issue")
+    .description("Inspect and manage the M11 issue lifecycle (overrides, promotion)");
+
+  issueCommand
+    .command("list")
+    .description("List normalized checkpoint/review issues with effective status")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: RawIssueListOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runIssueList(ctx);
+
+      if (!ctx.json && result.exitCode === ExitCode.Success) {
+        const data = result.data as IssueListData | undefined;
+        if (data) {
+          process.stdout.write(renderIssueListText(data) + "\n");
+          process.exitCode = result.exitCode;
+          return;
+        }
+      }
+
+      emit(result, ctx.json);
+    });
+
+  issueCommand
+    .command("update <issueKey>")
+    .description("Store a status override for a known issue without rewriting its source record")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--status <status>", "issue status: active, accepted, deferred, resolved, or post_mvp")
+    .option("--reason <reason>", "reason for this status change")
+    .action((issueKey: string, raw: RawIssueUpdateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runIssueUpdate(ctx, { issueKey, status: raw.status, reason: raw.reason });
+      emit(result, ctx.json);
+    });
+
+  issueCommand
+    .command("promote <issueKey>")
+    .description("Promote a known issue into a canonical repair work unit")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--title <title>", "title for the new repair work unit")
+    .option("--reason <reason>", "reason for promoting this issue")
+    .option(
+      "--validation-command <command>",
+      "validation command for the repair work unit (repeatable)",
+      collectRepeatable,
+      [] as string[],
+    )
+    .action((issueKey: string, raw: RawIssuePromoteOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runIssuePromote(ctx, {
+        issueKey,
+        title: raw.title,
+        reason: raw.reason,
+        validationCommands: raw.validationCommand,
+      });
+      emit(result, ctx.json);
+    });
+
+  const repairCommand = program
+    .command("repair")
+    .description("Read-only repair planning derived from the current issue list");
+
+  repairCommand
+    .command("plan")
+    .description("Recommend promotable issues for repair work")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: RawRepairPlanOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runRepairPlan(ctx);
+
+      if (!ctx.json && result.exitCode === ExitCode.Success) {
+        const data = result.data as RepairPlanData | undefined;
+        if (data) {
+          process.stdout.write(renderRepairPlanText(data) + "\n");
+          process.exitCode = result.exitCode;
+          return;
+        }
+      }
+
       emit(result, ctx.json);
     });
 

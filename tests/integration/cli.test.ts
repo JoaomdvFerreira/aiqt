@@ -235,4 +235,65 @@ describe("aiqt CLI entrypoint", () => {
     const parsed = JSON.parse(res.stderr);
     expect(parsed.status).toBe("failed");
   });
+
+  it("M11: aiqt issue list --json exits 0 on an initialized project with no issues", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(["issue", "list", "--json"], dir);
+    expect(res.status).toBe(0);
+    const parsed = JSON.parse(res.stdout);
+    expect(parsed.data.issues).toEqual([]);
+    expect(parsed.data.counts.active).toBe(0);
+  });
+
+  it("M11: --json on issue update (nested subcommand with its own --status/--reason) parses correctly, not swallowed by the parent's own --json option", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(
+      ["issue", "update", "checkpoint:WU001:issue:does-not-exist", "--status", "deferred", "--reason", "x", "--json"],
+      dir,
+    );
+    // Unknown issue key -> exit 3, but the output must be JSON.
+    expect(res.status).toBe(3);
+    const parsed = JSON.parse(res.stderr);
+    expect(parsed.action).toBe("issue");
+  });
+
+  it("M11: --json on issue promote (nested subcommand with its own --title/--reason/--validation-command) parses correctly", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(
+      [
+        "issue",
+        "promote",
+        "checkpoint:WU001:issue:does-not-exist",
+        "--title",
+        "t",
+        "--reason",
+        "r",
+        "--validation-command",
+        "pnpm test",
+        "--json",
+      ],
+      dir,
+    );
+    expect(res.status).toBe(3);
+    const parsed = JSON.parse(res.stderr);
+    expect(parsed.action).toBe("issue");
+  });
+
+  it("M11: aiqt repair plan exits 0 in human mode", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(["repair", "plan"], dir);
+    expect(res.status).toBe(0);
+    expect(res.stdout).toContain("# AIQT Repair Plan");
+  });
+
+  it("M11: aiqt issue update requires a status and reason, exit code 3 not 10", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(["issue", "update", "some-key", "--json"], dir);
+    expect(res.status).toBe(3);
+  });
 });

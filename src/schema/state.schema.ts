@@ -3,6 +3,7 @@ import { WorkGraphSchema } from "./work-graph.schema.js";
 import { CheckpointSchema } from "./checkpoint.schema.js";
 import { AgentPacketMetadataSchema } from "./agent-packet.schema.js";
 import { ReviewAcknowledgmentStateSchema } from "./review-acknowledgment.schema.js";
+import { IssueStateSchema } from "./issue-state.schema.js";
 
 export const ProjectStatusSchema = z.enum([
   "draft",
@@ -26,5 +27,7 @@ export const StateModelSchema = z.object({
   lastUpdatedAt: z.string(),
   /** M9 §7.2: optional, additive. Missing entirely on pre-M9 state files. */
   review: ReviewAcknowledgmentStateSchema.optional(),
+  /** M11 §8.2: optional, additive. Missing entirely on pre-M11 state files. */
+  issues: IssueStateSchema.optional(),
 });
 export type StateModel = z.infer<typeof StateModelSchema>;
