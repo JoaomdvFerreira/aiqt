@@ -1,4 +1,5 @@
 import { mkdirSync } from "node:fs";
+import { resolve } from "node:path";
 import type { CommandContext } from "../command-context.js";
 import { makeResult, errorToResult, type CommandResult } from "../../core/output/result.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
@@ -37,9 +38,10 @@ function runDriverOrInterviewPrompt(
   const project = loaded?.project ?? null;
   const state = loaded?.state ?? null;
 
+  const repoRoot = resolve(ctx.cwd);
   const data = kind === "driver"
-    ? buildDriverPromptData({ project, state, idea })
-    : buildInterviewPromptData({ project, idea });
+    ? buildDriverPromptData({ project, state, idea, repoRoot })
+    : buildInterviewPromptData({ project, idea, repoRoot });
   const nextRecommendedCommand = kind === "driver"
     ? (data as ReturnType<typeof buildDriverPromptData>).nextRecommendedCommand
     : (data as ReturnType<typeof buildInterviewPromptData>).followUpCommand;
@@ -135,7 +137,7 @@ export function runPrompt(ctx: CommandContext, options: RunPromptOptions): Comma
       });
     }
 
-    const prompt = renderPrompt(kind, project, state);
+    const prompt = renderPrompt(kind, project, state, paths.root);
 
     if (options.out) {
       const resolvedPath = validateOutPath(paths, options.out);

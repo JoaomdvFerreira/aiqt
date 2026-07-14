@@ -92,12 +92,13 @@ export function renderPrompt(
   kind: FileBasedPromptKind,
   project: ProjectModel,
   state: StateModel,
+  repoRoot: string | null = null,
 ): string {
   switch (kind) {
     case "update":
       return renderUpdatePrompt(project);
     case "plan":
-      return renderPlanPrompt(project);
+      return renderPlanPrompt(project, repoRoot);
     case "checkpoint": {
       const workUnit = state.workGraph.workUnits.find(
         (wu) => wu.id === state.currentWorkUnitId,
@@ -143,9 +144,10 @@ export function buildDriverPromptData(params: {
   project: ProjectModel | null;
   state: StateModel | null;
   idea: string | null;
+  repoRoot?: string | null;
 }): DriverPromptData {
-  const { project, state, idea } = params;
-  const prompt = renderDriverPrompt({ project, state, idea });
+  const { project, state, idea, repoRoot = null } = params;
+  const prompt = renderDriverPrompt({ project, state, idea, repoRoot });
   const nextRecommendedCommand = !project || !state ? "aiqt init" : (state.nextRecommendedCommand ?? "aiqt start");
   return {
     promptType: "driver",
@@ -165,9 +167,10 @@ export function buildDriverPromptData(params: {
 export function buildInterviewPromptData(params: {
   project: ProjectModel | null;
   idea: string | null;
+  repoRoot?: string | null;
 }): InterviewPromptData {
-  const { project, idea } = params;
-  const { prompt, questions, detectedProjectType } = renderInterviewPrompt(project, idea);
+  const { project, idea, repoRoot = null } = params;
+  const { prompt, questions, detectedProjectType } = renderInterviewPrompt(project, idea, repoRoot);
   return {
     promptType: "interview",
     idea,

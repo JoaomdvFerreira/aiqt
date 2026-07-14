@@ -268,7 +268,8 @@ describe("aiqt prompt", () => {
       const data = result.data as { promptType: string; detectedProjectType: string | null; questions: string[] };
       expect(data.promptType).toBe("interview");
       expect(data.detectedProjectType).toBe("full-stack web application");
-      expect(data.questions.length).toBe(15);
+      // 7 base + 8 full-stack + 9 M13 design-discovery questions.
+      expect(data.questions.length).toBe(24);
     });
 
     it("asks only base questions when no full-stack signal is present", () => {

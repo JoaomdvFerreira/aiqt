@@ -1,5 +1,10 @@
 import type { ProjectModel } from "../../schema/project.schema.js";
 import { detectsFullStackSignals } from "../../workflow/full-stack-detection.js";
+import {
+  detectUiHeavyForProject,
+  isUiHeavy,
+} from "../../workflow/design/ui-heavy-detection.js";
+import { DESIGN_DISCOVERY_QUESTIONS } from "../../workflow/design/design-system-planner.js";
 
 const BASE_QUESTIONS: readonly string[] = [
   "What is the product objective and the smallest useful MVP slice?",
@@ -39,6 +44,7 @@ export interface InterviewPromptResult {
 export function renderInterviewPrompt(
   project: ProjectModel | null,
   idea: string | null,
+  repoRoot: string | null = null,
 ): InterviewPromptResult {
   const effectiveIdea = idea ?? (project && project.project.objective.trim() !== ""
     ? project.project.objective
@@ -51,9 +57,18 @@ export function renderInterviewPrompt(
   ].join(" ");
   const isFullStack = detectsFullStackSignals(detectionText);
 
+  // M13 §11.2: shared detector -- not reimplemented here. Design discovery
+  // questions are asked for high/medium UI-heavy confidence, or when the
+  // rough idea already implies a full-stack/UI product.
+  const uiHeavyResult = detectUiHeavyForProject({ project, idea: effectiveIdea, repoRoot });
+  const includeDesignQuestions = isFullStack || isUiHeavy(uiHeavyResult.confidence);
+
   const questions = isFullStack
     ? [...BASE_QUESTIONS, ...FULL_STACK_QUESTIONS]
     : [...BASE_QUESTIONS];
+  if (includeDesignQuestions) {
+    questions.push(...DESIGN_DISCOVERY_QUESTIONS);
+  }
 
   const lines: string[] = [];
   lines.push(`Project idea: ${effectiveIdea ?? "(not supplied yet)"}`);

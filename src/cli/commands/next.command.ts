@@ -30,6 +30,7 @@ import {
 } from "../../services/agent-packet-service.js";
 import { renderAgentPacket } from "../../services/agent-packet-template.js";
 import { buildSkillsPlan } from "../../services/skills-detection-service.js";
+import { detectUiHeavyForProject } from "../../workflow/design/ui-heavy-detection.js";
 import type { StateModel } from "../../schema/state.schema.js";
 import type { AgentPacketMetadata } from "../../schema/agent-packet.schema.js";
 
@@ -151,6 +152,10 @@ export function runNext(ctx: CommandContext): CommandResult {
     const skillsPlan = buildSkillsPlan(paths.root, project);
     const relevantSkills = selectRelevantSkills(workUnit, skillsPlan.detectedIntegrations);
 
+    // M13 §12: project-level UI-heavy confidence, computed once per aiqt
+    // next call via the single shared detector.
+    const uiHeavyResult = detectUiHeavyForProject({ project, repoRoot: paths.root });
+
     const packetContext = buildPacketContext(
       project,
       state,
@@ -158,6 +163,7 @@ export function runNext(ctx: CommandContext): CommandResult {
       selectedMilestone,
       resolved,
       relevantSkills,
+      uiHeavyResult.confidence,
     );
     const packetBody = renderAgentPacket(packetContext);
     const contentHash = sha256Hex(packetBody);

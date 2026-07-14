@@ -313,7 +313,9 @@ describe("renderInterviewPrompt", () => {
   it("asks the full-stack questions too when a full-stack signal is detected in the idea", () => {
     const result = renderInterviewPrompt(null, "Build me a marketplace for handmade goods");
     expect(result.detectedProjectType).toBe("full-stack web application");
-    expect(result.questions).toHaveLength(15);
+    // 7 base + 8 full-stack + 9 M13 design-discovery questions (asked
+    // whenever a full-stack/UI-heavy signal is detected).
+    expect(result.questions).toHaveLength(24);
     expect(result.prompt).toMatch(/user roles/);
     expect(result.prompt).toMatch(/routes\/pages or screens/);
   });

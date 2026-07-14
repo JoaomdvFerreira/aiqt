@@ -1,5 +1,10 @@
 import type { ProjectModel } from "../../schema/project.schema.js";
 import { detectsFullStackSignals } from "../../workflow/full-stack-detection.js";
+import {
+  detectUiHeavyForProject,
+  isUiHeavy,
+} from "../../workflow/design/ui-heavy-detection.js";
+import { renderDesignSystemPlannerBlock } from "../design-system-planner-template.js";
 
 function listOrNone(items: readonly string[]): string {
   return items.length > 0 ? items.join(", ") : "(none)";
@@ -35,7 +40,7 @@ const PLAN_JSON_SHAPE = {
 };
 
 /** Deterministic prompt for aiqt prompt plan (§9, §13.3, Appendix B.1). */
-export function renderPlanPrompt(project: ProjectModel): string {
+export function renderPlanPrompt(project: ProjectModel, repoRoot: string | null = null): string {
   const lines: string[] = [];
   lines.push("You are helping create an AIQT structured plan input.");
   lines.push("Return JSON only. Do not wrap the JSON in markdown.");
@@ -99,6 +104,14 @@ export function renderPlanPrompt(project: ProjectModel): string {
     lines.push(
       "Keep work units bounded. Do not create one massive work unit for the whole app.",
     );
+    lines.push("");
+  }
+
+  // M13 §9/§10: inject the built-in design-system planner for high/medium
+  // UI-heavy projects only. Shared detector -- not reimplemented here.
+  const uiHeavyResult = detectUiHeavyForProject({ project, repoRoot });
+  if (isUiHeavy(uiHeavyResult.confidence)) {
+    lines.push(renderDesignSystemPlannerBlock(uiHeavyResult.confidence as "high" | "medium"));
     lines.push("");
   }
 

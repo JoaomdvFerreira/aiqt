@@ -12,6 +12,8 @@ import type {
   OpenQuestion,
 } from "../schema/common.schema.js";
 import type { DetectedIntegration } from "./skills-detection-service.js";
+import { shouldIncludeDesignGuidance } from "../workflow/design/design-guidance-rules.js";
+import type { UiHeavyConfidence } from "../workflow/design/ui-heavy-detection.js";
 
 export interface PacketContext {
   projectId: string;
@@ -30,6 +32,8 @@ export interface PacketContext {
   dependencies: Dependency[];
   /** M10 §12: detected/recommended integrations this work unit's own text touches. Advisory only. */
   relevantSkills: DetectedIntegration[];
+  /** M13 §12: true only when the project is UI-heavy (high/medium) AND this specific work unit is UI-related. */
+  includeDesignGuidance: boolean;
 }
 
 export interface ResolvedContextRefs {
@@ -179,6 +183,7 @@ export function buildPacketContext(
   milestone: Milestone,
   resolved: ResolvedContextRefs,
   relevantSkills: DetectedIntegration[] = [],
+  uiHeavyConfidence: UiHeavyConfidence = "none",
 ): PacketContext {
   const dependencies = workUnit.dependencies
     .map((depId) => state.workGraph.dependencies.find((d) => d.id === depId))
@@ -200,5 +205,6 @@ export function buildPacketContext(
     referencedOpenQuestions: resolved.openQuestions,
     dependencies,
     relevantSkills,
+    includeDesignGuidance: shouldIncludeDesignGuidance(uiHeavyConfidence, workUnit),
   };
 }

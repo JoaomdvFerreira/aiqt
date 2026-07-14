@@ -32,6 +32,19 @@ export function renderSkillsPlanText(plan: SkillsPlan): string {
   lines.push("## Not Detected", "");
   lines.push(bulletList(plan.notDetectedIntegrations), "");
 
+  // M13 §13: advisory design aids, clearly marked as non-installed.
+  lines.push("## Design Aids (Advisory, Not Installed)", "");
+  if (plan.designAids.length === 0) {
+    lines.push("- None recommended for this project.", "");
+  } else {
+    for (const aid of plan.designAids) {
+      lines.push(`### ${aid.id}`);
+      lines.push(`- Phase: ${aid.phase}`);
+      lines.push(`- Recommended use: ${aid.recommendedUse}`);
+      lines.push("- Installed automatically: no", "");
+    }
+  }
+
   lines.push("## Safety Notes", "");
   lines.push(bulletList(plan.safetyNotes));
 
