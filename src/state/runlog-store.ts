@@ -293,6 +293,57 @@ export function buildPacketCancelledEvent(input: {
   };
 }
 
+export interface IssueUpdatedEventData {
+  issueKey: string;
+  status: string;
+  reason: string;
+  sourceCommand: string;
+}
+
+/** Build the issue.updated event appended by `aiqt issue update` (M11 §13.1). */
+export function buildIssueUpdatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: IssueUpdatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "issue.updated",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Updated issue ${input.data.issueKey} to ${input.data.status}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface IssuePromotedEventData {
+  issueKey: string;
+  workUnitId: string;
+  milestoneId: string;
+  title: string;
+  sourceCommand: string;
+}
+
+/** Build the issue.promoted event appended by `aiqt issue promote` (M11 §13.2). */
+export function buildIssuePromotedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: IssuePromotedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "issue.promoted",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Promoted ${input.data.issueKey.split(":")[1] ?? input.data.issueKey} issue to work unit ${input.data.workUnitId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 /**
  * Find the most recent agent_packet.created event whose packetId is not
  * `excludePacketId`, scanning runlog history in chronological (append) order.

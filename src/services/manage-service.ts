@@ -4,7 +4,13 @@ import type { ReviewFinding } from "../schema/review-finding.schema.js";
 import type { AcknowledgedFinding } from "../schema/review-acknowledgment.schema.js";
 import type { ReviewResult } from "./review-service.js";
 import { workUnitCountsByStatus } from "../workflow/statuses.js";
-import { classifyCheckpointIssue } from "../workflow/issue-classification.js";
+import {
+  buildNormalizedIssues,
+  getIssueOverrides,
+  effectiveIssueStatus,
+  reviewIssueKey,
+} from "./issue-service.js";
+import type { IssueOverrideStatus } from "../schema/issue-state.schema.js";
 
 /** M9 §7.1: missing state.review must be treated as an empty acknowledgment list. */
 export function getAcknowledgedFindings(state: StateModel): AcknowledgedFinding[] {
@@ -63,18 +69,44 @@ export interface FindingClassification {
 }
 
 /**
+ * M11 §12: statuses that fully clear an issue from every manage/final-review
+ * bucket and from both dev- and release-mode blocking. "resolved" means
+ * genuinely addressed; "post_mvp" means explicitly triaged out of the
+ * current release (it is instead force-included in postMvpBacklogCandidates
+ * for checkpoint-issue-sourced items).
+ */
+function isFullyExempt(status: IssueOverrideStatus): boolean {
+  return status === "resolved" || status === "post_mvp";
+}
+
+/**
+ * M11 §12: any override status (including "accepted"/"deferred") exempts an
+ * issue from development-mode blocking, mirroring M9 acknowledgment's
+ * existing dev-exempt/release-still-blocking semantics.
+ */
+function isDevExempt(status: IssueOverrideStatus): boolean {
+  return status !== "active";
+}
+
+/**
  * Shared classification core reused by aiqt manage, aiqt review --mode, and
  * the final-review.md export, so all surfaces agree on exactly what
  * "development complete," "production ready," and each M10 §8.3
- * classification bucket mean.
+ * classification bucket mean. M11 §12 layers issue overrides on top of this
+ * same M10 classification -- it does not create a second classifier.
  *
- * developmentComplete: every work unit is done AND no unacknowledged blocking
- * finding remains -- acknowledgment fully exempts a finding from this check.
+ * developmentComplete: every work unit is done AND no unacknowledged,
+ * non-overridden blocking finding remains -- acknowledgment or any M11
+ * override status exempts a finding from this check.
  *
  * productionReady: developmentComplete AND no release blocker exists at all
  * (review findings ignoring acknowledgment, plus checkpoint-issue-derived
- * release blockers) -- an acknowledged finding still blocks release, per
- * §8.2's "Acknowledged findings remain visible and may still block release."
+ * release blockers), excluding findings/issues whose M11 override status is
+ * "resolved" or "post_mvp" -- an acknowledged or merely "accepted"/"deferred"
+ * finding still blocks release, per §8.2's "Acknowledged findings remain
+ * visible and may still block release" and M11 §12's "deferred and post_mvp
+ * issues remain visible but move to the appropriate section" (deferred is
+ * NOT the same as resolved).
  */
 export function classifyFindings(
   _project: ProjectModel,
@@ -82,6 +114,7 @@ export function classifyFindings(
   review: ReviewResult,
 ): FindingClassification {
   const acknowledgedRecords = getAcknowledgedFindings(state);
+  const issueOverrides = getIssueOverrides(state);
   const activeKeys = new Set(review.findings.map((f) => f.findingKey));
 
   const activeFindings: FindingView[] = review.findings.map((f) => ({
@@ -94,39 +127,57 @@ export function classifyFindings(
     stillActive: activeKeys.has(a.findingKey),
   }));
 
+  const statusForFinding = (f: ReviewFinding): IssueOverrideStatus =>
+    effectiveIssueStatus(reviewIssueKey(f.findingKey), issueOverrides);
+
   const unacknowledgedBlockingFindings = activeFindings.filter(
-    (f) => f.blocking && !f.acknowledged,
+    (f) => f.blocking && !f.acknowledged && !isDevExempt(statusForFinding(f)),
   );
-  const blockingFindingsIgnoringAcknowledgment = activeFindings.filter((f) => f.blocking);
+  const blockingFindingsIgnoringAcknowledgment = activeFindings.filter(
+    (f) => f.blocking && !isFullyExempt(statusForFinding(f)),
+  );
 
   const findingExternalVerificationGaps = activeFindings
     .filter((f) => f.findingKey.startsWith(EXTERNAL_VERIFICATION_KEY_PREFIX))
+    .filter((f) => !isFullyExempt(statusForFinding(f)))
     .map((f) => `[${f.findingKey}] ${f.message}`);
 
-  // §8.2/§8.3: classify every open checkpoint issue via the deterministic
-  // text-heuristic classifier, respecting agentCanFix precedence.
+  // §8.2/§8.3/M11 §12: classify every open checkpoint issue via the
+  // deterministic text-heuristic classifier (reused, not reimplemented),
+  // then apply the M11 override precedence on top.
+  const normalizedIssues = buildNormalizedIssues(state, review);
   const issueUserActionRequired: string[] = [];
   const issueExternalVerificationGaps: string[] = [];
   const agentFixableIssues: string[] = [];
   const issueReleaseBlockers: string[] = [];
   const postMvpBacklogCandidates: string[] = [];
 
-  for (const cp of state.checkpoints) {
-    for (const issue of cp.issues) {
-      const label = `${cp.workUnitId}: ${issue.title}`;
-      const classification = classifyCheckpointIssue(issue);
-      if (classification.userActionRequired) issueUserActionRequired.push(label);
-      if (classification.externalVerificationGap) issueExternalVerificationGaps.push(label);
-      if (classification.agentFixable) agentFixableIssues.push(label);
-      if (classification.releaseBlocking) issueReleaseBlockers.push(label);
-      if (classification.backlogCandidate) postMvpBacklogCandidates.push(label);
+  for (const issue of normalizedIssues) {
+    if (issue.source !== "checkpoint") continue;
+    const label = `${issue.workUnitId}: ${issue.message}`;
+    if (issue.status === "resolved") continue;
+    if (issue.status === "post_mvp") {
+      postMvpBacklogCandidates.push(label);
+      continue;
     }
+    if (issue.raw.userActionRequired) issueUserActionRequired.push(label);
+    if (issue.raw.externalVerificationGap) issueExternalVerificationGaps.push(label);
+    if (issue.raw.agentFixable) agentFixableIssues.push(label);
+    if (issue.raw.releaseBlocking) issueReleaseBlockers.push(label);
+    if (issue.raw.backlogCandidate) postMvpBacklogCandidates.push(label);
   }
 
-  // §8.4: a blocking, unacknowledged "context" review finding (e.g. a
-  // blocking open question) is itself a human-decision-required item.
+  // §8.4: a blocking, unacknowledged, non-overridden "context" review
+  // finding (e.g. a blocking open question) is itself a human-decision-
+  // required item.
   const blockingContextUserAction = activeFindings
-    .filter((f) => f.category === "context" && f.blocking && !f.acknowledged)
+    .filter(
+      (f) =>
+        f.category === "context" &&
+        f.blocking &&
+        !f.acknowledged &&
+        !isFullyExempt(statusForFinding(f)),
+    )
     .map((f) => f.message);
 
   const userActionRequired = [...blockingContextUserAction, ...issueUserActionRequired];

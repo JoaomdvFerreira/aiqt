@@ -90,3 +90,24 @@ export interface RawManageOptions {
 export interface RawSkillsPlanOptions {
   json?: boolean;
 }
+
+export interface RawIssueListOptions {
+  json?: boolean;
+}
+
+export interface RawIssueUpdateOptions {
+  json?: boolean;
+  status?: string;
+  reason?: string;
+}
+
+export interface RawIssuePromoteOptions {
+  json?: boolean;
+  title?: string;
+  reason?: string;
+  validationCommand?: string[];
+}
+
+export interface RawRepairPlanOptions {
+  json?: boolean;
+}
