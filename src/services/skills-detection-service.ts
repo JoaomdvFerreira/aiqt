@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import { isFile, isDirectory } from "../core/filesystem/file-exists.js";
 import type { ProjectModel } from "../schema/project.schema.js";
+import { detectUiHeavyForProject } from "../workflow/design/ui-heavy-detection.js";
 
 export type IntegrationId = "supabase" | "clerk" | "shadcn-ui";
 export type SkillConfidence = "high" | "medium" | "low";
@@ -20,9 +21,25 @@ export interface DetectedIntegration {
   recommendedSkill: RecommendedSkill;
 }
 
+export type DesignAidId =
+  | "frontend-design"
+  | "design-critique"
+  | "web-design-guidelines"
+  | "hue"
+  | "transitions-refine";
+
+export interface DesignAid {
+  id: DesignAidId;
+  phase: string;
+  recommendedUse: string;
+  installAutomatically: false;
+}
+
 export interface SkillsPlan {
   detectedIntegrations: DetectedIntegration[];
   notDetectedIntegrations: IntegrationId[];
+  /** M13 §13: additive, advisory design aids. Never replaces detectedIntegrations/notDetectedIntegrations. */
+  designAids: DesignAid[];
   safetyNotes: string[];
 }
 
@@ -212,6 +229,55 @@ function detectShadcnUi(root: string, deps: Record<string, string> | null, proje
   };
 }
 
+/** M13 §13.2: fixed, deterministic order for advisory design aids. */
+const DESIGN_AID_ORDER: readonly DesignAidId[] = [
+  "frontend-design",
+  "design-critique",
+  "web-design-guidelines",
+  "hue",
+  "transitions-refine",
+];
+
+const DESIGN_AIDS_CATALOG: Record<DesignAidId, Omit<DesignAid, "id">> = {
+  "frontend-design": {
+    phase: "before-ui-implementation",
+    recommendedUse: "Use to define visual direction, tokens, layout, and design critique before coding.",
+    installAutomatically: false,
+  },
+  "design-critique": {
+    phase: "after-mockup-or-screenshot",
+    recommendedUse: "Use to critique usability, visual hierarchy, consistency, accessibility, and priority fixes.",
+    installAutomatically: false,
+  },
+  "web-design-guidelines": {
+    phase: "after-ui-code-exists",
+    recommendedUse: "Use to audit actual UI files against interface design guidelines and produce concrete fixes.",
+    installAutomatically: false,
+  },
+  hue: {
+    phase: "brand-reference-available",
+    recommendedUse: "Use when a brand URL or screenshot exists and the agent needs to infer a coherent design system.",
+    installAutomatically: false,
+  },
+  "transitions-refine": {
+    phase: "after-ui-runs-locally",
+    recommendedUse: "Use when motion/transitions need refinement against a running app.",
+    installAutomatically: false,
+  },
+};
+
+/**
+ * M13 §13.2: advisory design aids for high/medium UI-heavy projects only.
+ * All aids are advisory; installAutomatically is always false. No installs,
+ * network calls, brand scraping, screenshot parsing, or browser-based
+ * refinement are ever performed.
+ */
+export function buildDesignAids(root: string, project: ProjectModel): DesignAid[] {
+  const result = detectUiHeavyForProject({ project, repoRoot: root });
+  if (result.confidence !== "high" && result.confidence !== "medium") return [];
+  return DESIGN_AID_ORDER.map((id) => ({ id, ...DESIGN_AIDS_CATALOG[id] }));
+}
+
 const DETECTORS: Record<
   IntegrationId,
   (root: string, deps: Record<string, string> | null, project: ProjectModel) => DetectedIntegration | null
@@ -241,6 +307,7 @@ export function buildSkillsPlan(root: string, project: ProjectModel): SkillsPlan
   return {
     detectedIntegrations,
     notDetectedIntegrations,
+    designAids: buildDesignAids(root, project),
     safetyNotes: [...SAFETY_NOTES],
   };
 }

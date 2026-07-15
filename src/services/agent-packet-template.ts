@@ -1,6 +1,7 @@
 import type { PacketContext } from "./agent-packet-service.js";
 import type { Dependency } from "../schema/dependency.schema.js";
 import type { DetectedIntegration } from "./skills-detection-service.js";
+import { renderDesignGuidanceSection } from "../workflow/design/design-guidance-rules.js";
 
 /** M10 §12: concise, advisory blurb per integration for the packet's "Relevant Skills" section. */
 const SKILL_HINT_BLURBS: Record<DetectedIntegration["id"], string> = {
@@ -152,6 +153,14 @@ export function renderAgentPacket(context: PacketContext): string {
     lines.push("3. Current repository code");
     lines.push("4. Installed/recommended skills");
     lines.push("5. Generic model knowledge");
+    lines.push("");
+  }
+
+  // M13 §12: bounded, advisory design guidance -- only for UI-related work
+  // units in high/medium UI-heavy projects. Never expands the work unit's
+  // scope; packet scope and out-of-scope always win over this guidance.
+  if (context.includeDesignGuidance) {
+    lines.push(renderDesignGuidanceSection());
     lines.push("");
   }
 

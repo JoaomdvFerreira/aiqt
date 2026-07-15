@@ -1,10 +1,15 @@
 import type { ProjectModel } from "../../schema/project.schema.js";
 import type { StateModel } from "../../schema/state.schema.js";
+import {
+  detectUiHeavyForProject,
+  isUiHeavy,
+} from "../../workflow/design/ui-heavy-detection.js";
 
 export interface DriverPromptInput {
   project: ProjectModel | null;
   state: StateModel | null;
   idea: string | null;
+  repoRoot?: string | null;
 }
 
 /**
@@ -13,7 +18,7 @@ export interface DriverPromptInput {
  * the prompt instructs the agent to initialize first instead of failing.
  */
 export function renderDriverPrompt(input: DriverPromptInput): string {
-  const { project, state, idea } = input;
+  const { project, state, idea, repoRoot = null } = input;
   const lines: string[] = [];
 
   lines.push("You are using AIQT as the workflow controller for this project.");
@@ -27,6 +32,19 @@ export function renderDriverPrompt(input: DriverPromptInput): string {
   if (idea) {
     lines.push("Rough idea:");
     lines.push(idea);
+    lines.push("");
+  }
+
+  // M13 §11.1: shared detector -- not reimplemented here. High/medium
+  // UI-heavy confidence tells the external agent not to jump straight into
+  // UI implementation.
+  const uiHeavyResult = detectUiHeavyForProject({ project, idea, repoRoot });
+  if (isUiHeavy(uiHeavyResult.confidence)) {
+    lines.push("Design-system guidance:");
+    lines.push("This project appears UI-heavy. Do not jump directly into UI implementation.");
+    lines.push(
+      "First use AIQT to capture enough product and design-system context (aiqt prompt interview), then create a plan that includes design-system foundation work before feature screens (aiqt prompt plan).",
+    );
     lines.push("");
   }
 
