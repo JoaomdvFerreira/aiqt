@@ -1,11 +1,13 @@
 import { z } from "zod";
 
-/** M14 §11.1: additive, optional packet audit flags. Mirrors the authoritative agent_packet.created runlog data; never the sole storage location. */
+/** M14 §11.1/M15 §13: additive, optional packet audit flags. Mirrors the authoritative agent_packet.created runlog data; never the sole storage location. */
 export const PacketGuidanceFlagsSchema = z.object({
   includesDesignGuidance: z.boolean(),
   includesWorkingDirectoryDiscipline: z.boolean(),
   includesComponentSystemGuidance: z.boolean(),
   includesRecoveryGuidance: z.boolean(),
+  /** M15 §13: optional so pre-M15 state files (with a guidanceFlags object lacking this key) remain valid. */
+  includesSourceControlGuidance: z.boolean().optional(),
 });
 export type PacketGuidanceFlags = z.infer<typeof PacketGuidanceFlagsSchema>;
 

@@ -10,6 +10,10 @@ import {
   requiresShadcnEnforcement,
   renderShadcnPlanningGuidance,
 } from "../../workflow/component-system-preferences.js";
+import {
+  requiresRepositoryBaselineWorkUnit,
+  renderPlanRepositoryBaselineGuidance,
+} from "../../workflow/source-control-discipline.js";
 
 function listOrNone(items: readonly string[]): string {
   return items.length > 0 ? items.join(", ") : "(none)";
@@ -125,6 +129,14 @@ export function renderPlanPrompt(project: ProjectModel, repoRoot: string | null 
   const componentSystemPreference = detectComponentSystemPreference({ project, repoRoot });
   if (requiresShadcnEnforcement(componentSystemPreference)) {
     lines.push(renderShadcnPlanningGuidance());
+    lines.push("");
+  }
+
+  // M15 §6.3/§11.2: require an early repository initialization/baseline
+  // work unit for new implementation projects unless source control already
+  // exists or the user explicitly disables it (F058).
+  if (requiresRepositoryBaselineWorkUnit({ project, repoRoot })) {
+    lines.push(renderPlanRepositoryBaselineGuidance());
     lines.push("");
   }
 

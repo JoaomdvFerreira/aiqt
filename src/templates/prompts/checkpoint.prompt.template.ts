@@ -1,5 +1,6 @@
 import type { WorkUnit } from "../../schema/work-unit.schema.js";
 import type { AgentPacketMetadata } from "../../schema/agent-packet.schema.js";
+import { renderCheckpointSourceControlGuidance } from "../../workflow/source-control-discipline.js";
 
 function listOrNone(items: readonly string[]): string {
   return items.length > 0 ? items.join(", ") : "(none)";
@@ -44,6 +45,10 @@ export function renderCheckpointPrompt(
   lines.push(
     "If working-directory or component-system guidance was provided in the agent packet, report any deviations (e.g. wrong working directory, hand-rolled primitives instead of the declared component system) in notes, and report filesChanged relative to the implementation root.",
   );
+  lines.push("");
+  // M15 §11.4: source-control and risk reporting, self-attested in existing
+  // checkpoint fields only -- no new checkpoint schema fields.
+  lines.push(renderCheckpointSourceControlGuidance());
   lines.push("");
   lines.push("Paste the coding agent's implementation report below this line:");
   lines.push("<paste the agent's report here>");
