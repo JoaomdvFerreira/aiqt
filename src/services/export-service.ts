@@ -10,6 +10,7 @@ import {
   renderAgentPacketExport,
   renderFinalReview,
 } from "./export-templates.js";
+import { findAgentPacketAuditMetadata } from "../state/runlog-store.js";
 
 export type ConcreteExportTarget =
   | "project-plan"
@@ -79,6 +80,7 @@ function renderExportDocument(
   project: ProjectModel,
   state: StateModel,
   review: ReviewResult,
+  runlogPath: string,
 ): string {
   switch (target) {
     case "project-plan":
@@ -87,8 +89,15 @@ function renderExportDocument(
       return renderStatusReport(project, state, review);
     case "technical-spec":
       return renderTechnicalSpec(project, state);
-    case "agent-packet":
-      return renderAgentPacketExport(state);
+    case "agent-packet": {
+      // M14 §11.3: read the latest valid agent_packet.created audit
+      // metadata for the exported packet from runlog history when
+      // available; degrade gracefully (null) for older packets.
+      const auditMetadata = state.lastAgentPacket
+        ? findAgentPacketAuditMetadata(runlogPath, state.lastAgentPacket.id)
+        : null;
+      return renderAgentPacketExport(state, auditMetadata);
+    }
     case "final-review":
       return renderFinalReview(state, review, buildManageReport(project, state, review));
   }
@@ -110,8 +119,9 @@ export function planExportDocuments(params: {
   state: StateModel;
   review: ReviewResult;
   exportsDir: string;
+  runlogPath: string;
 }): ExportDocumentPlan[] {
-  const { targets, project, state, review, exportsDir } = params;
+  const { targets, project, state, review, exportsDir, runlogPath } = params;
   return targets.map((target) => {
     const availability = checkTargetAvailability(target, state);
     const fileName = exportFileName(target, state);
@@ -124,7 +134,7 @@ export function planExportDocuments(params: {
       available: availability.available,
       skipReason: availability.reason,
       content: availability.available
-        ? renderExportDocument(target, project, state, review)
+        ? renderExportDocument(target, project, state, review, runlogPath)
         : null,
     };
   });

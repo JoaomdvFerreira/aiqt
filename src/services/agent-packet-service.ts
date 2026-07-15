@@ -14,6 +14,15 @@ import type {
 import type { DetectedIntegration } from "./skills-detection-service.js";
 import { shouldIncludeDesignGuidance } from "../workflow/design/design-guidance-rules.js";
 import type { UiHeavyConfidence } from "../workflow/design/ui-heavy-detection.js";
+import {
+  shouldIncludeWorkingDirectoryDiscipline,
+  renderWorkingDirectoryDisciplineSection,
+} from "../workflow/agent-operating-discipline.js";
+import {
+  shouldIncludeComponentSystemGuidance,
+  renderComponentSystemGuidanceSection,
+  type ComponentSystemPreference,
+} from "../workflow/component-system-preferences.js";
 
 export interface PacketContext {
   projectId: string;
@@ -34,6 +43,10 @@ export interface PacketContext {
   relevantSkills: DetectedIntegration[];
   /** M13 §12: true only when the project is UI-heavy (high/medium) AND this specific work unit is UI-related. */
   includeDesignGuidance: boolean;
+  /** M14 §8: rendered Working Directory Discipline section, or null when not applicable (no distinct implementation root configured). */
+  workingDirectoryDisciplineSection: string | null;
+  /** M14 §9: rendered Component System Guidance section, or null when not applicable. */
+  componentSystemGuidanceSection: string | null;
 }
 
 export interface ResolvedContextRefs {
@@ -184,10 +197,26 @@ export function buildPacketContext(
   resolved: ResolvedContextRefs,
   relevantSkills: DetectedIntegration[] = [],
   uiHeavyConfidence: UiHeavyConfidence = "none",
+  controlRoot: string | null = null,
+  componentSystemPreference: ComponentSystemPreference = "none",
 ): PacketContext {
   const dependencies = workUnit.dependencies
     .map((depId) => state.workGraph.dependencies.find((d) => d.id === depId))
     .filter((d): d is Dependency => d !== undefined);
+
+  const existingRepositoryPath = project.project.existingRepositoryPath;
+  const workingDirectoryDisciplineSection =
+    controlRoot !== null &&
+    shouldIncludeWorkingDirectoryDiscipline({ controlRoot, existingRepositoryPath })
+      ? renderWorkingDirectoryDisciplineSection({ controlRoot, existingRepositoryPath })
+      : null;
+
+  const componentSystemGuidanceSection = shouldIncludeComponentSystemGuidance(
+    componentSystemPreference,
+    workUnit,
+  )
+    ? renderComponentSystemGuidanceSection()
+    : null;
 
   return {
     projectId: project.project.id,
@@ -206,5 +235,56 @@ export function buildPacketContext(
     dependencies,
     relevantSkills,
     includeDesignGuidance: shouldIncludeDesignGuidance(uiHeavyConfidence, workUnit),
+    workingDirectoryDisciplineSection,
+    componentSystemGuidanceSection,
+  };
+}
+
+export interface PacketGuidanceFlags {
+  includesDesignGuidance: boolean;
+  includesWorkingDirectoryDiscipline: boolean;
+  includesComponentSystemGuidance: boolean;
+  /** Packets never render recovery guidance -- driver-only per M14 §10. Always false. */
+  includesRecoveryGuidance: boolean;
+}
+
+export interface PacketAuditMetadata {
+  renderedSections: string[];
+  guidanceFlags: PacketGuidanceFlags;
+}
+
+/** M14 §11: the sections aiqt next unconditionally renders in every packet. */
+const ALWAYS_RENDERED_PACKET_SECTIONS = [
+  "scope",
+  "context",
+  "constraints",
+  "acceptance",
+  "validation",
+] as const;
+
+/**
+ * M14 §11.1: derive the packet audit metadata (renderedSections,
+ * guidanceFlags) from the SAME PacketContext fields already used to render
+ * the packet body, so the audit record can never drift from what was
+ * actually rendered.
+ */
+export function computePacketAuditMetadata(context: PacketContext): PacketAuditMetadata {
+  const renderedSections: string[] = [...ALWAYS_RENDERED_PACKET_SECTIONS];
+  if (context.includeDesignGuidance) renderedSections.push("designGuidance");
+  if (context.workingDirectoryDisciplineSection !== null) {
+    renderedSections.push("workingDirectoryDiscipline");
+  }
+  if (context.componentSystemGuidanceSection !== null) {
+    renderedSections.push("componentSystemGuidance");
+  }
+
+  return {
+    renderedSections,
+    guidanceFlags: {
+      includesDesignGuidance: context.includeDesignGuidance,
+      includesWorkingDirectoryDiscipline: context.workingDirectoryDisciplineSection !== null,
+      includesComponentSystemGuidance: context.componentSystemGuidanceSection !== null,
+      includesRecoveryGuidance: false,
+    },
   };
 }

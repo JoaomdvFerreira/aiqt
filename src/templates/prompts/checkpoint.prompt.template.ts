@@ -38,6 +38,13 @@ export function renderCheckpointPrompt(
   lines.push(`Packet ID: ${packet.id}`);
   lines.push(`Packet created at: ${packet.createdAt}`);
   lines.push("");
+  // M14 §7/§12: soft reminder only -- does not add new checkpoint schema
+  // fields. Reuses the existing filesChanged/notes fields to help audit
+  // F053/F054/F055-style deviations after the fact.
+  lines.push(
+    "If working-directory or component-system guidance was provided in the agent packet, report any deviations (e.g. wrong working directory, hand-rolled primitives instead of the declared component system) in notes, and report filesChanged relative to the implementation root.",
+  );
+  lines.push("");
   lines.push("Paste the coding agent's implementation report below this line:");
   lines.push("<paste the agent's report here>");
   lines.push("");

@@ -151,6 +151,7 @@ export function runExport(
       state,
       review,
       exportsDir: paths.exportsDir,
+      runlogPath: paths.runlogFile,
     });
     const availablePlans = plans.filter((p) => p.available);
     const unavailablePlans = plans.filter((p) => !p.available);

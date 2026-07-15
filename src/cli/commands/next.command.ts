@@ -27,10 +27,12 @@ import {
   buildUnresolvedRefWarnings,
   buildPacketContext,
   selectRelevantSkills,
+  computePacketAuditMetadata,
 } from "../../services/agent-packet-service.js";
 import { renderAgentPacket } from "../../services/agent-packet-template.js";
 import { buildSkillsPlan } from "../../services/skills-detection-service.js";
 import { detectUiHeavyForProject } from "../../workflow/design/ui-heavy-detection.js";
+import { detectComponentSystemPreference } from "../../workflow/component-system-preferences.js";
 import type { StateModel } from "../../schema/state.schema.js";
 import type { AgentPacketMetadata } from "../../schema/agent-packet.schema.js";
 
@@ -156,6 +158,13 @@ export function runNext(ctx: CommandContext): CommandResult {
     // next call via the single shared detector.
     const uiHeavyResult = detectUiHeavyForProject({ project, repoRoot: paths.root });
 
+    // M14 §9: component-system preference (shadcn/ui enforcement), reusing
+    // the same shared detector rather than a second one.
+    const componentSystemPreference = detectComponentSystemPreference({
+      project,
+      repoRoot: paths.root,
+    });
+
     const packetContext = buildPacketContext(
       project,
       state,
@@ -164,9 +173,16 @@ export function runNext(ctx: CommandContext): CommandResult {
       resolved,
       relevantSkills,
       uiHeavyResult.confidence,
+      paths.root,
+      componentSystemPreference.preference,
     );
     const packetBody = renderAgentPacket(packetContext);
     const contentHash = sha256Hex(packetBody);
+
+    // M14 §11.1: derive audit metadata from the exact same PacketContext
+    // fields used to render the packet, so the record can never drift from
+    // what was actually rendered.
+    const auditMetadata = computePacketAuditMetadata(packetContext);
 
     const timestamp = new Date().toISOString();
     const existingPacketIds = readAgentPacketIds(paths.runlogFile, state.lastAgentPacket);
@@ -180,6 +196,10 @@ export function runNext(ctx: CommandContext): CommandResult {
       format: "markdown",
       contentHash,
       sourceCommand: "aiqt next",
+      // M14 §11.2: optional latest-packet mirror only. The authoritative
+      // historical record is the agent_packet.created runlog event below.
+      renderedSections: auditMetadata.renderedSections,
+      guidanceFlags: auditMetadata.guidanceFlags,
     };
 
     const transition = applyWorkUnitStartTransition(
@@ -227,6 +247,8 @@ export function runNext(ctx: CommandContext): CommandResult {
           format: "markdown",
           contentHash,
           nextRecommendedCommand: "aiqt checkpoint",
+          renderedSections: auditMetadata.renderedSections,
+          guidanceFlags: auditMetadata.guidanceFlags,
         },
       }),
     );

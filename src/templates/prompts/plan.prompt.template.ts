@@ -5,6 +5,11 @@ import {
   isUiHeavy,
 } from "../../workflow/design/ui-heavy-detection.js";
 import { renderDesignSystemPlannerBlock } from "../design-system-planner-template.js";
+import {
+  detectComponentSystemPreference,
+  requiresShadcnEnforcement,
+  renderShadcnPlanningGuidance,
+} from "../../workflow/component-system-preferences.js";
 
 function listOrNone(items: readonly string[]): string {
   return items.length > 0 ? items.join(", ") : "(none)";
@@ -112,6 +117,14 @@ export function renderPlanPrompt(project: ProjectModel, repoRoot: string | null 
   const uiHeavyResult = detectUiHeavyForProject({ project, repoRoot });
   if (isUiHeavy(uiHeavyResult.confidence)) {
     lines.push(renderDesignSystemPlannerBlock(uiHeavyResult.confidence as "high" | "medium"));
+    lines.push("");
+  }
+
+  // M14 §9: harden component-system enforcement (F053) -- reuses the same
+  // M13 UI-heavy detector's shadcn-ui signal, not a second detector.
+  const componentSystemPreference = detectComponentSystemPreference({ project, repoRoot });
+  if (requiresShadcnEnforcement(componentSystemPreference)) {
+    lines.push(renderShadcnPlanningGuidance());
     lines.push("");
   }
 
