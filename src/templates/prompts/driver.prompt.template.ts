@@ -72,9 +72,12 @@ export function renderDriverPrompt(input: DriverPromptInput): string {
   lines.push(renderRecoveryDisciplineSection());
   lines.push("");
 
-  // M15 §11.1: source-control discipline (F058-F062). Guidance only -- AIQT
-  // never executes Git/GitHub commands itself.
-  lines.push(renderDriverSourceControlDisciplineSection());
+  // M15 §11.1/M15-RC1 §8.1: source-control and repository-boundary
+  // discipline (F058-F062, F063). Guidance only -- AIQT never executes
+  // Git/GitHub commands itself.
+  lines.push(
+    renderDriverSourceControlDisciplineSection({ controlRoot, implementationRoot: existingRepositoryPath }),
+  );
   lines.push("");
 
   lines.push("Preferred agent path:");

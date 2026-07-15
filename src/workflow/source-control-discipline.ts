@@ -9,6 +9,11 @@ import type { ProjectModel } from "../schema/project.schema.js";
  * rendered into prompts/packets, plus one pure, unenforced rendering helper
  * (mapRiskScoreToSeverity). All Git/GitHub status an agent reports through a
  * checkpoint is self-attested; AIQT does not parse, verify, or act on it.
+ *
+ * M15-RC1: implementation repository boundary enforcement (F063). Hardens
+ * the above with guidance that the implementation root must be the Git
+ * repository root -- never a parent/control repository. Still guidance-only;
+ * AIQT does not execute or verify any Git command itself.
  */
 
 export type AiqtSeverity = "low" | "medium" | "high" | "critical";
@@ -69,11 +74,56 @@ export function requiresRepositoryBaselineWorkUnit(input: {
   return true;
 }
 
-/** §11.1: aiqt prompt driver's Source Control Discipline block. */
-export function renderDriverSourceControlDisciplineSection(): string {
+/**
+ * F063 §6: the Repository Boundary Rule -- shared text rendered in both the
+ * driver Source Control Discipline block and the packet Source Control
+ * Expectations section. Guidance-only: AIQT never verifies this itself.
+ */
+export function renderRepositoryBoundaryRule(): string {
+  const lines: string[] = [];
+  lines.push("Repository Boundary Rule:");
+  lines.push("- The implementation root must be the Git repository root.");
+  lines.push("- Before modifying implementation files, run: git rev-parse --show-toplevel");
+  lines.push("- The returned path must equal the implementation root.");
+  lines.push(
+    "- If it returns a parent folder, the AIQT control root, or any path other than the implementation root, stop and correct the repository boundary before continuing.",
+  );
+  lines.push(
+    "- Do not rely on a parent Git repository. Do not commit implementation Work Unit changes to the AIQT control repository, unless the user has explicitly defined the AIQT control root and implementation root as the same repository.",
+  );
+  return lines.join("\n");
+}
+
+/**
+ * §11.1/F063 §8.1: aiqt prompt driver's Source Control Discipline block.
+ * Optionally names the AIQT control root and implementation root when known,
+ * and always includes the pre-Work-Unit repository boundary preflight.
+ */
+export function renderDriverSourceControlDisciplineSection(input?: {
+  controlRoot?: string | null;
+  implementationRoot?: string | null;
+}): string {
+  const controlRoot = input?.controlRoot ?? null;
+  const implementationRoot = input?.implementationRoot ?? null;
   const lines: string[] = [];
   lines.push("Source Control Discipline:");
   lines.push("- Confirm the implementation root before making any changes.");
+  if (controlRoot !== null || implementationRoot !== null) {
+    lines.push(`- AIQT control root: ${controlRoot ?? "(unknown)"}`);
+    lines.push(
+      `- Implementation root: ${implementationRoot ?? "not yet configured -- do not assume the control root is the implementation root"}`,
+    );
+  }
+  lines.push("");
+  lines.push(renderRepositoryBoundaryRule());
+  lines.push("");
+  lines.push("Pre-Work-Unit source-control preflight (run from the implementation root):");
+  lines.push("git rev-parse --show-toplevel");
+  lines.push("git branch --show-current");
+  lines.push("git status --short");
+  lines.push(
+    "- Git top-level must exactly equal the implementation root; branch should be main unless the user explicitly configured a different branch policy; status should be clean, or contain only intentional scaffold files before the baseline commit.",
+  );
   lines.push(
     "- If the implementation root is not a Git repository, initialize one with main as the default branch (git init -b main, or git init followed by git branch -M main as a fallback).",
   );
@@ -95,6 +145,9 @@ export function renderPlanRepositoryBaselineGuidance(): string {
   lines.push("Repository initialization guidance:");
   lines.push(
     "No existing source control was detected for the implementation root. The plan must include an early repository initialization/baseline work unit before any feature implementation work unit.",
+  );
+  lines.push(
+    "Initialize this repository inside the implementation root itself, not the AIQT control root or any parent folder (F063).",
   );
   lines.push("This baseline work unit should:");
   lines.push("- Initialize Git with main as the default branch.");
@@ -122,6 +175,11 @@ export function renderSourceControlExpectationsSection(input: {
   const lines: string[] = [];
   lines.push("## Source Control Expectations");
   lines.push("");
+  lines.push(renderRepositoryBoundaryRule());
+  lines.push("");
+  lines.push(
+    "- Run `git rev-parse --show-toplevel` from the implementation root before editing files for this Work Unit; stop and correct the repository boundary if it does not equal the implementation root (F063).",
+  );
   lines.push("- Keep changes scoped to this Work Unit only.");
   lines.push("- Run `git status` before starting and before checkpointing.");
   lines.push(
@@ -145,6 +203,8 @@ export function renderCheckpointSourceControlGuidance(): string {
   lines.push("");
   lines.push("Source control report:");
   lines.push("- Implementation root:");
+  lines.push("- Git top-level (git rev-parse --show-toplevel):");
+  lines.push("- Boundary verified: yes/no");
   lines.push("- Current branch:");
   lines.push("- Git status before checkpoint:");
   lines.push("- Commit created: yes/no");
