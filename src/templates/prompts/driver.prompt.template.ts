@@ -11,6 +11,7 @@ import {
   renderRecoveryDisciplineSection,
 } from "../../workflow/agent-operating-discipline.js";
 import { renderDriverSourceControlDisciplineSection } from "../../workflow/source-control-discipline.js";
+import { resolveRoots, renderRootContextSection } from "../../workflow/root-resolution.js";
 
 export interface DriverPromptInput {
   project: ProjectModel | null;
@@ -42,6 +43,16 @@ export function renderDriverPrompt(input: DriverPromptInput): string {
     lines.push("");
   }
 
+  // M16 §13.1: always-rendered root context (F064) -- removes the need for
+  // the user to repeat root paths in every prompt. Computed once and reused
+  // by every root-aware guidance surface below.
+  const roots = resolveRoots({
+    controlRoot: repoRoot ?? process.cwd(),
+    existingRepositoryPath: project?.project.existingRepositoryPath ?? null,
+  });
+  lines.push(renderRootContextSection(roots));
+  lines.push("");
+
   // M13 §11.1: shared detector -- not reimplemented here. High/medium
   // UI-heavy confidence tells the external agent not to jump straight into
   // UI implementation.
@@ -57,13 +68,21 @@ export function renderDriverPrompt(input: DriverPromptInput): string {
 
   // M14 §8: working-directory discipline (F054/F055). Never invents an
   // implementation root -- warns when none is configured instead.
-  const controlRoot = repoRoot ?? process.cwd();
-  const existingRepositoryPath = project?.project.existingRepositoryPath ?? null;
-  if (shouldIncludeWorkingDirectoryDiscipline({ controlRoot, existingRepositoryPath })) {
-    lines.push(renderWorkingDirectoryDisciplineSection({ controlRoot, existingRepositoryPath }));
+  if (
+    shouldIncludeWorkingDirectoryDiscipline({
+      controlRoot: roots.controlRoot,
+      existingRepositoryPath: roots.existingRepositoryPath,
+    })
+  ) {
+    lines.push(
+      renderWorkingDirectoryDisciplineSection({
+        controlRoot: roots.controlRoot,
+        existingRepositoryPath: roots.existingRepositoryPath,
+      }),
+    );
     lines.push("");
   } else {
-    lines.push(renderNoImplementationRootWarning(controlRoot));
+    lines.push(renderNoImplementationRootWarning(roots.controlRoot));
     lines.push("");
   }
 
@@ -72,11 +91,15 @@ export function renderDriverPrompt(input: DriverPromptInput): string {
   lines.push(renderRecoveryDisciplineSection());
   lines.push("");
 
-  // M15 §11.1/M15-RC1 §8.1: source-control and repository-boundary
-  // discipline (F058-F062, F063). Guidance only -- AIQT never executes
-  // Git/GitHub commands itself.
+  // M15 §11.1/M15-RC1 §8.1/M16 §9: source-control and repository-boundary
+  // discipline (F058-F062, F063), consuming the resolved implementationRoot
+  // computed once above. Guidance only -- AIQT never executes Git/GitHub
+  // commands itself.
   lines.push(
-    renderDriverSourceControlDisciplineSection({ controlRoot, implementationRoot: existingRepositoryPath }),
+    renderDriverSourceControlDisciplineSection({
+      controlRoot: roots.controlRoot,
+      implementationRoot: roots.implementationRoot,
+    }),
   );
   lines.push("");
 

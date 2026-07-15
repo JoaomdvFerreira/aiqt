@@ -3,12 +3,16 @@ export interface RawInitOptions {
   objective?: string;
   targetUser?: string;
   agent?: string;
+  /** M16: clearer alias for existingRepositoryPath, written at init time. */
+  implementationRoot?: string;
 }
 
 export interface InitOptions {
   objective: string;
   targetUsers: string[];
   preferredAgent: string | null;
+  /** M16: writes project.existingRepositoryPath when supplied. Null means same-root (implementationRoot resolves to controlRoot). */
+  existingRepositoryPath: string | null;
 }
 
 /** Normalize commander-parsed init flags into canonical init input. */
@@ -19,6 +23,10 @@ export function normalizeInitOptions(raw: RawInitOptions): InitOptions {
       raw.targetUser && raw.targetUser.trim() !== "" ? [raw.targetUser] : [],
     preferredAgent:
       raw.agent && raw.agent.trim() !== "" ? raw.agent : null,
+    existingRepositoryPath:
+      raw.implementationRoot && raw.implementationRoot.trim() !== ""
+        ? raw.implementationRoot
+        : null,
   };
 }
 
@@ -31,6 +39,8 @@ export interface RawUpdateOptions {
   targetUser?: string[];
   agent?: string;
   repositoryPath?: string;
+  /** M16: clearer alias for --repository-path; both write existingRepositoryPath. */
+  implementationRoot?: string;
 }
 
 /** Accumulate repeatable commander flag values into an array. */

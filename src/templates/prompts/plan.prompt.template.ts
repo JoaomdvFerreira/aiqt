@@ -14,6 +14,7 @@ import {
   requiresRepositoryBaselineWorkUnit,
   renderPlanRepositoryBaselineGuidance,
 } from "../../workflow/source-control-discipline.js";
+import { resolveRoots } from "../../workflow/root-resolution.js";
 
 function listOrNone(items: readonly string[]): string {
   return items.length > 0 ? items.join(", ") : "(none)";
@@ -87,6 +88,21 @@ export function renderPlanPrompt(project: ProjectModel, repoRoot: string | null 
   lines.push("- Only use a broad category ref when the work unit genuinely needs the full category.");
   lines.push(
     "- If no specific record is directly relevant, omit agentContextRefs and rely on the work unit's own scope and acceptanceCriteria.",
+  );
+  lines.push("");
+
+  // M16 §13.2: planning guidance should know whether this is a same-root or
+  // split-root project, using the same resolved roots consumed everywhere
+  // else (F064).
+  const roots = resolveRoots({
+    controlRoot: repoRoot ?? process.cwd(),
+    existingRepositoryPath: project.project.existingRepositoryPath,
+  });
+  lines.push("Root context:");
+  lines.push(
+    roots.sameRoot
+      ? `- Same-root project: the AIQT control root and implementation root are both ${roots.controlRoot}.`
+      : `- Split-root project: AIQT control root is ${roots.controlRoot}; implementation root is ${roots.implementationRoot}.`,
   );
   lines.push("");
 

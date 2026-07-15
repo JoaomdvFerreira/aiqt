@@ -1,6 +1,7 @@
 import type { ManageReport } from "./manage-service.js";
 import { WORK_UNIT_STATUSES } from "../workflow/statuses.js";
 import type { WorkUnitStatus } from "../schema/work-unit.schema.js";
+import type { RootResolution } from "../workflow/root-resolution.js";
 
 function bulletList(items: readonly string[]): string {
   if (items.length === 0) return "- None.";
@@ -15,13 +16,22 @@ function bulletList(items: readonly string[]): string {
 export function renderManageReportText(params: {
   projectName: string;
   report: ManageReport;
+  roots: RootResolution;
   currentMilestoneId: string | null;
   currentWorkUnitId: string | null;
 }): string {
-  const { projectName, report, currentMilestoneId, currentWorkUnitId } = params;
+  const { projectName, report, roots, currentMilestoneId, currentWorkUnitId } = params;
   const lines: string[] = [];
 
   lines.push(`# AIQT Manager Report: ${projectName}`, "");
+
+  // M16 §10: root summary. AIQT does not verify Git state here or anywhere
+  // else in aiqt manage -- these are the runtime-resolved control/
+  // implementation roots only.
+  lines.push("## Root Configuration", "");
+  lines.push(`- AIQT control root: ${roots.controlRoot}`);
+  lines.push(`- Implementation root: ${roots.implementationRoot}`);
+  lines.push(`- Same root: ${roots.sameRoot ? "yes" : "no"}`, "");
 
   lines.push("## Project Status", "");
   lines.push(`- Status: ${report.projectStatus}`, "");

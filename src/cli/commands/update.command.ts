@@ -69,6 +69,29 @@ function isTty(): boolean {
   return Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY);
 }
 
+/**
+ * M16 §7.1/§10: --implementation-root is a clearer alias for --repository-path;
+ * both write existingRepositoryPath. Supplying both with different values is
+ * invalid input (exit 3). Equal values (including via idempotent re-runs)
+ * are not a conflict.
+ */
+function resolveEffectiveRepositoryPath(raw: RawUpdateOptions): string | undefined {
+  const implementationRoot = raw.implementationRoot?.trim();
+  const repositoryPath = raw.repositoryPath?.trim();
+  if (implementationRoot && repositoryPath && implementationRoot !== repositoryPath) {
+    const message =
+      "--implementation-root and --repository-path were both supplied with different values.";
+    throw new AiqtError(message, ExitCode.InvalidInput, {
+      id: "UPDATE-ROOT-ALIAS-CONFLICT",
+      severity: "critical",
+      area: "input",
+      message,
+      agentCanFix: false,
+    });
+  }
+  return implementationRoot || repositoryPath || undefined;
+}
+
 export async function runUpdate(
   ctx: CommandContext,
   raw: RawUpdateOptions,
@@ -76,13 +99,15 @@ export async function runUpdate(
   try {
     const { paths, project, state } = loadProject(ctx);
 
+    const effectiveRepositoryPath = resolveEffectiveRepositoryPath(raw);
+
     const hasDirectInput =
       Boolean(raw.fromFile) ||
       raw.input !== undefined ||
       Boolean(raw.objective) ||
       (raw.targetUser?.length ?? 0) > 0 ||
       Boolean(raw.agent) ||
-      Boolean(raw.repositoryPath);
+      Boolean(effectiveRepositoryPath);
 
     let mergedPatch: UpdateInput;
 
@@ -96,7 +121,7 @@ export async function runUpdate(
         objective: raw.objective,
         targetUsers: raw.targetUser,
         agent: raw.agent,
-        repositoryPath: raw.repositoryPath,
+        repositoryPath: effectiveRepositoryPath,
       });
     } else if (isTty()) {
       try {

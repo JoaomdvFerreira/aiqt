@@ -5,6 +5,7 @@ import { aiqtDirExists, loadProject } from "./load-project.js";
 import { runReview } from "../../services/review-service.js";
 import { buildManageReport } from "../../services/manage-service.js";
 import { readAgentPacketIds } from "../../state/runlog-store.js";
+import { resolveRoots } from "../../workflow/root-resolution.js";
 
 /**
  * aiqt manage (M9 §8.1): a read-only project manager report. Never mutates
@@ -36,6 +37,11 @@ export function runManage(ctx: CommandContext): CommandResult {
     const knownPacketIds = readAgentPacketIds(paths.runlogFile, state.lastAgentPacket);
     const review = runReview(project, state, knownPacketIds);
     const report = buildManageReport(project, state, review);
+    // M16 §10: aiqt manage displays a root summary alongside the review report.
+    const roots = resolveRoots({
+      controlRoot: paths.root,
+      existingRepositoryPath: project.project.existingRepositoryPath,
+    });
 
     return makeResult({
       status: "passed",
@@ -51,6 +57,7 @@ export function runManage(ctx: CommandContext): CommandResult {
       exitCode: ExitCode.Success,
       data: {
         projectName: project.project.name,
+        roots,
         ...report,
       },
     });
