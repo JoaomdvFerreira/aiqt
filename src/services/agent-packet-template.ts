@@ -164,6 +164,20 @@ export function renderAgentPacket(context: PacketContext): string {
     lines.push("");
   }
 
+  // M14 §8: working-directory discipline, only when a distinct
+  // implementation root is actually configured (F054/F055).
+  if (context.workingDirectoryDisciplineSection) {
+    lines.push(context.workingDirectoryDisciplineSection);
+    lines.push("");
+  }
+
+  // M14 §9: component-system guidance, only for UI-related work units in a
+  // declared shadcn/ui project (F053).
+  if (context.componentSystemGuidanceSection) {
+    lines.push(context.componentSystemGuidanceSection);
+    lines.push("");
+  }
+
   lines.push("## Required Agent Output");
   lines.push("");
   lines.push("Return:");

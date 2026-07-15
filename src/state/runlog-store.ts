@@ -118,6 +118,13 @@ export function buildWorkGraphGeneratedEvent(input: {
   };
 }
 
+export interface PacketGuidanceFlagsData {
+  includesDesignGuidance: boolean;
+  includesWorkingDirectoryDiscipline: boolean;
+  includesComponentSystemGuidance: boolean;
+  includesRecoveryGuidance: boolean;
+}
+
 export interface AgentPacketCreatedEventData {
   packetId: string;
   workUnitId: string;
@@ -125,6 +132,9 @@ export interface AgentPacketCreatedEventData {
   format: "markdown";
   contentHash: string;
   nextRecommendedCommand: string | null;
+  /** M14 §11.1: additive audit metadata. The authoritative historical record for packet guidance audit -- not just a state.lastAgentPacket mirror. */
+  renderedSections?: string[];
+  guidanceFlags?: PacketGuidanceFlagsData;
 }
 
 /** Build the agent_packet.created event appended by `aiqt next` on success. */
@@ -469,6 +479,67 @@ export function findPreviousAgentPacketMetadata(
     }
   }
   return previous;
+}
+
+/**
+ * M14 §11.3: find the latest valid agent_packet.created runlog event
+ * matching `packetId`, scanning the full runlog history (later entries win,
+ * mirroring findPreviousAgentPacketMetadata's convention). Returns null when
+ * no matching event exists or it carries no renderedSections/guidanceFlags
+ * -- e.g. older packets created before M14. This is the authoritative
+ * historical audit source; state.lastAgentPacket is only ever a mirror.
+ */
+export function findAgentPacketAuditMetadata(
+  path: string,
+  packetId: string,
+): { renderedSections: string[]; guidanceFlags: PacketGuidanceFlagsData } | null {
+  if (!isFile(path)) return null;
+  let raw: string;
+  try {
+    raw = readTextFile(path);
+  } catch {
+    return null;
+  }
+
+  let found: { renderedSections: string[]; guidanceFlags: PacketGuidanceFlagsData } | null = null;
+
+  for (const line of raw.split(/\r?\n/)) {
+    if (line.trim() === "") continue;
+    try {
+      const parsed = JSON.parse(line);
+      const result = RunlogEventSchema.safeParse(parsed);
+      if (result.success && result.data.type === "agent_packet.created") {
+        const data = result.data.data as
+          | {
+              packetId?: unknown;
+              renderedSections?: unknown;
+              guidanceFlags?: unknown;
+            }
+          | undefined;
+        if (
+          data?.packetId === packetId &&
+          Array.isArray(data.renderedSections) &&
+          data.renderedSections.every((s) => typeof s === "string") &&
+          typeof data.guidanceFlags === "object" &&
+          data.guidanceFlags !== null
+        ) {
+          const flags = data.guidanceFlags as Record<string, unknown>;
+          found = {
+            renderedSections: data.renderedSections as string[],
+            guidanceFlags: {
+              includesDesignGuidance: Boolean(flags.includesDesignGuidance),
+              includesWorkingDirectoryDiscipline: Boolean(flags.includesWorkingDirectoryDiscipline),
+              includesComponentSystemGuidance: Boolean(flags.includesComponentSystemGuidance),
+              includesRecoveryGuidance: Boolean(flags.includesRecoveryGuidance),
+            },
+          };
+        }
+      }
+    } catch {
+      // skip malformed lines
+    }
+  }
+  return found;
 }
 
 /**

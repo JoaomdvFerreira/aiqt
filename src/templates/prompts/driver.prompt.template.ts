@@ -4,6 +4,12 @@ import {
   detectUiHeavyForProject,
   isUiHeavy,
 } from "../../workflow/design/ui-heavy-detection.js";
+import {
+  shouldIncludeWorkingDirectoryDiscipline,
+  renderWorkingDirectoryDisciplineSection,
+  renderNoImplementationRootWarning,
+  renderRecoveryDisciplineSection,
+} from "../../workflow/agent-operating-discipline.js";
 
 export interface DriverPromptInput {
   project: ProjectModel | null;
@@ -47,6 +53,23 @@ export function renderDriverPrompt(input: DriverPromptInput): string {
     );
     lines.push("");
   }
+
+  // M14 §8: working-directory discipline (F054/F055). Never invents an
+  // implementation root -- warns when none is configured instead.
+  const controlRoot = repoRoot ?? process.cwd();
+  const existingRepositoryPath = project?.project.existingRepositoryPath ?? null;
+  if (shouldIncludeWorkingDirectoryDiscipline({ controlRoot, existingRepositoryPath })) {
+    lines.push(renderWorkingDirectoryDisciplineSection({ controlRoot, existingRepositoryPath }));
+    lines.push("");
+  } else {
+    lines.push(renderNoImplementationRootWarning(controlRoot));
+    lines.push("");
+  }
+
+  // M14 §10: recovery discipline (F057) -- prefer M11/M12 controls before
+  // reset/reimport. Does not change aiqt graph validate/repair behavior.
+  lines.push(renderRecoveryDisciplineSection());
+  lines.push("");
 
   lines.push("Preferred agent path:");
   lines.push("- Run aiqt init if .aiqt/ does not exist.");

@@ -357,4 +357,45 @@ describe("aiqt CLI entrypoint", () => {
     // still confirms --dry-run parses correctly through the nested subcommand.
     expect(res.status).toBe(2);
   });
+
+  it("M14: no new public commands are registered -- --help lists exactly the pre-M14 command set", () => {
+    dir = makeTempDir();
+    const res = runCli(["--help"], dir);
+    expect(res.status).toBe(0);
+    for (const command of [
+      "init",
+      "status",
+      "next",
+      "update",
+      "plan",
+      "checkpoint",
+      "review",
+      "export",
+      "start",
+      "continue",
+      "prompt",
+      "manage",
+      "skills",
+      "import",
+      "issue",
+      "repair",
+      "dependency",
+      "graph",
+    ]) {
+      expect(res.stdout).toContain(command);
+    }
+    // A hypothetical M14 command surface (e.g. "design") must not appear.
+    expect(res.stdout).not.toMatch(/^\s*design\s/m);
+  });
+
+  it("M14: aiqt prompt driver/plan/next/skills-plan/export retain their pre-M14 exit-code contracts", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    // Missing target for export still returns exit 10 (needs_input), unchanged from M6.
+    const exportRes = runCli(["export"], dir);
+    expect(exportRes.status).toBe(10);
+    // Unsupported prompt kind still returns exit 3, unchanged from M7.
+    const promptRes = runCli(["prompt", "bogus"], dir);
+    expect(promptRes.status).toBe(3);
+  });
 });
