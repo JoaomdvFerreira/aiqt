@@ -10,6 +10,7 @@ import {
   renderNoImplementationRootWarning,
   renderRecoveryDisciplineSection,
 } from "../../workflow/agent-operating-discipline.js";
+import { renderDriverSourceControlDisciplineSection } from "../../workflow/source-control-discipline.js";
 
 export interface DriverPromptInput {
   project: ProjectModel | null;
@@ -69,6 +70,11 @@ export function renderDriverPrompt(input: DriverPromptInput): string {
   // M14 §10: recovery discipline (F057) -- prefer M11/M12 controls before
   // reset/reimport. Does not change aiqt graph validate/repair behavior.
   lines.push(renderRecoveryDisciplineSection());
+  lines.push("");
+
+  // M15 §11.1: source-control discipline (F058-F062). Guidance only -- AIQT
+  // never executes Git/GitHub commands itself.
+  lines.push(renderDriverSourceControlDisciplineSection());
   lines.push("");
 
   lines.push("Preferred agent path:");

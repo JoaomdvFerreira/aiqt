@@ -178,6 +178,12 @@ export function renderAgentPacket(context: PacketContext): string {
     lines.push("");
   }
 
+  // M15 §11.3/§12: Source Control Expectations, in a fixed location after
+  // Component System Guidance and before Required Agent Output. Always
+  // rendered -- every selected work unit is implementation work (F058-F062).
+  lines.push(context.sourceControlExpectationsSection);
+  lines.push("");
+
   lines.push("## Required Agent Output");
   lines.push("");
   lines.push("Return:");

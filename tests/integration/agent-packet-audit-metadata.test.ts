@@ -83,6 +83,7 @@ describe("aiqt next: M14 packet audit metadata in agent_packet.created runlog da
         "designGuidance",
         "workingDirectoryDiscipline",
         "componentSystemGuidance",
+        "sourceControlExpectations",
       ]),
     );
     expect(packetEvent.data.guidanceFlags).toEqual({
@@ -90,6 +91,7 @@ describe("aiqt next: M14 packet audit metadata in agent_packet.created runlog da
       includesWorkingDirectoryDiscipline: true,
       includesComponentSystemGuidance: true,
       includesRecoveryGuidance: false,
+      includesSourceControlGuidance: true,
     });
 
     // Preserves all existing AgentPacketMetadata fields.
@@ -150,6 +152,7 @@ describe("aiqt next: M14 packet audit metadata in agent_packet.created runlog da
       includesWorkingDirectoryDiscipline: false,
       includesComponentSystemGuidance: false,
       includesRecoveryGuidance: false,
+      includesSourceControlGuidance: true,
     });
   });
 

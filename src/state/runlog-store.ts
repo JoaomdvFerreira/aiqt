@@ -123,6 +123,8 @@ export interface PacketGuidanceFlagsData {
   includesWorkingDirectoryDiscipline: boolean;
   includesComponentSystemGuidance: boolean;
   includesRecoveryGuidance: boolean;
+  /** M15 §13: additive. Older runlog events lack this key; readers default it to false. */
+  includesSourceControlGuidance: boolean;
 }
 
 export interface AgentPacketCreatedEventData {
@@ -531,6 +533,7 @@ export function findAgentPacketAuditMetadata(
               includesWorkingDirectoryDiscipline: Boolean(flags.includesWorkingDirectoryDiscipline),
               includesComponentSystemGuidance: Boolean(flags.includesComponentSystemGuidance),
               includesRecoveryGuidance: Boolean(flags.includesRecoveryGuidance),
+              includesSourceControlGuidance: Boolean(flags.includesSourceControlGuidance),
             },
           };
         }

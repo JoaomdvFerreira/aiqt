@@ -23,6 +23,7 @@ import {
   renderComponentSystemGuidanceSection,
   type ComponentSystemPreference,
 } from "../workflow/component-system-preferences.js";
+import { renderSourceControlExpectationsSection } from "../workflow/source-control-discipline.js";
 
 export interface PacketContext {
   projectId: string;
@@ -47,6 +48,8 @@ export interface PacketContext {
   workingDirectoryDisciplineSection: string | null;
   /** M14 §9: rendered Component System Guidance section, or null when not applicable. */
   componentSystemGuidanceSection: string | null;
+  /** M15 §11.3: rendered Source Control Expectations section. Always present -- every selected work unit is implementation work. */
+  sourceControlExpectationsSection: string;
 }
 
 export interface ResolvedContextRefs {
@@ -237,6 +240,12 @@ export function buildPacketContext(
     includeDesignGuidance: shouldIncludeDesignGuidance(uiHeavyConfidence, workUnit),
     workingDirectoryDisciplineSection,
     componentSystemGuidanceSection,
+    // M15 §11.3: unconditional -- every work unit selected by aiqt next is
+    // implementation work, so Source Control Expectations always renders.
+    sourceControlExpectationsSection: renderSourceControlExpectationsSection({
+      workUnitId: workUnit.id,
+      milestoneId: milestone.id,
+    }),
   };
 }
 
@@ -246,6 +255,8 @@ export interface PacketGuidanceFlags {
   includesComponentSystemGuidance: boolean;
   /** Packets never render recovery guidance -- driver-only per M14 §10. Always false. */
   includesRecoveryGuidance: boolean;
+  /** M15 §13: true whenever Source Control Expectations was rendered. Always true -- every packet includes it. */
+  includesSourceControlGuidance: boolean;
 }
 
 export interface PacketAuditMetadata {
@@ -277,6 +288,9 @@ export function computePacketAuditMetadata(context: PacketContext): PacketAuditM
   if (context.componentSystemGuidanceSection !== null) {
     renderedSections.push("componentSystemGuidance");
   }
+  // M15 §13: always rendered -- included in renderedSections unconditionally,
+  // matching the packet body, which always includes this section.
+  renderedSections.push("sourceControlExpectations");
 
   return {
     renderedSections,
@@ -285,6 +299,7 @@ export function computePacketAuditMetadata(context: PacketContext): PacketAuditM
       includesWorkingDirectoryDiscipline: context.workingDirectoryDisciplineSection !== null,
       includesComponentSystemGuidance: context.componentSystemGuidanceSection !== null,
       includesRecoveryGuidance: false,
+      includesSourceControlGuidance: true,
     },
   };
 }

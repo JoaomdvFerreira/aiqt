@@ -398,4 +398,83 @@ describe("aiqt CLI entrypoint", () => {
     const promptRes = runCli(["prompt", "bogus"], dir);
     expect(promptRes.status).toBe(3);
   });
+
+  it("M15: no new public commands are registered -- --help still lists exactly the pre-M15 command set", () => {
+    dir = makeTempDir();
+    const res = runCli(["--help"], dir);
+    expect(res.status).toBe(0);
+    for (const command of [
+      "init",
+      "status",
+      "next",
+      "update",
+      "plan",
+      "checkpoint",
+      "review",
+      "export",
+      "start",
+      "continue",
+      "prompt",
+      "manage",
+      "skills",
+      "import",
+      "issue",
+      "repair",
+      "dependency",
+      "graph",
+    ]) {
+      expect(res.stdout).toContain(command);
+    }
+    // A hypothetical M15 command surface (e.g. "git" or "source-control") must not appear.
+    expect(res.stdout).not.toMatch(/^\s*git\s/m);
+    expect(res.stdout).not.toMatch(/^\s*source-control\s/m);
+  });
+
+  it("M15: representative pre-M15 exit-code contracts remain unchanged", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    // Missing target for export still returns exit 10 (needs_input), unchanged since M6.
+    expect(runCli(["export"], dir).status).toBe(10);
+    // Unsupported prompt kind still returns exit 3, unchanged since M7.
+    expect(runCli(["prompt", "bogus"], dir).status).toBe(3);
+    // Unknown command still returns exit 3.
+    expect(runCli(["frobnicate"], dir).status).toBe(3);
+    // aiqt next with no work graph still blocks with exit 2, unchanged since M4.
+    expect(runCli(["next"], dir).status).toBe(2);
+  });
+
+  it("M15: aiqt next --json still succeeds and no new runlog event types appear alongside the M15 Source Control Expectations packet section", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    expect(
+      runCli(["update", "--objective", "Ship it", "--target-user", "devs"], dir).status,
+    ).toBe(0);
+    const patchPath = join(dir, "patch.json");
+    writeFileSync(
+      patchPath,
+      JSON.stringify({ context: { constraints: ["Local files are the source of truth"] } }),
+    );
+    expect(runCli(["update", "--from-file", patchPath], dir).status).toBe(0);
+    const planRes = runCli(["plan", "--example"], dir);
+    const planPath = join(dir, "plan.json");
+    writeFileSync(planPath, planRes.stdout);
+    expect(runCli(["plan", "--from-file", planPath], dir).status).toBe(0);
+
+    const res = runCli(["next", "--json"], dir);
+    expect(res.status).toBe(0);
+    const parsed = JSON.parse(res.stdout);
+    expect(parsed.data.packet).toContain("## Source Control Expectations");
+
+    const runlogRaw = readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8").trim();
+    const eventTypes = new Set(runlogRaw.split(/\r?\n/).map((line) => JSON.parse(line).type));
+    for (const type of eventTypes) {
+      expect([
+        "project.initialized",
+        "project.updated",
+        "work_graph.generated",
+        "agent_packet.created",
+        "work_unit.status_changed",
+      ]).toContain(type);
+    }
+  });
 });

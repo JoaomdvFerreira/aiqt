@@ -255,7 +255,11 @@ export function renderAgentPacketExport(
     lines.push(
       `- Component System Guidance: ${flags.includesComponentSystemGuidance ? "yes" : "no"}`,
     );
-    lines.push(`- Recovery Guidance: ${flags.includesRecoveryGuidance ? "yes" : "no"}`, "");
+    lines.push(`- Recovery Guidance: ${flags.includesRecoveryGuidance ? "yes" : "no"}`);
+    lines.push(
+      `- Source Control Guidance: ${flags.includesSourceControlGuidance ? "yes" : "no"}`,
+      "",
+    );
     lines.push("Audit source: agent_packet.created runlog event");
   } else {
     lines.push("Guidance audit metadata is unavailable for this packet.");
