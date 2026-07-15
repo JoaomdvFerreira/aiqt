@@ -24,6 +24,7 @@ import {
   type ComponentSystemPreference,
 } from "../workflow/component-system-preferences.js";
 import { renderSourceControlExpectationsSection } from "../workflow/source-control-discipline.js";
+import { resolveRoots } from "../workflow/root-resolution.js";
 
 export interface PacketContext {
   projectId: string;
@@ -50,6 +51,8 @@ export interface PacketContext {
   componentSystemGuidanceSection: string | null;
   /** M15 §11.3: rendered Source Control Expectations section. Always present -- every selected work unit is implementation work. */
   sourceControlExpectationsSection: string;
+  /** M16 §12: resolved implementation root (existingRepositoryPath resolved relative to controlRoot, or controlRoot itself). Always present. */
+  implementationRoot: string;
 }
 
 export interface ResolvedContextRefs {
@@ -221,6 +224,13 @@ export function buildPacketContext(
     ? renderComponentSystemGuidanceSection()
     : null;
 
+  // M16 §12/§13.3: resolved implementation root, consumed by Source Control
+  // Expectations and the Required Agent Output changed-files instruction.
+  const roots = resolveRoots({
+    controlRoot: controlRoot ?? process.cwd(),
+    existingRepositoryPath,
+  });
+
   return {
     projectId: project.project.id,
     projectObjective: project.project.objective,
@@ -240,12 +250,15 @@ export function buildPacketContext(
     includeDesignGuidance: shouldIncludeDesignGuidance(uiHeavyConfidence, workUnit),
     workingDirectoryDisciplineSection,
     componentSystemGuidanceSection,
-    // M15 §11.3: unconditional -- every work unit selected by aiqt next is
-    // implementation work, so Source Control Expectations always renders.
+    // M15 §11.3/M16 §13.3: unconditional -- every work unit selected by aiqt
+    // next is implementation work, so Source Control Expectations always
+    // renders, and always names the resolved implementation root.
     sourceControlExpectationsSection: renderSourceControlExpectationsSection({
       workUnitId: workUnit.id,
       milestoneId: milestone.id,
+      implementationRoot: roots.implementationRoot,
     }),
+    implementationRoot: roots.implementationRoot,
   };
 }
 

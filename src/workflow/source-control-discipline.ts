@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { isDirectory } from "../core/filesystem/file-exists.js";
 import { containsPhrase, buildUiHeavyDetectionText } from "./design/ui-heavy-detection.js";
 import type { ProjectModel } from "../schema/project.schema.js";
+import { resolveImplementationRoot } from "./root-resolution.js";
 
 /**
  * M15: source-control and GitHub-flow discipline (F058-F062). AIQT never
@@ -55,17 +56,20 @@ export function isSourceControlExplicitlyDisabled(text: string): boolean {
 }
 
 /**
- * §6.3/§11.2: true when aiqt prompt plan should require an early repository
- * initialization/baseline work unit -- i.e. no Git repository already exists
- * at the implementation root (falling back to the AIQT control root when no
- * existingRepositoryPath is configured) and the user has not explicitly
- * disabled source control.
+ * §6.3/§11.2, M16 §12: true when aiqt prompt plan should require an early
+ * repository initialization/baseline work unit -- i.e. no Git repository
+ * already exists at the resolved implementation root (existingRepositoryPath
+ * resolved relative to the control root, falling back to the control root
+ * itself when unset -- the same canonical resolution rule used everywhere
+ * else) and the user has not explicitly disabled source control.
  */
 export function requiresRepositoryBaselineWorkUnit(input: {
   project?: ProjectModel | null;
   repoRoot?: string | null;
 }): boolean {
-  const implementationRoot = input.project?.project.existingRepositoryPath ?? input.repoRoot ?? null;
+  const controlRoot = input.repoRoot ?? process.cwd();
+  const existingRepositoryPath = input.project?.project.existingRepositoryPath ?? null;
+  const implementationRoot = resolveImplementationRoot(controlRoot, existingRepositoryPath);
   if (isGitRepository(implementationRoot)) return false;
 
   const text = buildUiHeavyDetectionText({ project: input.project });
@@ -163,22 +167,31 @@ export function renderPlanRepositoryBaselineGuidance(): string {
 }
 
 /**
- * §11.3: the packet Source Control Expectations section, scoped to the
- * selected work unit/milestone so the tag/commit example is concrete and
- * copy-paste-able (matching the m###-wu###-done convention).
+ * §11.3/M16 §13.3: the packet Source Control Expectations section, scoped to
+ * the selected work unit/milestone so the tag/commit example is concrete and
+ * copy-paste-able (matching the m###-wu###-done convention). When the
+ * resolved implementationRoot is known, the boundary comparison names the
+ * exact path instead of the generic instruction.
  */
 export function renderSourceControlExpectationsSection(input: {
   workUnitId: string;
   milestoneId: string;
+  implementationRoot?: string | null;
 }): string {
   const tag = `${input.milestoneId.toLowerCase()}-${input.workUnitId.toLowerCase()}-done`;
   const lines: string[] = [];
   lines.push("## Source Control Expectations");
   lines.push("");
+  if (input.implementationRoot) {
+    lines.push(`Implementation root: ${input.implementationRoot}`);
+    lines.push("");
+  }
   lines.push(renderRepositoryBoundaryRule());
   lines.push("");
   lines.push(
-    "- Run `git rev-parse --show-toplevel` from the implementation root before editing files for this Work Unit; stop and correct the repository boundary if it does not equal the implementation root (F063).",
+    input.implementationRoot
+      ? `- Run \`git rev-parse --show-toplevel\` from the implementation root before editing files for this Work Unit; the result must equal ${input.implementationRoot}, or stop and correct the repository boundary before continuing (F063).`
+      : "- Run `git rev-parse --show-toplevel` from the implementation root before editing files for this Work Unit; stop and correct the repository boundary if it does not equal the implementation root (F063).",
   );
   lines.push("- Keep changes scoped to this Work Unit only.");
   lines.push("- Run `git status` before starting and before checkpointing.");
@@ -196,13 +209,20 @@ export function renderSourceControlExpectationsSection(input: {
   return lines.join("\n");
 }
 
-/** §11.4: checkpoint prompt reminder to report source-control/risk details using only existing checkpoint fields. */
-export function renderCheckpointSourceControlGuidance(): string {
+/**
+ * §11.4/M16 §13.4: checkpoint prompt reminder to report source-control/risk
+ * details using only existing checkpoint fields. When the resolved
+ * implementationRoot is known, it is named explicitly rather than left as a
+ * blank field for the agent to fill in.
+ */
+export function renderCheckpointSourceControlGuidance(implementationRoot?: string | null): string {
   const lines: string[] = [];
   lines.push("Report source control and risk details in summary and/or notes using this shape:");
   lines.push("");
   lines.push("Source control report:");
-  lines.push("- Implementation root:");
+  lines.push(
+    implementationRoot ? `- Implementation root: ${implementationRoot}` : "- Implementation root:",
+  );
   lines.push("- Git top-level (git rev-parse --show-toplevel):");
   lines.push("- Boundary verified: yes/no");
   lines.push("- Current branch:");
@@ -213,6 +233,10 @@ export function renderCheckpointSourceControlGuidance(): string {
   lines.push("- Tag name:");
   lines.push("- Uncommitted files remaining:");
   lines.push("- Ignored/generated artifacts:");
+  lines.push("");
+  lines.push(
+    `Report file paths relative to the implementation root${implementationRoot ? ` (${implementationRoot})` : ""}, unless explicitly reporting AIQT control files.`,
+  );
   lines.push("");
   lines.push("Risk report:");
   lines.push("- Risk score: <0-100>/100");

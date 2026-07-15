@@ -9,6 +9,7 @@ import { renderPlanPrompt } from "../templates/prompts/plan.prompt.template.js";
 import { renderCheckpointPrompt } from "../templates/prompts/checkpoint.prompt.template.js";
 import { renderDriverPrompt } from "../templates/prompts/driver.prompt.template.js";
 import { renderInterviewPrompt } from "../templates/prompts/interview.prompt.template.js";
+import { resolveRoots } from "../workflow/root-resolution.js";
 import type {
   FileBasedPromptKind,
   PromptResultData,
@@ -104,7 +105,12 @@ export function renderPrompt(
         (wu) => wu.id === state.currentWorkUnitId,
       )!;
       const packet = state.lastAgentPacket!;
-      return renderCheckpointPrompt(workUnit, packet);
+      // M16 §13.4: checkpoint guidance names the resolved implementation root.
+      const roots = resolveRoots({
+        controlRoot: repoRoot ?? process.cwd(),
+        existingRepositoryPath: project.project.existingRepositoryPath,
+      });
+      return renderCheckpointPrompt(workUnit, packet, roots);
     }
   }
 }

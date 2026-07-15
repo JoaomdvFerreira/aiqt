@@ -44,6 +44,7 @@ import { runImport } from "./commands/import.command.js";
 import { runManage } from "./commands/manage.command.js";
 import { renderManageReportText } from "../services/manage-report-template.js";
 import type { ManageReport } from "../services/manage-service.js";
+import type { RootResolution } from "../workflow/root-resolution.js";
 import { runSkillsPlan } from "./commands/skills-plan.command.js";
 import { renderSkillsPlanText } from "../services/skills-plan-template.js";
 import type { SkillsPlan } from "../services/skills-detection-service.js";
@@ -104,6 +105,10 @@ export function buildProgram(): Command {
     .option("--objective <objective>", "project objective")
     .option("--target-user <targetUser>", "primary target user")
     .option("--agent <agent>", "preferred coding agent")
+    .option(
+      "--implementation-root <path>",
+      "implementation root path (clearer alias for existingRepositoryPath); omit for same-root projects",
+    )
     .action((raw: RawInitOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runInit(ctx, normalizeInitOptions(raw));
@@ -168,6 +173,10 @@ export function buildProgram(): Command {
     )
     .option("--agent <agent>", "preferred coding agent")
     .option("--repository-path <path>", "existing repository path")
+    .option(
+      "--implementation-root <path>",
+      "implementation root path (clearer alias for --repository-path); both write existingRepositoryPath",
+    )
     .action(async (raw: RawUpdateOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = await runUpdate(ctx, raw);
@@ -363,11 +372,14 @@ export function buildProgram(): Command {
       // rather than the generic CommandResult summary, matching aiqt
       // next/aiqt prompt's raw-text bypass pattern.
       if (!ctx.json && result.exitCode === ExitCode.Success) {
-        const data = result.data as ({ projectName: string } & ManageReport) | undefined;
+        const data = result.data as
+          | ({ projectName: string; roots: RootResolution } & ManageReport)
+          | undefined;
         if (data) {
           const text = renderManageReportText({
             projectName: data.projectName,
             report: data,
+            roots: data.roots,
             currentMilestoneId: result.currentMilestoneId,
             currentWorkUnitId: result.currentWorkUnitId,
           });

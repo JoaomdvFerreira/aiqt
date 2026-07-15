@@ -552,4 +552,71 @@ describe("aiqt CLI entrypoint", () => {
       ]).toContain(type);
     }
   });
+
+  it("M16: no new public commands are registered -- --help still lists exactly the pre-M16 command set", () => {
+    dir = makeTempDir();
+    const res = runCli(["--help"], dir);
+    expect(res.status).toBe(0);
+    for (const command of [
+      "init",
+      "status",
+      "next",
+      "update",
+      "plan",
+      "checkpoint",
+      "review",
+      "export",
+      "start",
+      "continue",
+      "prompt",
+      "manage",
+      "skills",
+      "import",
+      "issue",
+      "repair",
+      "dependency",
+      "graph",
+    ]) {
+      expect(res.stdout).toContain(command);
+    }
+    // --implementation-root is an option on existing commands, not a new command.
+    expect(res.stdout).not.toMatch(/^\s*implementation-root\s/m);
+    expect(res.stdout).not.toMatch(/^\s*root\s/m);
+  });
+
+  it("M16: representative pre-M16 exit-code contracts remain unchanged", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    expect(runCli(["export"], dir).status).toBe(10);
+    expect(runCli(["prompt", "bogus"], dir).status).toBe(3);
+    expect(runCli(["frobnicate"], dir).status).toBe(3);
+    expect(runCli(["next"], dir).status).toBe(2);
+  });
+
+  it("M16: aiqt init --implementation-root writes existingRepositoryPath and no new runlog event types appear", () => {
+    dir = makeTempDir();
+    const implRoot = join(dir, "..", "split-app");
+    const res = runCli(["init", "--implementation-root", implRoot, "--json"], dir);
+    expect(res.status).toBe(0);
+    const project = JSON.parse(readFileSync(join(dir, ".aiqt", "project.json"), "utf8"));
+    expect(project.project.existingRepositoryPath).toBe(implRoot);
+
+    const runlogRaw = readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8").trim();
+    const eventTypes = new Set(runlogRaw.split(/\r?\n/).map((line) => JSON.parse(line).type));
+    for (const type of eventTypes) {
+      expect(["project.initialized"]).toContain(type);
+    }
+  });
+
+  it("M16: aiqt update --implementation-root and --repository-path conflict returns exit 3", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    const res = runCli(
+      ["update", "--implementation-root", "../app-a", "--repository-path", "../app-b", "--json"],
+      dir,
+    );
+    expect(res.status).toBe(3);
+    const parsed = JSON.parse(res.stdout || res.stderr);
+    expect(parsed.exitCode).toBe(3);
+  });
 });

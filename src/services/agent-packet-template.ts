@@ -187,10 +187,14 @@ export function renderAgentPacket(context: PacketContext): string {
 
   lines.push("## Required Agent Output");
   lines.push("");
+  // M16 §13.3: changed-file paths must be reported relative to the resolved
+  // implementation root, not the AIQT control root.
+  lines.push(`Report all file paths relative to the implementation root: ${context.implementationRoot}`);
+  lines.push("");
   lines.push("Return:");
   lines.push("1. Summary of implementation");
-  lines.push("2. Files created");
-  lines.push("3. Files modified");
+  lines.push("2. Files created (relative to the implementation root)");
+  lines.push("3. Files modified (relative to the implementation root)");
   lines.push("4. Tests added or changed");
   lines.push("5. Validation commands run and results");
   lines.push("6. Unresolved issues");

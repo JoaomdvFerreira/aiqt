@@ -23,6 +23,8 @@ export interface CreateProjectInput {
   targetUsers: string[];
   preferredAgent: string | null;
   createdAt: string;
+  /** M16: clearer-alias init input, written straight to existingRepositoryPath. Null for same-root projects. */
+  existingRepositoryPath?: string | null;
 }
 
 /** Build the canonical initial project model for `aiqt init`. */
@@ -37,7 +39,7 @@ export function buildInitialProjectModel(
       objective: input.objective,
       targetUsers: input.targetUsers,
       preferredAgent: input.preferredAgent,
-      existingRepositoryPath: null,
+      existingRepositoryPath: input.existingRepositoryPath ?? null,
       createdAt: input.createdAt,
       updatedAt: input.createdAt,
     },

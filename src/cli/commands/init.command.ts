@@ -25,6 +25,7 @@ import {
   appendRunlogEvent,
 } from "../../state/runlog-store.js";
 import { formatId } from "../../state/ids.js";
+import { resolveRoots } from "../../workflow/root-resolution.js";
 
 function blocked(message: string, area: string): AiqtError {
   return new AiqtError(message, ExitCode.InvalidInput, {
@@ -76,6 +77,7 @@ export function runInit(
         targetUsers: options.targetUsers,
         preferredAgent: options.preferredAgent,
         createdAt: now,
+        existingRepositoryPath: options.existingRepositoryPath,
       });
       writeProjectModel(paths.projectFile, projectModel);
 
@@ -100,11 +102,15 @@ export function runInit(
       );
     }
 
+    // M16 §6/§12: implementationRoot resolves to controlRoot when no
+    // --implementation-root was supplied; aiqt init never inspects Git.
+    const roots = resolveRoots({ controlRoot: root, existingRepositoryPath: options.existingRepositoryPath });
+
     return makeResult({
       status: "passed",
       action: "init",
       projectStatus: "draft",
-      summary: `Initialized AIQT project "${projectName}" in ${paths.aiqtDir}.`,
+      summary: `Initialized AIQT project "${projectName}" in ${paths.aiqtDir}. AIQT control root: ${roots.controlRoot}. Implementation root: ${roots.implementationRoot}.`,
       exitCode: ExitCode.Success,
       completedActions: [
         "Created .aiqt/ directory",
@@ -124,6 +130,7 @@ export function runInit(
         projectId,
         projectName,
         schemaVersion: AIQT_SCHEMA_VERSION,
+        roots,
       },
     });
   } catch (err) {
