@@ -15,81 +15,105 @@ import {
   buildInterviewPromptData,
   validateOutPath,
 } from "../../services/prompt-service.js";
-import { renderPlanExtendPrompt } from "../../templates/prompts/plan.prompt.template.js";
+import {
+  renderPlanRefinePrompt,
+  renderPlanAppendPrompt,
+} from "../../templates/prompts/plan.prompt.template.js";
 
 export interface RunPromptOptions {
   kind?: string;
   out?: string;
   idea?: string;
-  /** M17: plan kind only -- render extension guidance instead of the initial-plan prompt. */
+  /** M17/M17-RC1: plan kind only -- render append/refine guidance instead of the initial-plan prompt. */
   extend?: boolean;
+  /** M17-RC1: the work unit to refine. */
+  refineWorkUnit?: string;
+  /** @deprecated M17-RC1: use refineWorkUnit. Kept functional for M17 backward compatibility. */
   replacePlaceholder?: string;
 }
 
-/**
- * M17 §4.3: `aiqt prompt plan --extend --replace-placeholder <id>` explains
- * how to produce a bounded extension payload for a named placeholder.
- * Distinct availability rule from ordinary `aiqt prompt plan`: it requires a
- * non-empty graph (the opposite of the one-shot initial-plan prompt) and an
- * explicit placeholder id. Prompt generation remains entirely read-only --
- * it does not validate placeholder eligibility itself.
- */
-function runPlanExtendPrompt(ctx: CommandContext, replacePlaceholder: string | undefined): CommandResult {
-  if (!replacePlaceholder) {
-    const message = "--extend requires --replace-placeholder <workUnitId>.";
-    return makeResult({
-      status: "failed",
-      action: "prompt",
-      summary: message,
-      nextRecommendedCommand: null,
-      exitCode: ExitCode.InvalidInput,
-      blockingIssues: [
-        { id: "PROMPT-EXTEND-PLACEHOLDER-REQUIRED", severity: "critical", area: "input", message, agentCanFix: false },
-      ],
-    });
-  }
-
+/** Shared availability gate for both append and refine prompt guidance: requires an initialized, non-empty graph. */
+function requireNonEmptyGraph(
+  ctx: CommandContext,
+): { ok: true; project: ReturnType<typeof loadProject>["project"]; state: ReturnType<typeof loadProject>["state"] } | { ok: false; result: CommandResult } {
   if (!aiqtDirExists(ctx)) {
-    return makeResult({
-      status: "failed",
-      action: "prompt",
-      summary: "No AIQT project found. Run aiqt init to create the canonical state files.",
-      nextRecommendedCommand: "aiqt init",
-      exitCode: ExitCode.InvalidInput,
-      blockingIssues: [
-        {
-          id: "PROMPT-NO-PROJECT",
-          severity: "high",
-          area: "workflow",
-          message: ".aiqt/ not found in the current folder.",
-          suggestedAction: "Run aiqt init.",
-          agentCanFix: false,
-        },
-      ],
-    });
+    return {
+      ok: false,
+      result: makeResult({
+        status: "failed",
+        action: "prompt",
+        summary: "No AIQT project found. Run aiqt init to create the canonical state files.",
+        nextRecommendedCommand: "aiqt init",
+        exitCode: ExitCode.InvalidInput,
+        blockingIssues: [
+          {
+            id: "PROMPT-NO-PROJECT",
+            severity: "high",
+            area: "workflow",
+            message: ".aiqt/ not found in the current folder.",
+            suggestedAction: "Run aiqt init.",
+            agentCanFix: false,
+          },
+        ],
+      }),
+    };
   }
 
   const { project, state } = loadProject(ctx);
 
   if (state.workGraph.milestones.length === 0) {
     const message = "No work graph exists yet. aiqt plan --extend requires an existing graph; run ordinary aiqt plan first.";
-    return makeResult({
-      status: "blocked",
-      action: "prompt",
-      projectStatus: state.projectStatus,
-      currentMilestoneId: state.currentMilestoneId,
-      currentWorkUnitId: state.currentWorkUnitId,
-      summary: message,
-      nextRecommendedCommand: "aiqt plan",
-      exitCode: ExitCode.WorkflowBlocked,
-      blockingIssues: [
-        { id: "PLAN-EXTEND-GRAPH-EMPTY", severity: "high", area: "workflow", message, agentCanFix: false },
-      ],
-    });
+    return {
+      ok: false,
+      result: makeResult({
+        status: "blocked",
+        action: "prompt",
+        projectStatus: state.projectStatus,
+        currentMilestoneId: state.currentMilestoneId,
+        currentWorkUnitId: state.currentWorkUnitId,
+        summary: message,
+        nextRecommendedCommand: "aiqt plan",
+        exitCode: ExitCode.WorkflowBlocked,
+        blockingIssues: [
+          { id: "PLAN-EXTEND-GRAPH-EMPTY", severity: "high", area: "workflow", message, agentCanFix: false },
+        ],
+      }),
+    };
   }
 
-  const prompt = renderPlanExtendPrompt(replacePlaceholder);
-  const followUpCommand = `aiqt import plan --stdin --extend --replace-placeholder ${replacePlaceholder} --preview`;
+  return { ok: true, project, state };
+}
+
+/**
+ * M17-RC1 §5.2: `aiqt prompt plan --extend --refine-work-unit <id>` explains
+ * how to produce a bounded refinement payload for the named target work
+ * unit. Distinct availability rule from ordinary `aiqt prompt plan`: it
+ * requires a non-empty graph (the opposite of the one-shot initial-plan
+ * prompt) and an explicit target id. Prompt generation remains entirely
+ * read-only -- it does not validate target eligibility itself.
+ */
+function runPlanRefinePromptCommand(
+  ctx: CommandContext,
+  targetWorkUnitId: string,
+  usedDeprecatedAlias: boolean,
+): CommandResult {
+  const gate = requireNonEmptyGraph(ctx);
+  if (!gate.ok) return gate.result;
+  const { project, state } = gate;
+
+  const prompt = renderPlanRefinePrompt(targetWorkUnitId);
+  const followUpCommand = `aiqt import plan --stdin --extend --refine-work-unit ${targetWorkUnitId} --preview`;
+  const warnings = usedDeprecatedAlias
+    ? [
+        {
+          id: "PLAN-EXTEND-DEPRECATED-ALIAS",
+          severity: "low" as const,
+          area: "input",
+          message: "--replace-placeholder is deprecated; use --refine-work-unit instead.",
+          agentCanFix: true,
+        },
+      ]
+    : [];
 
   return makeResult({
     status: "passed",
@@ -97,16 +121,50 @@ function runPlanExtendPrompt(ctx: CommandContext, replacePlaceholder: string | u
     projectStatus: state.projectStatus,
     currentMilestoneId: state.currentMilestoneId,
     currentWorkUnitId: state.currentWorkUnitId,
-    summary: `Generated plan extension prompt for placeholder ${replacePlaceholder}.`,
-    completedActions: ["Read project.json", "Read state.json", "Rendered plan extension prompt"],
+    summary: `Generated a refinement prompt for work unit ${targetWorkUnitId}.`,
+    completedActions: ["Read project.json", "Read state.json", "Rendered refinement prompt"],
     changedFiles: [],
-    affectedItems: [project.project.id, replacePlaceholder],
+    affectedItems: [project.project.id, targetWorkUnitId],
+    nextRecommendedCommand: followUpCommand,
+    exitCode: ExitCode.Success,
+    warnings,
+    data: {
+      promptKind: "plan",
+      operation: "refine",
+      targetWorkUnitId,
+      prompt,
+      followUpCommand,
+    },
+  });
+}
+
+/**
+ * M17-RC1 §5.1: `aiqt prompt plan --extend` (no target) explains how to
+ * produce a bounded append payload for an existing non-empty graph.
+ */
+function runPlanAppendPromptCommand(ctx: CommandContext): CommandResult {
+  const gate = requireNonEmptyGraph(ctx);
+  if (!gate.ok) return gate.result;
+  const { project, state } = gate;
+
+  const prompt = renderPlanAppendPrompt();
+  const followUpCommand = "aiqt import plan --stdin --extend --preview";
+
+  return makeResult({
+    status: "passed",
+    action: "prompt",
+    projectStatus: state.projectStatus,
+    currentMilestoneId: state.currentMilestoneId,
+    currentWorkUnitId: state.currentWorkUnitId,
+    summary: "Generated an append prompt for the existing work graph.",
+    completedActions: ["Read project.json", "Read state.json", "Rendered append prompt"],
+    changedFiles: [],
+    affectedItems: [project.project.id],
     nextRecommendedCommand: followUpCommand,
     exitCode: ExitCode.Success,
     data: {
       promptKind: "plan",
-      operation: "extend",
-      placeholderWorkUnitId: replacePlaceholder,
+      operation: "append",
       prompt,
       followUpCommand,
     },
@@ -181,7 +239,24 @@ export function runPrompt(ctx: CommandContext, options: RunPromptOptions): Comma
     }
 
     if (kind === "plan" && options.extend) {
-      return runPlanExtendPrompt(ctx, options.replacePlaceholder);
+      if (options.refineWorkUnit && options.replacePlaceholder) {
+        const message = "--refine-work-unit and --replace-placeholder cannot both be supplied.";
+        return makeResult({
+          status: "failed",
+          action: "prompt",
+          summary: message,
+          nextRecommendedCommand: null,
+          exitCode: ExitCode.InvalidInput,
+          blockingIssues: [
+            { id: "PLAN-EXTEND-TARGET-CONFLICT", severity: "critical", area: "input", message, agentCanFix: false },
+          ],
+        });
+      }
+      const targetWorkUnitId = options.refineWorkUnit ?? options.replacePlaceholder;
+      const usedDeprecatedAlias = !options.refineWorkUnit && Boolean(options.replacePlaceholder);
+      return targetWorkUnitId
+        ? runPlanRefinePromptCommand(ctx, targetWorkUnitId, usedDeprecatedAlias)
+        : runPlanAppendPromptCommand(ctx);
     }
 
     // .aiqt/ missing: exit code 3, not 2 (only valid workflow-position

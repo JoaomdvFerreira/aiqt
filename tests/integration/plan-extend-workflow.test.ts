@@ -31,8 +31,8 @@ const DONE_PAYLOAD = {
 
 const BASE_PLAN = {
   milestones: [
-    { clientKey: "m1", title: "Corte 0", objective: "First cut." },
-    { clientKey: "m2", title: "Corte 1 Roadmap", objective: "Placeholder for Corte 1." },
+    { clientKey: "m1", title: "Completed upstream work", objective: "Foundational work already done." },
+    { clientKey: "m2", title: "Refinable future work", objective: "Placeholder for future detailed work." },
   ],
   workUnits: [
     {
@@ -50,8 +50,8 @@ const BASE_PLAN = {
     {
       clientKey: "wu2",
       milestoneClientKey: "m2",
-      title: "Corte 1 placeholder",
-      objective: "Corte 1 placeholder objective.",
+      title: "Refinable future work unit",
+      objective: "Future work objective.",
       scope: ["Scope"],
       outOfScope: ["Out of scope"],
       acceptanceCriteria: ["Criterion"],
@@ -63,18 +63,18 @@ const BASE_PLAN = {
   dependencies: [{ fromClientKey: "wu1", toClientKey: "wu2", type: "blocks" }],
 };
 
-const EXTENSION_INPUT = {
+const REFINEMENT_INPUT = {
   extension: {
     entryWorkUnitClientKeys: ["e1"],
     exitWorkUnitClientKeys: ["e1"],
-    reason: "Detail Corte 1.",
+    reason: "Detail the refinable future work.",
   },
-  milestones: [{ clientKey: "c1-m", title: "Corte 1 detail", objective: "Detailed Corte 1 work." }],
+  milestones: [{ clientKey: "r-m", title: "Refinement detail", objective: "Detailed replacement work." }],
   workUnits: [
     {
       clientKey: "e1",
-      milestoneClientKey: "c1-m",
-      title: "Corte 1 entry/exit",
+      milestoneClientKey: "r-m",
+      title: "Replacement entry/exit",
       objective: "Entry/exit objective.",
       scope: ["Scope"],
       outOfScope: ["Out of scope"],
@@ -104,8 +104,8 @@ async function makeExtendedProject(dir: string) {
   expect(runCheckpoint(contextFor(dir), { input: DONE_PAYLOAD }).exitCode).toBe(ExitCode.Success);
 
   const extPath = join(dir, "ext.json");
-  writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
-  const result = runPlan(contextFor(dir), { extend: true, replacePlaceholder: "WU002", fromFile: extPath });
+  writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
+  const result = runPlan(contextFor(dir), { extend: true, refineWorkUnit: "WU002", fromFile: extPath });
   expect(result.exitCode).toBe(ExitCode.Success);
 }
 
@@ -142,14 +142,14 @@ describe("aiqt plan --extend: workflow continuation after extension", () => {
     expect(data.developmentComplete).toBe(false);
   });
 
-  it("A42: aiqt export project-plan renders the replanned placeholder and the new work units", async () => {
+  it("A42: aiqt export project-plan renders the replanned target work unit and the new work units", async () => {
     dir = makeTempDir();
     await makeExtendedProject(dir);
     const result = runExport(contextFor(dir), { target: "project-plan" });
     expect(result.exitCode).toBe(ExitCode.Success);
     const content = readFileSync(join(dir, ".aiqt", "exports", "project-plan.md"), "utf8");
     expect(content).toContain("replanned");
-    expect(content).toContain("Corte 1 entry/exit");
+    expect(content).toContain("Replacement entry/exit");
   });
 
   it("aiqt graph validate --json passes with a structurally sound extended graph", async () => {
@@ -175,8 +175,8 @@ describe("aiqt plan --extend: workflow continuation after extension", () => {
     await makeExtendedProject(dir);
     const state = JSON.parse(readFileSync(join(dir, ".aiqt", "state.json"), "utf8"));
     // lastAgentPacket still mirrors the earlier aiqt next call for WU001 --
-    // the extension must not overwrite it with a packet for the placeholder
-    // or any newly added work unit.
+    // the extension must not overwrite it with a packet for the refined
+    // target or any newly added work unit.
     expect(state.lastAgentPacket?.workUnitId).toBe("WU001");
     expect(state.currentWorkUnitId).toBeNull();
   });

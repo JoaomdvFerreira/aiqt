@@ -2,9 +2,14 @@ import { describe, it, expect, afterEach } from "vitest";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runGraphValidate } from "../../src/cli/commands/graph-validate.command.js";
+import { runPlan } from "../../src/cli/commands/plan.command.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
 import { makeTempDir, removeDir, contextFor } from "../helpers.js";
 import { buildDependencyFixtureState, M12_DEP_ID } from "../m12-fixture.js";
+import {
+  buildExistingGraphRefinementFixture,
+  REFINABLE_WORK_UNIT_REFINEMENT,
+} from "../existing-graph-refinement-fixture.js";
 
 describe("aiqt graph validate", () => {
   let dir: string | null = null;
@@ -47,6 +52,31 @@ describe("aiqt graph validate", () => {
     expect(result.exitCode).toBe(ExitCode.ValidationFailed);
     const data = result.data as { blockingErrors: Array<{ rule: string }> };
     expect(data.blockingErrors.some((e) => e.rule === "dependency-cycle")).toBe(true);
+  });
+
+  it("M17-RC1 §10: reports a malformed replanned work unit's missing replacement metadata as a blocking error", async () => {
+    dir = makeTempDir();
+    await buildExistingGraphRefinementFixture(dir);
+    const extPath = join(dir, "refinement.json");
+    writeFileSync(extPath, JSON.stringify(REFINABLE_WORK_UNIT_REFINEMENT));
+    const targetId = JSON.parse(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).workGraph.workUnits.find(
+      (wu: { title: string }) => wu.title === "Refinable future work unit",
+    ).id;
+    expect(
+      runPlan(contextFor(dir), { extend: true, refineWorkUnit: targetId, fromFile: extPath }).exitCode,
+    ).toBe(ExitCode.Success);
+
+    // Corrupt the now-replanned target's replacement metadata directly.
+    const statePath = join(dir, ".aiqt", "state.json");
+    const state = JSON.parse(readFileSync(statePath, "utf8"));
+    const target = state.workGraph.workUnits.find((wu: { id: string }) => wu.id === targetId);
+    target.replacedByWorkUnitIds = [];
+    writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+    const result = runGraphValidate(contextFor(dir));
+    expect(result.exitCode).toBe(ExitCode.ValidationFailed);
+    const data = result.data as { blockingErrors: Array<{ rule: string; message: string }> };
+    expect(data.blockingErrors.some((e) => e.rule === "invalid-replanned-work-unit")).toBe(true);
   });
 
   it("is read-only: never mutates state.json or runlog.jsonl", async () => {

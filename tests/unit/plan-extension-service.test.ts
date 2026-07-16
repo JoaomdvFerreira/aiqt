@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
-  findPlaceholderWorkUnit,
-  checkPlaceholderEligibility,
-  buildPlanExtension,
+  findTargetWorkUnit,
+  checkTargetEligibility,
+  buildPlanRefinement,
 } from "../../src/services/plan-extension-service.js";
 import type { StateModel } from "../../src/schema/state.schema.js";
 import type { WorkUnit } from "../../src/schema/work-unit.schema.js";
@@ -59,13 +59,13 @@ function baseState(overrides: Partial<StateModel> = {}): StateModel {
   };
 }
 
-/** A minimal graph: WU-A (done) --blocks--> WU-PH (placeholder) --blocks--> WU-DOWN (planned). */
-function stateWithPlaceholder(placeholderStatus: WorkUnit["status"] = "ready"): StateModel {
+/** A minimal graph: WU-A (done) --blocks--> WU-TARGET (refinable) --blocks--> WU-DOWN (planned). */
+function stateWithTarget(targetStatus: WorkUnit["status"] = "ready"): StateModel {
   const wuA = makeWorkUnit({ id: "WU-A", milestoneId: "M-A", status: "done", dependencies: [] });
-  const wuPh = makeWorkUnit({
-    id: "WU-PH",
-    milestoneId: "M-PH",
-    status: placeholderStatus,
+  const wuTarget = makeWorkUnit({
+    id: "WU-TARGET",
+    milestoneId: "M-TARGET",
+    status: targetStatus,
     dependencies: ["DEP-1"],
   });
   const wuDown = makeWorkUnit({
@@ -78,24 +78,24 @@ function stateWithPlaceholder(placeholderStatus: WorkUnit["status"] = "ready"): 
     workGraph: {
       milestones: [
         makeMilestone({ id: "M-A", workUnitIds: ["WU-A"], status: "done" }),
-        makeMilestone({ id: "M-PH", workUnitIds: ["WU-PH"], status: placeholderStatus === "ready" ? "ready" : "planned" }),
+        makeMilestone({ id: "M-TARGET", workUnitIds: ["WU-TARGET"], status: targetStatus === "ready" ? "ready" : "planned" }),
         makeMilestone({ id: "M-DOWN", workUnitIds: ["WU-DOWN"], status: "planned" }),
       ],
-      workUnits: [wuA, wuPh, wuDown],
+      workUnits: [wuA, wuTarget, wuDown],
       dependencies: [
-        makeDependency({ id: "DEP-1", fromId: "WU-A", toId: "WU-PH", type: "blocks" }),
-        makeDependency({ id: "DEP-2", fromId: "WU-PH", toId: "WU-DOWN", type: "blocks" }),
+        makeDependency({ id: "DEP-1", fromId: "WU-A", toId: "WU-TARGET", type: "blocks" }),
+        makeDependency({ id: "DEP-2", fromId: "WU-TARGET", toId: "WU-DOWN", type: "blocks" }),
       ],
     },
   });
 }
 
-function validExtensionInput(overrides: Partial<PlanExtensionInput> = {}): PlanExtensionInput {
+function validRefinementInput(overrides: Partial<PlanExtensionInput> = {}): PlanExtensionInput {
   return {
     extension: {
       entryWorkUnitClientKeys: ["e1"],
       exitWorkUnitClientKeys: ["e2"],
-      reason: "Detail the next cut.",
+      reason: "Detail the next bounded piece of work.",
     },
     milestones: [{ clientKey: "new-m", title: "New Milestone", objective: "New milestone objective." }],
     workUnits: [
@@ -129,59 +129,59 @@ function validExtensionInput(overrides: Partial<PlanExtensionInput> = {}): PlanE
   };
 }
 
-describe("findPlaceholderWorkUnit", () => {
+describe("findTargetWorkUnit", () => {
   it("finds a work unit by id", () => {
-    const state = stateWithPlaceholder();
-    expect(findPlaceholderWorkUnit(state, "WU-PH")?.id).toBe("WU-PH");
+    const state = stateWithTarget();
+    expect(findTargetWorkUnit(state, "WU-TARGET")?.id).toBe("WU-TARGET");
   });
 
   it("returns null for an unknown id", () => {
-    const state = stateWithPlaceholder();
-    expect(findPlaceholderWorkUnit(state, "WU-UNKNOWN")).toBeNull();
+    const state = stateWithTarget();
+    expect(findTargetWorkUnit(state, "WU-UNKNOWN")).toBeNull();
   });
 });
 
-describe("checkPlaceholderEligibility", () => {
+describe("checkTargetEligibility", () => {
   it.each(["ready", "planned"] as const)("is eligible when status is %s", (status) => {
-    const state = stateWithPlaceholder(status);
-    const wu = findPlaceholderWorkUnit(state, "WU-PH")!;
-    expect(checkPlaceholderEligibility(state, wu)).toEqual({ eligible: true });
+    const state = stateWithTarget(status);
+    const wu = findTargetWorkUnit(state, "WU-TARGET")!;
+    expect(checkTargetEligibility(state, wu)).toEqual({ eligible: true });
   });
 
   it.each(["in_progress", "needs_review", "done", "replanned", "cancelled"] as const)(
     "is ineligible when status is %s",
     (status) => {
-      const state = stateWithPlaceholder(status);
-      const wu = findPlaceholderWorkUnit(state, "WU-PH")!;
-      const result = checkPlaceholderEligibility(state, wu);
+      const state = stateWithTarget(status);
+      const wu = findTargetWorkUnit(state, "WU-TARGET")!;
+      const result = checkTargetEligibility(state, wu);
       expect(result.eligible).toBe(false);
-      if (!result.eligible) expect(result.code).toBe("PLAN-EXTEND-PLACEHOLDER-INELIGIBLE");
+      if (!result.eligible) expect(result.code).toBe("PLAN-EXTEND-TARGET-INELIGIBLE");
     },
   );
 
   it("is ineligible when it already has replacement metadata", () => {
-    const state = stateWithPlaceholder("planned");
-    const wu = { ...findPlaceholderWorkUnit(state, "WU-PH")!, replacedByWorkUnitIds: ["WU-X"] };
-    const result = checkPlaceholderEligibility(state, wu);
+    const state = stateWithTarget("planned");
+    const wu = { ...findTargetWorkUnit(state, "WU-TARGET")!, replacedByWorkUnitIds: ["WU-X"] };
+    const result = checkTargetEligibility(state, wu);
     expect(result.eligible).toBe(false);
   });
 
   it("is ineligible when it is the current in-progress work unit", () => {
-    const state = { ...stateWithPlaceholder("ready"), currentWorkUnitId: "WU-PH" };
-    const wu = findPlaceholderWorkUnit(state, "WU-PH")!;
-    const result = checkPlaceholderEligibility(state, wu);
+    const state = { ...stateWithTarget("ready"), currentWorkUnitId: "WU-TARGET" };
+    const wu = findTargetWorkUnit(state, "WU-TARGET")!;
+    const result = checkTargetEligibility(state, wu);
     expect(result.eligible).toBe(false);
-    if (!result.eligible) expect(result.code).toBe("PLAN-EXTEND-PLACEHOLDER-HAS-HISTORY");
+    if (!result.eligible) expect(result.code).toBe("PLAN-EXTEND-TARGET-HAS-HISTORY");
   });
 
   it("is ineligible when it already has a checkpoint", () => {
-    const state = stateWithPlaceholder("ready");
+    const state = stateWithTarget("ready");
     const withCheckpoint = {
       ...state,
       checkpoints: [
         {
           id: "CP-1",
-          workUnitId: "WU-PH",
+          workUnitId: "WU-TARGET",
           packetId: null,
           summary: "s",
           completed: [],
@@ -198,65 +198,65 @@ describe("checkPlaceholderEligibility", () => {
         },
       ],
     };
-    const wu = findPlaceholderWorkUnit(withCheckpoint, "WU-PH")!;
-    const result = checkPlaceholderEligibility(withCheckpoint, wu);
+    const wu = findTargetWorkUnit(withCheckpoint, "WU-TARGET")!;
+    const result = checkTargetEligibility(withCheckpoint, wu);
     expect(result.eligible).toBe(false);
-    if (!result.eligible) expect(result.code).toBe("PLAN-EXTEND-PLACEHOLDER-HAS-HISTORY");
+    if (!result.eligible) expect(result.code).toBe("PLAN-EXTEND-TARGET-HAS-HISTORY");
   });
 
   it("is ineligible when it has an active agent packet", () => {
-    const state = stateWithPlaceholder("ready");
+    const state = stateWithTarget("ready");
     const withPacket: StateModel = {
       ...state,
       lastAgentPacket: {
         id: "PKT-001",
-        workUnitId: "WU-PH",
-        milestoneId: "M-PH",
+        workUnitId: "WU-TARGET",
+        milestoneId: "M-TARGET",
         createdAt: TS,
         format: "markdown",
         contentHash: "abc",
         sourceCommand: "aiqt next",
       },
     };
-    const wu = findPlaceholderWorkUnit(withPacket, "WU-PH")!;
-    const result = checkPlaceholderEligibility(withPacket, wu);
+    const wu = findTargetWorkUnit(withPacket, "WU-TARGET")!;
+    const result = checkTargetEligibility(withPacket, wu);
     expect(result.eligible).toBe(false);
   });
 });
 
-describe("buildPlanExtension", () => {
-  it("throws PLAN-EXTEND-PLACEHOLDER-NOT-FOUND for an unknown placeholder", () => {
-    const state = stateWithPlaceholder();
+describe("buildPlanRefinement", () => {
+  it("throws PLAN-EXTEND-TARGET-NOT-FOUND for an unknown target", () => {
+    const state = stateWithTarget();
     expect(() =>
-      buildPlanExtension({
+      buildPlanRefinement({
         state,
-        placeholderWorkUnitId: "WU-UNKNOWN",
-        input: validExtensionInput(),
+        targetWorkUnitId: "WU-UNKNOWN",
+        input: validRefinementInput(),
         timestamp: TS,
       }),
     ).toThrowError(/not found/i);
   });
 
-  it("marks the placeholder replanned and preserves it in canonical state", () => {
-    const state = stateWithPlaceholder("ready");
-    const outcome = buildPlanExtension({
+  it("marks the target replanned and preserves it in canonical state", () => {
+    const state = stateWithTarget("ready");
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
-      input: validExtensionInput(),
+      targetWorkUnitId: "WU-TARGET",
+      input: validRefinementInput(),
       timestamp: TS,
     });
-    const placeholder = outcome.state.workGraph.workUnits.find((wu) => wu.id === "WU-PH")!;
-    expect(placeholder.status).toBe("replanned");
-    expect(placeholder.replanReason).toBe("Detail the next cut.");
-    expect(placeholder.replacedByWorkUnitIds).toEqual(outcome.addedWorkUnitIds);
+    const target = outcome.state.workGraph.workUnits.find((wu) => wu.id === "WU-TARGET")!;
+    expect(target.status).toBe("replanned");
+    expect(target.replanReason).toBe("Detail the next bounded piece of work.");
+    expect(target.replacedByWorkUnitIds).toEqual(outcome.addedWorkUnitIds);
   });
 
   it("allocates deterministic canonical IDs continuing from the highest existing ID", () => {
-    const state = stateWithPlaceholder("ready");
-    const outcome = buildPlanExtension({
+    const state = stateWithTarget("ready");
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
-      input: validExtensionInput(),
+      targetWorkUnitId: "WU-TARGET",
+      input: validRefinementInput(),
       timestamp: TS,
     });
     // Existing ids use a non-numeric prefix in this synthetic fixture, so
@@ -266,11 +266,11 @@ describe("buildPlanExtension", () => {
   });
 
   it("copies an incoming blocks dependency to every entry, preserving type", () => {
-    const state = stateWithPlaceholder("planned");
-    const outcome = buildPlanExtension({
+    const state = stateWithTarget("planned");
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
-      input: validExtensionInput(),
+      targetWorkUnitId: "WU-TARGET",
+      input: validRefinementInput(),
       timestamp: TS,
     });
     const entryId = outcome.entryWorkUnitIds[0];
@@ -283,12 +283,12 @@ describe("buildPlanExtension", () => {
   });
 
   it("copies an incoming requires dependency to every entry, preserving type", () => {
-    const state = stateWithPlaceholder("planned");
+    const state = stateWithTarget("planned");
     state.workGraph.dependencies[0] = { ...state.workGraph.dependencies[0], type: "requires" };
-    const outcome = buildPlanExtension({
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
-      input: validExtensionInput(),
+      targetWorkUnitId: "WU-TARGET",
+      input: validRefinementInput(),
       timestamp: TS,
     });
     const copied = outcome.state.workGraph.dependencies.find(
@@ -298,11 +298,11 @@ describe("buildPlanExtension", () => {
   });
 
   it("copies an outgoing blocks dependency from every exit, preserving type", () => {
-    const state = stateWithPlaceholder("ready");
-    const outcome = buildPlanExtension({
+    const state = stateWithTarget("ready");
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
-      input: validExtensionInput(),
+      targetWorkUnitId: "WU-TARGET",
+      input: validRefinementInput(),
       timestamp: TS,
     });
     const exitId = outcome.exitWorkUnitIds[0];
@@ -315,12 +315,12 @@ describe("buildPlanExtension", () => {
   });
 
   it("copies an outgoing requires dependency from every exit, preserving type", () => {
-    const state = stateWithPlaceholder("ready");
+    const state = stateWithTarget("ready");
     state.workGraph.dependencies[1] = { ...state.workGraph.dependencies[1], type: "requires" };
-    const outcome = buildPlanExtension({
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
-      input: validExtensionInput(),
+      targetWorkUnitId: "WU-TARGET",
+      input: validRefinementInput(),
       timestamp: TS,
     });
     const copied = outcome.state.workGraph.dependencies.find(
@@ -330,12 +330,12 @@ describe("buildPlanExtension", () => {
   });
 
   it("does not copy a relates_to relationship and it does not affect readiness", () => {
-    const state = stateWithPlaceholder("ready");
+    const state = stateWithTarget("ready");
     state.workGraph.dependencies[1] = { ...state.workGraph.dependencies[1], type: "relates_to" };
-    const outcome = buildPlanExtension({
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
-      input: validExtensionInput(),
+      targetWorkUnitId: "WU-TARGET",
+      input: validRefinementInput(),
       timestamp: TS,
     });
     expect(outcome.copiedOutgoingDependencyIds).toHaveLength(0);
@@ -345,23 +345,23 @@ describe("buildPlanExtension", () => {
   });
 
   it("preserves the original incoming/outgoing dependency records for audit history", () => {
-    const state = stateWithPlaceholder("ready");
-    const outcome = buildPlanExtension({
+    const state = stateWithTarget("ready");
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
-      input: validExtensionInput(),
+      targetWorkUnitId: "WU-TARGET",
+      input: validRefinementInput(),
       timestamp: TS,
     });
     expect(outcome.state.workGraph.dependencies.some((d) => d.id === "DEP-1")).toBe(true);
     expect(outcome.state.workGraph.dependencies.some((d) => d.id === "DEP-2")).toBe(true);
   });
 
-  it("does not let downstream work become ready merely because the placeholder is replanned", () => {
-    const state = stateWithPlaceholder("ready");
-    const outcome = buildPlanExtension({
+  it("does not let downstream work become ready merely because the target is replanned", () => {
+    const state = stateWithTarget("ready");
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
-      input: validExtensionInput(),
+      targetWorkUnitId: "WU-TARGET",
+      input: validRefinementInput(),
       timestamp: TS,
     });
     const down = outcome.state.workGraph.workUnits.find((wu) => wu.id === "WU-DOWN")!;
@@ -370,11 +370,11 @@ describe("buildPlanExtension", () => {
   });
 
   it("makes the first replacement entry ready when its copied incoming dependency source is already done", () => {
-    const state = stateWithPlaceholder("ready");
-    const outcome = buildPlanExtension({
+    const state = stateWithTarget("ready");
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
-      input: validExtensionInput(),
+      targetWorkUnitId: "WU-TARGET",
+      input: validRefinementInput(),
       timestamp: TS,
     });
     const entry = outcome.state.workGraph.workUnits.find((wu) => wu.id === outcome.entryWorkUnitIds[0])!;
@@ -384,8 +384,8 @@ describe("buildPlanExtension", () => {
   });
 
   it("uses AND semantics for multiple exits: downstream waits for every exit's copied dependency", () => {
-    const state = stateWithPlaceholder("ready");
-    const input = validExtensionInput({
+    const state = stateWithTarget("ready");
+    const input = validRefinementInput({
       extension: {
         entryWorkUnitClientKeys: ["e1"],
         exitWorkUnitClientKeys: ["e1", "e2"],
@@ -393,9 +393,9 @@ describe("buildPlanExtension", () => {
       },
       dependencies: [],
     });
-    const outcome = buildPlanExtension({
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
+      targetWorkUnitId: "WU-TARGET",
       input,
       timestamp: TS,
     });
@@ -406,30 +406,30 @@ describe("buildPlanExtension", () => {
   });
 
   it("rejects a duplicate milestone clientKey", () => {
-    const state = stateWithPlaceholder("ready");
-    const input = validExtensionInput({
+    const state = stateWithTarget("ready");
+    const input = validRefinementInput({
       milestones: [
         { clientKey: "new-m", title: "A", objective: "A." },
         { clientKey: "new-m", title: "B", objective: "B." },
       ],
     });
     expect(() =>
-      buildPlanExtension({ state, placeholderWorkUnitId: "WU-PH", input, timestamp: TS }),
+      buildPlanRefinement({ state, targetWorkUnitId: "WU-TARGET", input, timestamp: TS }),
     ).toThrowError(/duplicate/i);
   });
 
   it("rejects a duplicate work-unit clientKey", () => {
-    const state = stateWithPlaceholder("ready");
-    const input = validExtensionInput();
+    const state = stateWithTarget("ready");
+    const input = validRefinementInput();
     input.workUnits.push({ ...input.workUnits[0] });
     expect(() =>
-      buildPlanExtension({ state, placeholderWorkUnitId: "WU-PH", input, timestamp: TS }),
+      buildPlanRefinement({ state, targetWorkUnitId: "WU-TARGET", input, timestamp: TS }),
     ).toThrowError(/duplicate/i);
   });
 
   it("rejects an entry key that does not reference a work unit in the payload", () => {
-    const state = stateWithPlaceholder("ready");
-    const input = validExtensionInput({
+    const state = stateWithTarget("ready");
+    const input = validRefinementInput({
       extension: {
         entryWorkUnitClientKeys: ["does-not-exist"],
         exitWorkUnitClientKeys: ["e2"],
@@ -437,13 +437,13 @@ describe("buildPlanExtension", () => {
       },
     });
     expect(() =>
-      buildPlanExtension({ state, placeholderWorkUnitId: "WU-PH", input, timestamp: TS }),
+      buildPlanRefinement({ state, targetWorkUnitId: "WU-TARGET", input, timestamp: TS }),
     ).toThrowError(/entry/i);
   });
 
   it("rejects an exit key that does not reference a work unit in the payload", () => {
-    const state = stateWithPlaceholder("ready");
-    const input = validExtensionInput({
+    const state = stateWithTarget("ready");
+    const input = validRefinementInput({
       extension: {
         entryWorkUnitClientKeys: ["e1"],
         exitWorkUnitClientKeys: ["does-not-exist"],
@@ -451,33 +451,33 @@ describe("buildPlanExtension", () => {
       },
     });
     expect(() =>
-      buildPlanExtension({ state, placeholderWorkUnitId: "WU-PH", input, timestamp: TS }),
+      buildPlanRefinement({ state, targetWorkUnitId: "WU-TARGET", input, timestamp: TS }),
     ).toThrowError(/exit/i);
   });
 
   it("rejects a dependency referencing a work unit outside the new payload", () => {
-    const state = stateWithPlaceholder("ready");
-    const input = validExtensionInput({
+    const state = stateWithTarget("ready");
+    const input = validRefinementInput({
       dependencies: [{ fromClientKey: "e1", toClientKey: "unknown-key", type: "blocks" }],
     });
     expect(() =>
-      buildPlanExtension({ state, placeholderWorkUnitId: "WU-PH", input, timestamp: TS }),
+      buildPlanRefinement({ state, targetWorkUnitId: "WU-TARGET", input, timestamp: TS }),
     ).toThrowError(/unknown|outside/i);
   });
 
   it("rejects a self-dependency", () => {
-    const state = stateWithPlaceholder("ready");
-    const input = validExtensionInput({
+    const state = stateWithTarget("ready");
+    const input = validRefinementInput({
       dependencies: [{ fromClientKey: "e1", toClientKey: "e1", type: "blocks" }],
     });
     expect(() =>
-      buildPlanExtension({ state, placeholderWorkUnitId: "WU-PH", input, timestamp: TS }),
+      buildPlanRefinement({ state, targetWorkUnitId: "WU-TARGET", input, timestamp: TS }),
     ).toThrowError(/itself/i);
   });
 
   it("rejects a cycle that only exists once the new nodes are combined with the existing graph", () => {
-    const state = stateWithPlaceholder("ready");
-    // The existing graph alone (WU-A -> WU-PH -> WU-DOWN) is a simple,
+    const state = stateWithTarget("ready");
+    // The existing graph alone (WU-A -> WU-TARGET -> WU-DOWN) is a simple,
     // acyclic chain. Deterministic ID allocation (verified separately)
     // assigns the first new entry work unit "WU001" -- pre-wiring an
     // existing dependency from WU-DOWN to that not-yet-created id produces
@@ -487,18 +487,18 @@ describe("buildPlanExtension", () => {
     state.workGraph.dependencies.push(
       makeDependency({ id: "DEP-LOOP", fromId: "WU-DOWN", toId: "WU001", type: "blocks" }),
     );
-    const input = validExtensionInput();
+    const input = validRefinementInput();
     expect(() =>
-      buildPlanExtension({ state, placeholderWorkUnitId: "WU-PH", input, timestamp: TS }),
+      buildPlanRefinement({ state, targetWorkUnitId: "WU-TARGET", input, timestamp: TS }),
     ).toThrowError(/circular|cycle/i);
   });
 
   it("reports zero completed work units/milestones modified and zero cycles introduced on success", () => {
-    const state = stateWithPlaceholder("ready");
-    const outcome = buildPlanExtension({
+    const state = stateWithTarget("ready");
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
-      input: validExtensionInput(),
+      targetWorkUnitId: "WU-TARGET",
+      input: validRefinementInput(),
       timestamp: TS,
     });
     expect(outcome.completedWorkUnitsModified).toBe(0);
@@ -507,12 +507,12 @@ describe("buildPlanExtension", () => {
   });
 
   it("leaves the done work unit WU-A completely unchanged", () => {
-    const state = stateWithPlaceholder("ready");
+    const state = stateWithTarget("ready");
     const before = state.workGraph.workUnits.find((wu) => wu.id === "WU-A")!;
-    const outcome = buildPlanExtension({
+    const outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: "WU-PH",
-      input: validExtensionInput(),
+      targetWorkUnitId: "WU-TARGET",
+      input: validRefinementInput(),
       timestamp: TS,
     });
     const after = outcome.state.workGraph.workUnits.find((wu) => wu.id === "WU-A")!;

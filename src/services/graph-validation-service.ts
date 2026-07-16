@@ -33,6 +33,7 @@ const RULE_SLUGS: Record<string, string> = {
   "integrity.missing-packet-work-unit": "broken-packet-work-unit-reference",
   "integrity.checkpoint-missing-work-unit": "broken-checkpoint-work-unit-reference",
   "integrity.checkpoint-missing-packet": "broken-checkpoint-packet-reference",
+  "integrity.invalid-replanned-metadata": "invalid-replanned-work-unit",
   "integrity.dependency-cycle": "dependency-cycle",
   "warning.suspicious-late-stage-ready": "suspicious-late-stage-ready",
   "warning.mixed-inbound-dependency": "mixed-inbound-dependency-types",

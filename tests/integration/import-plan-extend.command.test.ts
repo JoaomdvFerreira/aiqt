@@ -35,8 +35,8 @@ const DONE_PAYLOAD = {
 
 const BASE_PLAN = {
   milestones: [
-    { clientKey: "m1", title: "Corte 0", objective: "First cut." },
-    { clientKey: "m2", title: "Corte 1 Roadmap", objective: "Placeholder for Corte 1." },
+    { clientKey: "m1", title: "Completed upstream work", objective: "Foundational work already done." },
+    { clientKey: "m2", title: "Refinable future work", objective: "Placeholder for future detailed work." },
   ],
   workUnits: [
     {
@@ -54,8 +54,8 @@ const BASE_PLAN = {
     {
       clientKey: "wu2",
       milestoneClientKey: "m2",
-      title: "Corte 1 placeholder",
-      objective: "Corte 1 placeholder objective.",
+      title: "Refinable future work unit",
+      objective: "Future work objective.",
       scope: ["Scope"],
       outOfScope: ["Out of scope"],
       acceptanceCriteria: ["Criterion"],
@@ -67,19 +67,41 @@ const BASE_PLAN = {
   dependencies: [{ fromClientKey: "wu1", toClientKey: "wu2", type: "blocks" }],
 };
 
-const EXTENSION_INPUT = {
+const REFINEMENT_INPUT = {
   extension: {
     entryWorkUnitClientKeys: ["e1"],
     exitWorkUnitClientKeys: ["e1"],
-    reason: "Detail Corte 1 via import.",
+    reason: "Detail the refinable future work via import.",
   },
-  milestones: [{ clientKey: "c1-m", title: "Corte 1 detail", objective: "Detailed Corte 1 work." }],
+  milestones: [{ clientKey: "r-m", title: "Refinement detail", objective: "Detailed replacement work." }],
   workUnits: [
     {
       clientKey: "e1",
-      milestoneClientKey: "c1-m",
-      title: "Corte 1 entry/exit",
+      milestoneClientKey: "r-m",
+      title: "Replacement entry/exit",
       objective: "Entry/exit objective.",
+      scope: ["Scope"],
+      outOfScope: ["Out of scope"],
+      acceptanceCriteria: ["Criterion"],
+      agentContextRefs: [],
+      suggestedFiles: ["src/"],
+      validationCommands: ["pnpm test"],
+    },
+  ],
+  dependencies: [],
+};
+
+const APPEND_INPUT = {
+  milestones: [],
+  workUnits: [
+    {
+      clientKey: "a1",
+      // "M001" is the existing canonical milestone id ("m1"'s clientKey was
+      // only used at initial-plan time), demonstrating append targeting an
+      // already-existing milestone rather than declaring a new one.
+      milestoneClientKey: "M001",
+      title: "Appended unit",
+      objective: "Appended objective.",
       scope: ["Scope"],
       outOfScope: ["Out of scope"],
       acceptanceCriteria: ["Criterion"],
@@ -120,7 +142,7 @@ function stdinWith(text: string, isTTY = false): PassThrough & { isTTY?: boolean
   return stream;
 }
 
-describe("aiqt import plan --stdin --extend: A3/A4 delegation", () => {
+describe("aiqt import plan --stdin --extend --refine-work-unit: A3/A4 delegation", () => {
   let dir: string | null = null;
   afterEach(() => {
     if (dir) removeDir(dir);
@@ -133,18 +155,18 @@ describe("aiqt import plan --stdin --extend: A3/A4 delegation", () => {
 
     const result = await runImport(
       contextFor(dir),
-      { importType: "plan", stdin: true, extend: true, replacePlaceholder: "WU002" },
-      { stdin: stdinWith(JSON.stringify(EXTENSION_INPUT)) },
+      { importType: "plan", stdin: true, extend: true, refineWorkUnit: "WU002" },
+      { stdin: stdinWith(JSON.stringify(REFINEMENT_INPUT)) },
     );
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(result.action).toBe("import");
-    const data = result.data as { operation: string; placeholderFinalStatus: string };
-    expect(data.operation).toBe("extend");
-    expect(data.placeholderFinalStatus).toBe("replanned");
+    const data = result.data as { operation: string; targetFinalStatus: string };
+    expect(data.operation).toBe("refine");
+    expect(data.targetFinalStatus).toBe("replanned");
 
     const state = readState(dir);
-    const placeholder = state.workGraph.workUnits.find((wu: { id: string }) => wu.id === "WU002");
-    expect(placeholder.status).toBe("replanned");
+    const target = state.workGraph.workUnits.find((wu: { id: string }) => wu.id === "WU002");
+    expect(target.status).toBe("replanned");
   });
 
   it("A4: --preview via import performs no mutation and appends no runlog event", async () => {
@@ -155,8 +177,8 @@ describe("aiqt import plan --stdin --extend: A3/A4 delegation", () => {
 
     const result = await runImport(
       contextFor(dir),
-      { importType: "plan", stdin: true, extend: true, replacePlaceholder: "WU002", preview: true },
-      { stdin: stdinWith(JSON.stringify(EXTENSION_INPUT)) },
+      { importType: "plan", stdin: true, extend: true, refineWorkUnit: "WU002", preview: true },
+      { stdin: stdinWith(JSON.stringify(REFINEMENT_INPUT)) },
     );
     expect(result.exitCode).toBe(ExitCode.Success);
     const data = result.data as { preview: boolean; mutationPerformed: boolean };
@@ -165,6 +187,35 @@ describe("aiqt import plan --stdin --extend: A3/A4 delegation", () => {
 
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(before);
     expect(readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8")).toBe(runlogBefore);
+  });
+
+  it("appends through import with no refinement target, reporting operation 'append'", async () => {
+    dir = makeTempDir();
+    await makeExtendableProject(dir);
+
+    const result = await runImport(
+      contextFor(dir),
+      { importType: "plan", stdin: true, extend: true },
+      { stdin: stdinWith(JSON.stringify(APPEND_INPUT)) },
+    );
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const data = result.data as { operation: string };
+    expect(data.operation).toBe("append");
+  });
+
+  it("still refines through the deprecated --replace-placeholder alias", async () => {
+    dir = makeTempDir();
+    await makeExtendableProject(dir);
+
+    const result = await runImport(
+      contextFor(dir),
+      { importType: "plan", stdin: true, extend: true, replacePlaceholder: "WU002" },
+      { stdin: stdinWith(JSON.stringify(REFINEMENT_INPUT)) },
+    );
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const data = result.data as { operation: string };
+    expect(data.operation).toBe("refine");
+    expect(result.warnings.some((w) => w.id === "PLAN-EXTEND-DEPRECATED-ALIAS")).toBe(true);
   });
 });
 
@@ -175,18 +226,32 @@ describe("aiqt import plan --stdin --extend: real CLI process", () => {
     dir = null;
   });
 
-  it("extends the graph end-to-end through the actual CLI entrypoint", async () => {
+  it("refines the graph end-to-end through the actual CLI entrypoint", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
 
     const res = spawnSync(
       process.execPath,
-      [tsxCli, entry, "import", "plan", "--stdin", "--extend", "--replace-placeholder", "WU002", "--json"],
-      { cwd: dir, encoding: "utf8", input: JSON.stringify(EXTENSION_INPUT) },
+      [tsxCli, entry, "import", "plan", "--stdin", "--extend", "--refine-work-unit", "WU002", "--json"],
+      { cwd: dir, encoding: "utf8", input: JSON.stringify(REFINEMENT_INPUT) },
     );
     expect(res.status).toBe(0);
     const parsed = JSON.parse(res.stdout);
-    expect(parsed.data.operation).toBe("extend");
-    expect(parsed.data.placeholderFinalStatus).toBe("replanned");
+    expect(parsed.data.operation).toBe("refine");
+    expect(parsed.data.targetFinalStatus).toBe("replanned");
+  });
+
+  it("appends to the graph end-to-end through the actual CLI entrypoint", async () => {
+    dir = makeTempDir();
+    await makeExtendableProject(dir);
+
+    const res = spawnSync(
+      process.execPath,
+      [tsxCli, entry, "import", "plan", "--stdin", "--extend", "--json"],
+      { cwd: dir, encoding: "utf8", input: JSON.stringify(APPEND_INPUT) },
+    );
+    expect(res.status).toBe(0);
+    const parsed = JSON.parse(res.stdout);
+    expect(parsed.data.operation).toBe("append");
   });
 });

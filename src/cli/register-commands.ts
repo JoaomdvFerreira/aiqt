@@ -191,16 +191,20 @@ export function buildProgram(): Command {
     .option("--example", "print a sample plan input JSON and exit", false)
     .option(
       "--extend",
-      "extend an existing work graph instead of one-shot initial planning (M17)",
+      "extend an existing work graph: append without a target, or refine one work unit with --refine-work-unit (M17-RC1)",
       false,
     )
     .option(
+      "--refine-work-unit <workUnitId>",
+      "the work unit to refine into a detailed replacement subgraph",
+    )
+    .option(
       "--replace-placeholder <workUnitId>",
-      "the roadmap-placeholder work unit id targeted by --extend",
+      "[deprecated] alias for --refine-work-unit, kept for M17 backward compatibility",
     )
     .option(
       "--preview",
-      "validate and report an --extend operation without persisting or appending runlog events",
+      "validate and report an --extend operation (append or refine) without persisting or appending runlog events",
       false,
     )
     .action((raw: RawPlanOptions) => {
@@ -233,6 +237,7 @@ export function buildProgram(): Command {
       const result = runPlan(ctx, {
         fromFile: raw.fromFile,
         extend: raw.extend,
+        refineWorkUnit: raw.refineWorkUnit,
         replacePlaceholder: raw.replacePlaceholder,
         preview: raw.preview,
       });
@@ -363,12 +368,16 @@ export function buildProgram(): Command {
     .option("--idea <idea>", "rough product idea (driver/interview only)")
     .option(
       "--extend",
-      "plan kind only (M17): render guidance for extending an existing graph instead of initial planning",
+      "plan kind only (M17-RC1): render append guidance, or refine guidance with --refine-work-unit, instead of initial planning",
       false,
     )
     .option(
+      "--refine-work-unit <workUnitId>",
+      "plan kind only (M17-RC1): the work unit to explain how to refine",
+    )
+    .option(
       "--replace-placeholder <workUnitId>",
-      "plan kind only (M17): the roadmap-placeholder work unit id to explain how to replace",
+      "[deprecated] alias for --refine-work-unit, kept for M17 backward compatibility",
     )
     .action((kind: string, raw: RawPromptOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
@@ -377,6 +386,7 @@ export function buildProgram(): Command {
         out: raw.out,
         idea: raw.idea,
         extend: raw.extend,
+        refineWorkUnit: raw.refineWorkUnit,
         replacePlaceholder: raw.replacePlaceholder,
       });
 
@@ -461,12 +471,16 @@ export function buildProgram(): Command {
     .option("--stdin", "read the agent-generated JSON from standard input", false)
     .option(
       "--extend",
-      "plan import only (M17): extend an existing work graph instead of one-shot initial planning",
+      "plan import only (M17-RC1): extend an existing work graph -- append without a target, or refine with --refine-work-unit",
       false,
     )
     .option(
+      "--refine-work-unit <workUnitId>",
+      "plan import only (M17-RC1): the work unit to refine into a detailed replacement subgraph",
+    )
+    .option(
       "--replace-placeholder <workUnitId>",
-      "plan import only (M17): the roadmap-placeholder work unit id targeted by --extend",
+      "[deprecated] alias for --refine-work-unit, kept for M17 backward compatibility",
     )
     .option(
       "--preview",
@@ -480,6 +494,7 @@ export function buildProgram(): Command {
         fromFile: raw.fromFile,
         stdin: Boolean(raw.stdin),
         extend: raw.extend,
+        refineWorkUnit: raw.refineWorkUnit,
         replacePlaceholder: raw.replacePlaceholder,
         preview: raw.preview,
       });

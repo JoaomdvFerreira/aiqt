@@ -169,7 +169,7 @@ export function renderPlanPrompt(project: ProjectModel, repoRoot: string | null 
   return lines.join("\n");
 }
 
-const PLAN_EXTENSION_JSON_SHAPE = {
+const PLAN_REFINEMENT_JSON_SHAPE = {
   extension: {
     entryWorkUnitClientKeys: ["..."],
     exitWorkUnitClientKeys: ["..."],
@@ -194,58 +194,58 @@ const PLAN_EXTENSION_JSON_SHAPE = {
 };
 
 /**
- * M17 §4.3/§16: deterministic prompt for `aiqt prompt plan --extend
- * --replace-placeholder <id>`, explaining how to produce a bounded
- * extension payload for the named roadmap placeholder. Read-only -- it does
- * not validate or mutate the current graph itself.
+ * M17-RC1 §5.2/§6: deterministic prompt for `aiqt prompt plan --extend
+ * --refine-work-unit <id>`, explaining how to produce a bounded refinement
+ * payload for the named target work unit. Read-only -- it does not validate
+ * or mutate the current graph itself.
  */
-export function renderPlanExtendPrompt(placeholderWorkUnitId: string): string {
+export function renderPlanRefinePrompt(targetWorkUnitId: string): string {
   const lines: string[] = [];
-  lines.push("You are helping create an AIQT plan EXTENSION input for an existing work graph.");
+  lines.push("You are helping create an AIQT plan REFINEMENT input for an existing work graph.");
   lines.push("Return JSON only. Do not wrap the JSON in markdown.");
   lines.push("Do not modify any source code.");
   lines.push("");
-  lines.push(`Target roadmap placeholder: ${placeholderWorkUnitId}`);
+  lines.push(`Target work unit to refine: ${targetWorkUnitId}`);
   lines.push(
-    `This placeholder is preserved and marked "replanned" -- it is never deleted, and it is never selected by aiqt next again.`,
+    `This work unit is preserved and marked "replanned" -- it is never deleted, and it is never selected by aiqt next again.`,
   );
   lines.push("");
   lines.push("Guidance:");
-  lines.push("- Detail only the next cut unless the user asks for deeper planning.");
+  lines.push("- Detail only the next bounded piece of work unless the user asks for deeper planning.");
   lines.push(
     "- entryWorkUnitClientKeys must reference work units in this payload that become the first executable nodes of the replacement subgraph.",
   );
   lines.push(
-    "- exitWorkUnitClientKeys must reference work units in this payload whose completion should satisfy any downstream work the placeholder currently blocks.",
+    "- exitWorkUnitClientKeys must reference work units in this payload whose completion should satisfy any downstream work the target currently blocks.",
   );
   lines.push(
-    "- AIQT copies every existing incoming blocks/requires dependency of the placeholder to every declared entry, and every existing outgoing blocks/requires dependency from every declared exit, preserving each original dependency type exactly.",
+    "- AIQT copies every existing incoming blocks/requires dependency of the target to every declared entry, and every existing outgoing blocks/requires dependency from every declared exit, preserving each original dependency type exactly.",
   );
   lines.push("- relates_to dependencies are never copied automatically and never affect readiness.");
-  lines.push("- reason must explain why this placeholder is being replaced now.");
+  lines.push("- reason must explain why this work unit is being refined now.");
   lines.push("");
-  lines.push("Create an extension JSON with this shape:");
-  lines.push(JSON.stringify(PLAN_EXTENSION_JSON_SHAPE, null, 2));
+  lines.push("Create a refinement JSON with this shape:");
+  lines.push(JSON.stringify(PLAN_REFINEMENT_JSON_SHAPE, null, 2));
   lines.push("");
   lines.push("Always preview before applying:");
   lines.push(
-    `aiqt import plan --stdin --extend --replace-placeholder ${placeholderWorkUnitId} --preview`,
+    `aiqt import plan --stdin --extend --refine-work-unit ${targetWorkUnitId} --preview`,
   );
   lines.push("");
   lines.push("Preferred agent path (after a successful preview):");
   lines.push("Pipe the JSON directly into:");
-  lines.push(`aiqt import plan --stdin --extend --replace-placeholder ${placeholderWorkUnitId}`);
+  lines.push(`aiqt import plan --stdin --extend --refine-work-unit ${targetWorkUnitId}`);
   lines.push("");
   lines.push("Optional human-review path:");
   lines.push("Save the JSON under .aiqt/inputs/ and run:");
   lines.push(
-    `aiqt plan --extend --replace-placeholder ${placeholderWorkUnitId} --from-file .aiqt/inputs/plan-extension.json --preview`,
+    `aiqt plan --extend --refine-work-unit ${targetWorkUnitId} --from-file .aiqt/inputs/work-unit-refinement.json --preview`,
   );
   lines.push(
-    `aiqt plan --extend --replace-placeholder ${placeholderWorkUnitId} --from-file .aiqt/inputs/plan-extension.json`,
+    `aiqt plan --extend --refine-work-unit ${targetWorkUnitId} --from-file .aiqt/inputs/work-unit-refinement.json`,
   );
   lines.push("");
-  lines.push("After a successful extension, validate before continuing:");
+  lines.push("After a successful refinement, validate before continuing:");
   lines.push("aiqt graph validate");
   lines.push("aiqt review");
   lines.push("aiqt status");
@@ -254,5 +254,82 @@ export function renderPlanExtendPrompt(placeholderWorkUnitId: string): string {
   lines.push(
     "Do not execute the first new work unit in this same planning-only session unless the user explicitly instructs it.",
   );
+  lines.push("");
+  lines.push(
+    "Note: --replace-placeholder is a deprecated alias for --refine-work-unit, kept only for backward compatibility. Do not use it in new work.",
+  );
+  return lines.join("\n");
+}
+
+const PLAN_APPEND_JSON_SHAPE = {
+  milestones: [{ clientKey: "...", title: "...", objective: "..." }],
+  workUnits: [
+    {
+      clientKey: "...",
+      milestoneClientKey: "... (a new clientKey above, or an existing milestone id)",
+      title: "...",
+      objective: "...",
+      scope: ["..."],
+      outOfScope: ["..."],
+      acceptanceCriteria: ["..."],
+      agentContextRefs: [],
+      suggestedFiles: ["..."],
+      validationCommands: ["..."],
+    },
+  ],
+  dependencies: [
+    {
+      fromClientKey: "... (a new clientKey above, or an existing work-unit id)",
+      toClientKey: "... (a new clientKey above, or an existing work-unit id)",
+      type: "blocks",
+    },
+  ],
+};
+
+/**
+ * M17-RC1 §5.1/§7: deterministic prompt for `aiqt prompt plan --extend`
+ * with no refinement target, explaining how to produce a bounded append
+ * payload for an existing non-empty graph. Read-only -- it does not
+ * validate or mutate the current graph itself.
+ */
+export function renderPlanAppendPrompt(): string {
+  const lines: string[] = [];
+  lines.push("You are helping create an AIQT plan APPEND input for an existing work graph.");
+  lines.push("Return JSON only. Do not wrap the JSON in markdown.");
+  lines.push("Do not modify any source code.");
+  lines.push("");
+  lines.push("Append adds milestones, work units, and/or dependencies to the existing graph.");
+  lines.push("It never targets, replaces, or changes the status of any existing work unit or milestone.");
+  lines.push("");
+  lines.push("Guidance:");
+  lines.push("- milestones and workUnits may both be empty for a dependency-only append.");
+  lines.push(
+    "- milestoneClientKey on a work unit may name either a new milestone clientKey declared in this payload, or an existing milestone id already in the graph.",
+  );
+  lines.push(
+    "- fromClientKey/toClientKey on a dependency may each name either a new work-unit clientKey declared in this payload, or an existing work-unit id already in the graph.",
+  );
+  lines.push("- Do not include a target work unit -- append never refines or replaces existing work.");
+  lines.push("");
+  lines.push("Create an append JSON with this shape:");
+  lines.push(JSON.stringify(PLAN_APPEND_JSON_SHAPE, null, 2));
+  lines.push("");
+  lines.push("Always preview before applying:");
+  lines.push("aiqt import plan --stdin --extend --preview");
+  lines.push("");
+  lines.push("Preferred agent path (after a successful preview):");
+  lines.push("Pipe the JSON directly into:");
+  lines.push("aiqt import plan --stdin --extend");
+  lines.push("");
+  lines.push("Optional human-review path:");
+  lines.push("Save the JSON under .aiqt/inputs/ and run:");
+  lines.push("aiqt plan --extend --from-file .aiqt/inputs/plan-append.json --preview");
+  lines.push("aiqt plan --extend --from-file .aiqt/inputs/plan-append.json");
+  lines.push("");
+  lines.push("After a successful append, validate before continuing:");
+  lines.push("aiqt graph validate");
+  lines.push("aiqt review");
+  lines.push("aiqt status");
+  lines.push("aiqt next --preview");
   return lines.join("\n");
 }

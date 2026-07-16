@@ -13,8 +13,8 @@ function readState(dir: string) {
 }
 
 /**
- * M17 §19.5: a placeholder (WU-PH) with all boundary dependency types at
- * once -- incoming blocks (from WU-IN-B), incoming requires (from
+ * M17-RC1 §11: a refinement target work unit with all boundary dependency
+ * types at once -- incoming blocks (from WU-IN-B), incoming requires (from
  * WU-IN-R), outgoing blocks (to WU-OUT-B), outgoing requires (to
  * WU-OUT-R), and a relates_to relationship (from WU-REL) that must never be
  * copied or affect readiness.
@@ -22,7 +22,7 @@ function readState(dir: string) {
 const MIXED_BOUNDARY_PLAN = {
   milestones: [
     { clientKey: "m-in", title: "Predecessors", objective: "Predecessor milestone." },
-    { clientKey: "m-ph", title: "Placeholder", objective: "Placeholder milestone." },
+    { clientKey: "m-target", title: "Refinable future work", objective: "Refinement target milestone." },
     { clientKey: "m-out", title: "Downstream", objective: "Downstream milestone." },
   ],
   workUnits: [
@@ -63,10 +63,10 @@ const MIXED_BOUNDARY_PLAN = {
       validationCommands: ["pnpm test"],
     },
     {
-      clientKey: "wu-ph",
-      milestoneClientKey: "m-ph",
-      title: "Mixed boundary placeholder",
-      objective: "Placeholder with every boundary dependency type.",
+      clientKey: "wu-target",
+      milestoneClientKey: "m-target",
+      title: "Mixed boundary refinement target",
+      objective: "Refinement target with every boundary dependency type.",
       scope: ["Scope"],
       outOfScope: ["Out of scope"],
       acceptanceCriteria: ["Criterion"],
@@ -100,19 +100,19 @@ const MIXED_BOUNDARY_PLAN = {
     },
   ],
   dependencies: [
-    { fromClientKey: "wu-in-b", toClientKey: "wu-ph", type: "blocks" },
-    { fromClientKey: "wu-in-r", toClientKey: "wu-ph", type: "requires" },
-    { fromClientKey: "wu-rel", toClientKey: "wu-ph", type: "relates_to" },
-    { fromClientKey: "wu-ph", toClientKey: "wu-out-b", type: "blocks" },
-    { fromClientKey: "wu-ph", toClientKey: "wu-out-r", type: "requires" },
+    { fromClientKey: "wu-in-b", toClientKey: "wu-target", type: "blocks" },
+    { fromClientKey: "wu-in-r", toClientKey: "wu-target", type: "requires" },
+    { fromClientKey: "wu-rel", toClientKey: "wu-target", type: "relates_to" },
+    { fromClientKey: "wu-target", toClientKey: "wu-out-b", type: "blocks" },
+    { fromClientKey: "wu-target", toClientKey: "wu-out-r", type: "requires" },
   ],
 };
 
-const EXTENSION_INPUT = {
+const REFINEMENT_INPUT = {
   extension: {
     entryWorkUnitClientKeys: ["e1"],
     exitWorkUnitClientKeys: ["e1"],
-    reason: "Detail the mixed-boundary placeholder.",
+    reason: "Detail the mixed-boundary refinement target.",
   },
   milestones: [{ clientKey: "c-m", title: "Detail", objective: "Detailed replacement work." }],
   workUnits: [
@@ -147,33 +147,35 @@ async function makeMixedBoundaryProject(dir: string) {
   expect(runPlan(contextFor(dir), { fromFile: planPath }).exitCode).toBe(ExitCode.Success);
 }
 
-describe("M17 §19.5: mixed boundary-dependency fixture", () => {
+describe("M17-RC1 §11: mixed boundary-dependency fixture", () => {
   let dir: string | null = null;
   afterEach(() => {
     if (dir) removeDir(dir);
     dir = null;
   });
 
-  it("starts with the placeholder blocked by its incoming blocks+requires dependencies", async () => {
+  it("starts with the refinement target blocked by its incoming blocks+requires dependencies", async () => {
     dir = makeTempDir();
     await makeMixedBoundaryProject(dir);
     const state = readState(dir);
-    const ph = state.workGraph.workUnits.find((wu: { title: string }) => wu.title === "Mixed boundary placeholder");
-    // Predecessors are not done yet, so the placeholder is blocked.
-    expect(ph.status).toBe("planned");
+    const target = state.workGraph.workUnits.find(
+      (wu: { title: string }) => wu.title === "Mixed boundary refinement target",
+    );
+    // Predecessors are not done yet, so the refinement target is blocked.
+    expect(target.status).toBe("planned");
   });
 
   it("copies incoming blocks and requires to the entry, outgoing blocks and requires from the exit, preserving each type, and never copies relates_to", async () => {
     dir = makeTempDir();
     await makeMixedBoundaryProject(dir);
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
 
     const phId = readState(dir).workGraph.workUnits.find(
-      (wu: { title: string }) => wu.title === "Mixed boundary placeholder",
+      (wu: { title: string }) => wu.title === "Mixed boundary refinement target",
     ).id;
 
-    const result = runPlan(contextFor(dir), { extend: true, replacePlaceholder: phId, fromFile: extPath });
+    const result = runPlan(contextFor(dir), { extend: true, refineWorkUnit: phId, fromFile: extPath });
     expect(result.exitCode).toBe(ExitCode.Success);
     const data = result.data as {
       copiedIncomingDependencyIds: string[];
@@ -203,18 +205,18 @@ describe("M17 §19.5: mixed boundary-dependency fixture", () => {
     // plus the payload's boundary copies (2 incoming + 2 outgoing = 4), no more.
     expect(state.workGraph.dependencies).toHaveLength(5 + 4);
     const relatesTo = state.workGraph.dependencies.filter((d: { type: string }) => d.type === "relates_to");
-    expect(relatesTo).toHaveLength(1); // only the original wu-rel -> placeholder relationship.
+    expect(relatesTo).toHaveLength(1); // only the original wu-rel -> refinement target relationship.
   });
 
   it("keeps downstream work blocked until the new exit's copied dependencies are satisfied, unaffected by relates_to", async () => {
     dir = makeTempDir();
     await makeMixedBoundaryProject(dir);
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
     const phId = readState(dir).workGraph.workUnits.find(
-      (wu: { title: string }) => wu.title === "Mixed boundary placeholder",
+      (wu: { title: string }) => wu.title === "Mixed boundary refinement target",
     ).id;
-    runPlan(contextFor(dir), { extend: true, replacePlaceholder: phId, fromFile: extPath });
+    runPlan(contextFor(dir), { extend: true, refineWorkUnit: phId, fromFile: extPath });
 
     const state = readState(dir);
     const outB = state.workGraph.workUnits.find(
