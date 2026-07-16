@@ -103,27 +103,28 @@ export function renderDriverPrompt(input: DriverPromptInput): string {
   );
   lines.push("");
 
-  // M17 §16: mention progressive planning when a non-empty graph still has
-  // an untouched roadmap placeholder and nothing is currently in progress --
-  // the moment aiqt plan --extend becomes the right next step instead of
-  // hand-editing canonical files.
+  // M17/M17-RC1 §16: mention progressive planning when a non-empty graph
+  // still has an untouched, undetailed future work unit and nothing is
+  // currently in progress -- the moment aiqt plan --extend becomes the
+  // right next step instead of hand-editing canonical files. It also always
+  // mentions append for adding further milestones/work units/dependencies.
   if (state && state.workGraph.milestones.length > 0 && state.currentWorkUnitId === null) {
-    const placeholder = state.workGraph.workUnits.find(
+    lines.push("Progressive planning guidance:");
+    lines.push(
+      "This project's work graph already exists. To add further milestones, work units, or dependencies, run aiqt prompt plan --extend rather than editing .aiqt/state.json directly.",
+    );
+    const target = state.workGraph.workUnits.find(
       (wu) => (wu.status === "ready" || wu.status === "planned") && !wu.replacedByWorkUnitIds,
     );
-    if (placeholder) {
-      lines.push("Progressive planning guidance:");
+    if (target) {
       lines.push(
-        `This project's work graph already exists and work unit "${placeholder.id}" looks like an undetailed roadmap placeholder.`,
+        `Work unit "${target.id}" looks like an undetailed future work unit. To refine it into a detailed replacement subgraph, run aiqt prompt plan --extend --refine-work-unit ${target.id}.`,
       );
-      lines.push(
-        `To detail it, run aiqt prompt plan --extend --replace-placeholder ${placeholder.id} rather than editing .aiqt/state.json directly.`,
-      );
-      lines.push(
-        "Always preview the extension before applying it, and detail only the next cut unless the user asks for deeper planning.",
-      );
-      lines.push("");
     }
+    lines.push(
+      "Always preview an append or refinement before applying it, and keep each step bounded unless the user asks for deeper planning.",
+    );
+    lines.push("");
   }
 
   lines.push("Preferred agent path:");

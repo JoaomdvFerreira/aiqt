@@ -154,6 +154,125 @@ export function collectIntegrityFindings(
     }
   }
 
+  findings.push(...collectReplannedInvariantFindings(state, workUnitIds));
+
+  return findings;
+}
+
+/**
+ * M17-RC1 §8/§10: a "replanned" work unit is not structurally valid on
+ * status alone. A malformed replanned record (missing/empty/invalid
+ * replacement metadata, or a boundary rewiring gap that would let
+ * downstream work depend only on the replanned unit itself) must be
+ * reported here rather than silently treated as satisfied by readiness
+ * calculations elsewhere. Reused by both `aiqt review` and
+ * `aiqt graph validate` through the shared collectIntegrityFindings call.
+ */
+function collectReplannedInvariantFindings(
+  state: StateModel,
+  workUnitIds: ReadonlySet<string>,
+): ReviewFindingCandidate[] {
+  const findings: ReviewFindingCandidate[] = [];
+
+  for (const wu of state.workGraph.workUnits) {
+    if (wu.status !== "replanned") continue;
+
+    const replacementIds = wu.replacedByWorkUnitIds ?? [];
+
+    if (replacementIds.length === 0) {
+      findings.push({
+        ruleKey: `integrity.invalid-replanned-metadata.${wu.id}`,
+        findingKey: `workunit:${wu.id}:replanned-missing-replacement-ids`,
+        category: "integrity",
+        severity: "critical",
+        blocking: true,
+        title: "Replanned work unit has no replacement work units recorded",
+        message: `Work unit "${wu.id}" is "replanned" but replacedByWorkUnitIds is missing or empty.`,
+        relatedIds: [wu.id],
+        suggestedAction: "Repair the work graph in .aiqt/state.json.",
+        nextRecommendedCommand: "aiqt review",
+      });
+      continue;
+    }
+
+    if (replacementIds.includes(wu.id)) {
+      findings.push({
+        ruleKey: `integrity.invalid-replanned-metadata.${wu.id}`,
+        findingKey: `workunit:${wu.id}:replanned-self-reference`,
+        category: "integrity",
+        severity: "critical",
+        blocking: true,
+        title: "Replanned work unit references itself as its own replacement",
+        message: `Work unit "${wu.id}" lists itself in replacedByWorkUnitIds.`,
+        relatedIds: [wu.id],
+        suggestedAction: "Repair the work graph in .aiqt/state.json.",
+        nextRecommendedCommand: "aiqt review",
+      });
+    }
+
+    const duplicateIds = replacementIds.filter((id, i) => replacementIds.indexOf(id) !== i);
+    if (duplicateIds.length > 0) {
+      findings.push({
+        ruleKey: `integrity.invalid-replanned-metadata.${wu.id}`,
+        findingKey: `workunit:${wu.id}:replanned-duplicate-replacement-id`,
+        category: "integrity",
+        severity: "critical",
+        blocking: true,
+        title: "Replanned work unit lists a duplicate replacement ID",
+        message: `Work unit "${wu.id}" lists a duplicate replacement id (${[...new Set(duplicateIds)].join(", ")}) in replacedByWorkUnitIds.`,
+        relatedIds: [wu.id],
+        suggestedAction: "Repair the work graph in .aiqt/state.json.",
+        nextRecommendedCommand: "aiqt review",
+      });
+    }
+
+    const unknownIds = replacementIds.filter((id) => id !== wu.id && !workUnitIds.has(id));
+    if (unknownIds.length > 0) {
+      findings.push({
+        ruleKey: `integrity.invalid-replanned-metadata.${wu.id}`,
+        findingKey: `workunit:${wu.id}:replanned-unknown-replacement-id`,
+        category: "integrity",
+        severity: "critical",
+        blocking: true,
+        title: "Replanned work unit references an unknown replacement work unit",
+        message: `Work unit "${wu.id}" references unknown replacement id(s): ${unknownIds.join(", ")}.`,
+        relatedIds: [wu.id, ...unknownIds],
+        suggestedAction: "Repair the work graph in .aiqt/state.json.",
+        nextRecommendedCommand: "aiqt review",
+      });
+    }
+
+    // Boundary rewiring: every original blocking dependent of the replanned
+    // unit must have at least one blocking dependency from a valid
+    // replacement work unit, or downstream readiness has no path forward.
+    const validReplacementIds = new Set(replacementIds.filter((id) => workUnitIds.has(id) && id !== wu.id));
+    const originalDependents = state.workGraph.dependencies.filter(
+      (d) => d.fromId === wu.id && (d.type === "blocks" || d.type === "requires"),
+    );
+    for (const dep of originalDependents) {
+      const hasReplacementBoundary = state.workGraph.dependencies.some(
+        (d) =>
+          d.toId === dep.toId &&
+          (d.type === "blocks" || d.type === "requires") &&
+          validReplacementIds.has(d.fromId),
+      );
+      if (!hasReplacementBoundary) {
+        findings.push({
+          ruleKey: `integrity.invalid-replanned-metadata.${wu.id}`,
+          findingKey: `workunit:${wu.id}:replanned-missing-boundary-dependency:${dep.toId}`,
+          category: "integrity",
+          severity: "critical",
+          blocking: true,
+          title: "Replanned work unit's downstream dependent has no replacement boundary dependency",
+          message: `Work unit "${dep.toId}" depended on replanned work unit "${wu.id}", but no replacement work unit (${[...validReplacementIds].join(", ") || "none"}) has an equivalent blocking dependency to it.`,
+          relatedIds: [wu.id, dep.toId],
+          suggestedAction: "Repair the work graph in .aiqt/state.json.",
+          nextRecommendedCommand: "aiqt review",
+        });
+      }
+    }
+  }
+
   return findings;
 }
 

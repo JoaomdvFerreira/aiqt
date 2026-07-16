@@ -87,9 +87,9 @@ describe("schema validation", () => {
 
   it("M17 §8.4: accepts a replanned work unit with replacement metadata", () => {
     const replannedWorkUnit = {
-      id: "WU015",
+      id: "WU010",
       milestoneId: "M006",
-      title: "Corte 1 roadmap placeholder",
+      title: "Refinable future work unit",
       objective: "Objective",
       scope: ["Scope"],
       outOfScope: ["Out of scope"],
@@ -101,7 +101,7 @@ describe("schema validation", () => {
       dependencies: [],
       createdAt: NOW,
       updatedAt: NOW,
-      replanReason: "Expand the Corte 1 roadmap placeholder.",
+      replanReason: "Expand the refinable future work unit.",
       replacedByWorkUnitIds: ["WU022", "WU023"],
     };
     expect(WorkUnitSchema.safeParse(replannedWorkUnit).success).toBe(true);

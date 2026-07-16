@@ -6,6 +6,7 @@ import {
 } from "../../core/output/result.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
 import { AiqtError } from "../../core/output/aiqt-error.js";
+import type { Issue } from "../../core/output/issue.js";
 import { loadProject } from "./load-project.js";
 import {
   readJsonFile,
@@ -24,10 +25,12 @@ import { nextId } from "../../state/ids.js";
 import { PlanInputSchema, type PlanInput } from "../../schema/plan-input.schema.js";
 import {
   PlanExtensionInputSchema,
+  PlanAppendInputSchema,
   type PlanExtensionInput,
+  type PlanAppendInput,
 } from "../../schema/plan-extension-input.schema.js";
 import { buildWorkGraphFromPlanInput } from "../../services/planning-service.js";
-import { buildPlanExtension } from "../../services/plan-extension-service.js";
+import { buildPlanAppend, buildPlanRefinement } from "../../services/plan-extension-service.js";
 import { isPlanningContextReady } from "../../workflow/planning-readiness.js";
 import type { ProjectModel } from "../../schema/project.schema.js";
 import type { StateModel } from "../../schema/state.schema.js";
@@ -69,10 +72,10 @@ function loadPlanInputFromFile(path: string): PlanInput {
   return validatePlanInput(raw);
 }
 
-function validatePlanExtensionInput(raw: unknown): PlanExtensionInput {
+function validatePlanRefinementInput(raw: unknown): PlanExtensionInput {
   const parsed = PlanExtensionInputSchema.safeParse(raw);
   if (!parsed.success) {
-    const message = `Invalid plan extension input: ${parsed.error.issues
+    const message = `Invalid refinement input: ${parsed.error.issues
       .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
       .join("; ")}`;
     throw new AiqtError(message, ExitCode.InvalidInput, {
@@ -86,7 +89,7 @@ function validatePlanExtensionInput(raw: unknown): PlanExtensionInput {
   return parsed.data;
 }
 
-function loadPlanExtensionInputFromFile(path: string): PlanExtensionInput {
+function loadPlanRefinementInputFromFile(path: string): PlanExtensionInput {
   let raw: unknown;
   try {
     raw = readJsonFile(path);
@@ -102,7 +105,43 @@ function loadPlanExtensionInputFromFile(path: string): PlanExtensionInput {
     }
     throw err;
   }
-  return validatePlanExtensionInput(raw);
+  return validatePlanRefinementInput(raw);
+}
+
+function validatePlanAppendInput(raw: unknown): PlanAppendInput {
+  const parsed = PlanAppendInputSchema.safeParse(raw);
+  if (!parsed.success) {
+    const message = `Invalid append input: ${parsed.error.issues
+      .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
+      .join("; ")}`;
+    throw new AiqtError(message, ExitCode.InvalidInput, {
+      id: "PLAN-EXTEND-INPUT-SCHEMA-INVALID",
+      severity: "critical",
+      area: "input",
+      message,
+      agentCanFix: false,
+    });
+  }
+  return parsed.data;
+}
+
+function loadPlanAppendInputFromFile(path: string): PlanAppendInput {
+  let raw: unknown;
+  try {
+    raw = readJsonFile(path);
+  } catch (err) {
+    if (err instanceof FileReadError || err instanceof JsonParseError) {
+      throw new AiqtError(err.message, ExitCode.InvalidInput, {
+        id: "PLAN-EXTEND-FROM-FILE-INVALID",
+        severity: "critical",
+        area: "input",
+        message: err.message,
+        agentCanFix: false,
+      });
+    }
+    throw err;
+  }
+  return validatePlanAppendInput(raw);
 }
 
 function blockedOnState(
@@ -136,11 +175,13 @@ export interface RunPlanOptions {
   fromFile?: string;
   /** Pre-parsed plan JSON (e.g. from aiqt import plan --stdin). Takes precedence over fromFile when set. */
   input?: unknown;
-  /** M17: extend an existing (non-empty) work graph instead of the one-shot initial plan. */
+  /** M17/M17-RC1: extend an existing (non-empty) work graph instead of the one-shot initial plan. */
   extend?: boolean;
-  /** M17: the roadmap-placeholder work unit id targeted by --extend. */
+  /** M17-RC1: the work unit to refine. Selects the "refine" operation when present. */
+  refineWorkUnit?: string;
+  /** @deprecated M17-RC1: use `refineWorkUnit`. Kept as a functional alias for M17 backward compatibility. */
   replacePlaceholder?: string;
-  /** M17: validate and report the extension without persisting or appending runlog events. */
+  /** M17/M17-RC1: validate and report append/refine without persisting or appending runlog events. */
   preview?: boolean;
 }
 
@@ -155,19 +196,28 @@ function invalidInput(id: string, message: string): CommandResult {
   });
 }
 
+const DEPRECATED_ALIAS_WARNING: Issue = {
+  id: "PLAN-EXTEND-DEPRECATED-ALIAS",
+  severity: "low",
+  area: "input",
+  message: "--replace-placeholder is deprecated; use --refine-work-unit instead. It remains functional for backward compatibility.",
+  agentCanFix: true,
+};
+
 /**
- * M17: `aiqt plan --extend --replace-placeholder <id>`. A distinct flow from
- * ordinary one-shot planning -- it requires (rather than rejects) a
- * non-empty graph, and mutates through the candidate-state extension engine
- * instead of `buildWorkGraphFromPlanInput`. Reuses the same file/stdin input
- * plumbing, atomic state writer, and runlog append conventions as the
- * ordinary path.
+ * M17-RC1 §6/§7: `aiqt plan --extend --refine-work-unit <id>`. Replaces one
+ * eligible existing work unit with a detailed replacement subgraph, wiring
+ * its boundary dependencies onto the replacement and preserving it as
+ * "replanned" audit history. Reuses the same file/stdin input plumbing,
+ * atomic state writer, and runlog append conventions as ordinary planning.
  */
-function runPlanExtend(
+function runPlanRefine(
   paths: AiqtPaths,
   project: ProjectModel,
   state: StateModel,
   options: RunPlanOptions,
+  targetWorkUnitId: string,
+  warnings: Issue[],
 ): CommandResult {
   if (!options.fromFile && options.input === undefined) {
     return makeResult({
@@ -176,27 +226,19 @@ function runPlanExtend(
       projectStatus: state.projectStatus,
       currentMilestoneId: state.currentMilestoneId,
       currentWorkUnitId: state.currentWorkUnitId,
-      summary: "No extension input file supplied. Provide a structured extension via --from-file.",
+      summary: "No refinement input file supplied. Provide a structured refinement via --from-file.",
       requiresHumanInput: true,
-      nextRecommendedCommand: `aiqt plan --extend --replace-placeholder ${options.replacePlaceholder} --from-file <path>`,
+      nextRecommendedCommand: `aiqt plan --extend --refine-work-unit ${targetWorkUnitId} --from-file <path>`,
       exitCode: ExitCode.HumanInputRequired,
+      warnings,
     });
   }
 
-  if (state.workGraph.milestones.length === 0) {
-    return blockedOnState(
-      state,
-      "No work graph exists yet. aiqt plan --extend requires an existing graph; run ordinary aiqt plan first.",
-      "aiqt plan",
-      "PLAN-EXTEND-GRAPH-EMPTY",
-    );
-  }
-
-  let extensionInput: PlanExtensionInput;
+  let refinementInput: PlanExtensionInput;
   try {
-    extensionInput = options.input !== undefined
-      ? validatePlanExtensionInput(options.input)
-      : loadPlanExtensionInputFromFile(options.fromFile!);
+    refinementInput = options.input !== undefined
+      ? validatePlanRefinementInput(options.input)
+      : loadPlanRefinementInputFromFile(options.fromFile!);
   } catch (err) {
     if (err instanceof AiqtError) {
       return makeResult({
@@ -209,6 +251,7 @@ function runPlanExtend(
         nextRecommendedCommand: state.nextRecommendedCommand,
         exitCode: err.exitCode,
         blockingIssues: err.issue ? [err.issue] : [],
+        warnings,
       });
     }
     throw err;
@@ -217,10 +260,10 @@ function runPlanExtend(
   const timestamp = new Date().toISOString();
   let outcome;
   try {
-    outcome = buildPlanExtension({
+    outcome = buildPlanRefinement({
       state,
-      placeholderWorkUnitId: options.replacePlaceholder!,
-      input: extensionInput,
+      targetWorkUnitId,
+      input: refinementInput,
       timestamp,
     });
   } catch (err) {
@@ -235,19 +278,20 @@ function runPlanExtend(
         nextRecommendedCommand: state.nextRecommendedCommand,
         exitCode: err.exitCode,
         blockingIssues: err.issue ? [err.issue] : [],
+        warnings,
       });
     }
     throw err;
   }
 
   const previewNextCommand = options.fromFile
-    ? `aiqt plan --extend --replace-placeholder ${outcome.placeholderWorkUnitId} --from-file ${options.fromFile}`
-    : `aiqt import plan --stdin --extend --replace-placeholder ${outcome.placeholderWorkUnitId}`;
+    ? `aiqt plan --extend --refine-work-unit ${outcome.targetWorkUnitId} --from-file ${options.fromFile}`
+    : `aiqt import plan --stdin --extend --refine-work-unit ${outcome.targetWorkUnitId}`;
 
   const sharedData = {
-    operation: "extend" as const,
-    placeholderWorkUnitId: outcome.placeholderWorkUnitId,
-    placeholderFinalStatus: "replanned" as const,
+    operation: "refine" as const,
+    targetWorkUnitId: outcome.targetWorkUnitId,
+    targetFinalStatus: "replanned" as const,
     reason: outcome.reason,
     addedMilestoneIds: outcome.addedMilestoneIds,
     addedWorkUnitIds: outcome.addedWorkUnitIds,
@@ -262,7 +306,7 @@ function runPlanExtend(
   };
 
   const affectedItems = [
-    outcome.placeholderWorkUnitId,
+    outcome.targetWorkUnitId,
     ...outcome.addedMilestoneIds,
     ...outcome.addedWorkUnitIds,
     ...outcome.addedDependencyIds,
@@ -275,16 +319,17 @@ function runPlanExtend(
       projectStatus: state.projectStatus,
       currentMilestoneId: state.currentMilestoneId,
       currentWorkUnitId: state.currentWorkUnitId,
-      summary: `Preview: would extend the work graph and replan placeholder ${outcome.placeholderWorkUnitId}. No files were changed.`,
+      summary: `Preview: would refine work unit ${outcome.targetWorkUnitId} into a replacement subgraph. No files were changed.`,
       completedActions: [
-        "Validated extension input",
-        "Validated placeholder eligibility",
+        "Validated refinement input",
+        "Validated target eligibility",
         "Validated candidate graph",
       ],
       changedFiles: [],
       affectedItems,
       nextRecommendedCommand: previewNextCommand,
       exitCode: ExitCode.Success,
+      warnings,
       data: { ...sharedData, preview: true, mutationPerformed: false },
     });
   }
@@ -295,7 +340,7 @@ function runPlanExtend(
   const extendEventId = nextId("EVT", eventIdsBefore);
   const extendRelatedIds = [
     project.project.id,
-    outcome.placeholderWorkUnitId,
+    outcome.targetWorkUnitId,
     ...outcome.addedMilestoneIds,
     ...outcome.addedWorkUnitIds,
     ...outcome.addedDependencyIds,
@@ -307,16 +352,17 @@ function runPlanExtend(
       timestamp,
       relatedIds: extendRelatedIds,
       data: {
-        placeholderWorkUnitId: outcome.placeholderWorkUnitId,
-        reason: outcome.reason,
+        operation: "refine",
         addedMilestoneIds: outcome.addedMilestoneIds,
         addedWorkUnitIds: outcome.addedWorkUnitIds,
         addedDependencyIds: outcome.addedDependencyIds,
+        nextRecommendedCommand: outcome.nextRecommendedCommand,
+        targetWorkUnitId: outcome.targetWorkUnitId,
+        reason: outcome.reason,
         entryWorkUnitIds: outcome.entryWorkUnitIds,
         exitWorkUnitIds: outcome.exitWorkUnitIds,
         copiedIncomingDependencyIds: outcome.copiedIncomingDependencyIds,
         copiedOutgoingDependencyIds: outcome.copiedOutgoingDependencyIds,
-        nextRecommendedCommand: outcome.nextRecommendedCommand,
       },
     }),
   );
@@ -327,10 +373,10 @@ function runPlanExtend(
     buildWorkUnitStatusChangedEvent({
       id: replannedEventId,
       timestamp,
-      relatedIds: [project.project.id, outcome.placeholderWorkUnitId],
+      relatedIds: [project.project.id, outcome.targetWorkUnitId],
       data: {
-        workUnitId: outcome.placeholderWorkUnitId,
-        fromStatus: outcome.placeholderOriginalStatus,
+        workUnitId: outcome.targetWorkUnitId,
+        fromStatus: outcome.targetOriginalStatus,
         toStatus: "replanned",
         reason: outcome.reason,
       },
@@ -343,18 +389,175 @@ function runPlanExtend(
     projectStatus: outcome.state.projectStatus,
     currentMilestoneId: outcome.state.currentMilestoneId,
     currentWorkUnitId: outcome.state.currentWorkUnitId,
-    summary: `Extended the work graph and replanned placeholder ${outcome.placeholderWorkUnitId}.`,
+    summary: `Refined work unit ${outcome.targetWorkUnitId} into a replacement subgraph.`,
     completedActions: [
-      "Validated extension input",
-      "Validated placeholder eligibility",
+      "Validated refinement input",
+      "Validated target eligibility",
       "Validated candidate graph",
       "Added milestones, work units, and dependencies",
-      `Marked ${outcome.placeholderWorkUnitId} replanned`,
+      `Marked ${outcome.targetWorkUnitId} replanned`,
     ],
     changedFiles: [paths.stateFile, paths.runlogFile],
     affectedItems,
     nextRecommendedCommand: outcome.nextRecommendedCommand,
     exitCode: ExitCode.Success,
+    warnings,
+    data: { ...sharedData, preview: false, mutationPerformed: true },
+  });
+}
+
+/**
+ * M17-RC1 §5.1/§7: `aiqt plan --extend --from-file <path>` with no
+ * refinement target. Adds milestones/work units/dependencies to the
+ * existing graph without touching any existing record's status or scope.
+ */
+function runPlanAppendOp(
+  paths: AiqtPaths,
+  project: ProjectModel,
+  state: StateModel,
+  options: RunPlanOptions,
+  warnings: Issue[],
+): CommandResult {
+  if (!options.fromFile && options.input === undefined) {
+    return makeResult({
+      status: "needs_input",
+      action: "plan",
+      projectStatus: state.projectStatus,
+      currentMilestoneId: state.currentMilestoneId,
+      currentWorkUnitId: state.currentWorkUnitId,
+      summary: "No append input file supplied. Provide a structured append payload via --from-file.",
+      requiresHumanInput: true,
+      nextRecommendedCommand: "aiqt plan --extend --from-file <path>",
+      exitCode: ExitCode.HumanInputRequired,
+      warnings,
+    });
+  }
+
+  let appendInput: PlanAppendInput;
+  try {
+    appendInput = options.input !== undefined
+      ? validatePlanAppendInput(options.input)
+      : loadPlanAppendInputFromFile(options.fromFile!);
+  } catch (err) {
+    if (err instanceof AiqtError) {
+      return makeResult({
+        status: "failed",
+        action: "plan",
+        projectStatus: state.projectStatus,
+        currentMilestoneId: state.currentMilestoneId,
+        currentWorkUnitId: state.currentWorkUnitId,
+        summary: err.message,
+        nextRecommendedCommand: state.nextRecommendedCommand,
+        exitCode: err.exitCode,
+        blockingIssues: err.issue ? [err.issue] : [],
+        warnings,
+      });
+    }
+    throw err;
+  }
+
+  const timestamp = new Date().toISOString();
+  let outcome;
+  try {
+    outcome = buildPlanAppend({ state, input: appendInput, timestamp });
+  } catch (err) {
+    if (err instanceof AiqtError) {
+      return makeResult({
+        status: err.exitCode === ExitCode.WorkflowBlocked ? "blocked" : "failed",
+        action: "plan",
+        projectStatus: state.projectStatus,
+        currentMilestoneId: state.currentMilestoneId,
+        currentWorkUnitId: state.currentWorkUnitId,
+        summary: err.message,
+        nextRecommendedCommand: state.nextRecommendedCommand,
+        exitCode: err.exitCode,
+        blockingIssues: err.issue ? [err.issue] : [],
+        warnings,
+      });
+    }
+    throw err;
+  }
+
+  const previewNextCommand = options.fromFile
+    ? `aiqt plan --extend --from-file ${options.fromFile}`
+    : "aiqt import plan --stdin --extend";
+
+  const sharedData = {
+    operation: "append" as const,
+    addedMilestoneIds: outcome.addedMilestoneIds,
+    addedWorkUnitIds: outcome.addedWorkUnitIds,
+    addedDependencyIds: outcome.addedDependencyIds,
+    completedWorkUnitsModified: outcome.completedWorkUnitsModified,
+    completedMilestonesModified: outcome.completedMilestonesModified,
+    cyclesIntroduced: outcome.cyclesIntroduced,
+  };
+
+  const affectedItems = [
+    ...outcome.addedMilestoneIds,
+    ...outcome.addedWorkUnitIds,
+    ...outcome.addedDependencyIds,
+  ];
+
+  if (options.preview) {
+    return makeResult({
+      status: "passed",
+      action: "plan",
+      projectStatus: state.projectStatus,
+      currentMilestoneId: state.currentMilestoneId,
+      currentWorkUnitId: state.currentWorkUnitId,
+      summary: "Preview: would append to the work graph. No files were changed.",
+      completedActions: ["Validated append input", "Validated candidate graph"],
+      changedFiles: [],
+      affectedItems,
+      nextRecommendedCommand: previewNextCommand,
+      exitCode: ExitCode.Success,
+      warnings,
+      data: { ...sharedData, preview: true, mutationPerformed: false },
+    });
+  }
+
+  writeStateModel(paths.stateFile, outcome.state);
+
+  const eventIdsBefore = readRunlogEventIds(paths.runlogFile);
+  const extendEventId = nextId("EVT", eventIdsBefore);
+  appendRunlogEvent(
+    paths.runlogFile,
+    buildPlanExtendedEvent({
+      id: extendEventId,
+      timestamp,
+      relatedIds: [
+        project.project.id,
+        ...outcome.addedMilestoneIds,
+        ...outcome.addedWorkUnitIds,
+        ...outcome.addedDependencyIds,
+      ],
+      data: {
+        operation: "append",
+        addedMilestoneIds: outcome.addedMilestoneIds,
+        addedWorkUnitIds: outcome.addedWorkUnitIds,
+        addedDependencyIds: outcome.addedDependencyIds,
+        nextRecommendedCommand: outcome.nextRecommendedCommand,
+      },
+    }),
+  );
+
+  return makeResult({
+    status: "passed",
+    action: "plan",
+    projectStatus: outcome.state.projectStatus,
+    currentMilestoneId: outcome.state.currentMilestoneId,
+    currentWorkUnitId: outcome.state.currentWorkUnitId,
+    summary: "Appended milestones, work units, and dependencies to the work graph.",
+    completedActions: [
+      "Validated append input",
+      "Validated candidate graph",
+      "Added milestones, work units, and dependencies",
+    ],
+    changedFiles: [paths.stateFile, paths.runlogFile],
+    affectedItems,
+    nextRecommendedCommand: outcome.nextRecommendedCommand,
+    exitCode: ExitCode.Success,
+    warnings,
     data: { ...sharedData, preview: false, mutationPerformed: true },
   });
 }
@@ -364,24 +567,40 @@ export function runPlan(
   options: RunPlanOptions,
 ): CommandResult {
   try {
-    // M17: CLI-combination validation is independent of project state.
-    if (options.replacePlaceholder && !options.extend) {
+    // M17-RC1 §4: CLI-combination validation is independent of project state.
+    if (options.refineWorkUnit && options.replacePlaceholder) {
       return invalidInput(
-        "PLAN-EXTEND-PLACEHOLDER-REQUIRED",
-        "--replace-placeholder requires --extend.",
+        "PLAN-EXTEND-TARGET-CONFLICT",
+        "--refine-work-unit and --replace-placeholder cannot both be supplied.",
       );
     }
-    if (options.extend && !options.replacePlaceholder) {
+    const targetWorkUnitId = options.refineWorkUnit ?? options.replacePlaceholder;
+    const usedDeprecatedAlias = !options.refineWorkUnit && Boolean(options.replacePlaceholder);
+
+    if (targetWorkUnitId && !options.extend) {
       return invalidInput(
-        "PLAN-EXTEND-PLACEHOLDER-REQUIRED",
-        "--extend requires --replace-placeholder <id>.",
+        "PLAN-EXTEND-TARGET-REQUIRES-EXTEND",
+        "--refine-work-unit (or the deprecated --replace-placeholder alias) requires --extend.",
       );
     }
 
     const { paths, project, state } = loadProject(ctx);
 
     if (options.extend) {
-      return runPlanExtend(paths, project, state, options);
+      const warnings = usedDeprecatedAlias ? [DEPRECATED_ALIAS_WARNING] : [];
+
+      if (state.workGraph.milestones.length === 0) {
+        return blockedOnState(
+          state,
+          "No work graph exists yet. aiqt plan --extend requires an existing graph; run ordinary aiqt plan first.",
+          "aiqt plan",
+          "PLAN-EXTEND-GRAPH-EMPTY",
+        );
+      }
+
+      return targetWorkUnitId
+        ? runPlanRefine(paths, project, state, options, targetWorkUnitId, warnings)
+        : runPlanAppendOp(paths, project, state, options, warnings);
     }
 
     // Gate: no-input must be evaluated before planningContextReady.

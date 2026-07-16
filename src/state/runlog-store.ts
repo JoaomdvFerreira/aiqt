@@ -199,19 +199,26 @@ export function buildWorkUnitStatusChangedEvent(input: {
 }
 
 export interface PlanExtendedEventData {
-  placeholderWorkUnitId: string;
-  reason: string;
+  operation: "append" | "refine";
   addedMilestoneIds: string[];
   addedWorkUnitIds: string[];
   addedDependencyIds: string[];
-  entryWorkUnitIds: string[];
-  exitWorkUnitIds: string[];
-  copiedIncomingDependencyIds: string[];
-  copiedOutgoingDependencyIds: string[];
   nextRecommendedCommand: string | null;
+  /** refine only. */
+  targetWorkUnitId?: string;
+  /** refine only. */
+  reason?: string;
+  /** refine only. */
+  entryWorkUnitIds?: string[];
+  /** refine only. */
+  exitWorkUnitIds?: string[];
+  /** refine only. */
+  copiedIncomingDependencyIds?: string[];
+  /** refine only. */
+  copiedOutgoingDependencyIds?: string[];
 }
 
-/** M17 §12.1: the plan.extended event appended by `aiqt plan --extend` on success. Reused verbatim by `aiqt import plan --stdin --extend`. */
+/** M17 §12.1/M17-RC1 §15: the plan.extended event appended by `aiqt plan --extend` (append or refine) on success. Reused verbatim by `aiqt import plan --stdin --extend`. */
 export function buildPlanExtendedEvent(input: {
   id: string;
   timestamp: string;
@@ -223,7 +230,10 @@ export function buildPlanExtendedEvent(input: {
     type: "plan.extended",
     timestamp: input.timestamp,
     actor: "aiqt",
-    summary: `Work graph extended; replaced placeholder ${input.data.placeholderWorkUnitId}.`,
+    summary:
+      input.data.operation === "refine"
+        ? `Work graph extended; refined work unit ${input.data.targetWorkUnitId}.`
+        : "Work graph extended via append.",
     relatedIds: input.relatedIds,
     data: { ...input.data },
   };

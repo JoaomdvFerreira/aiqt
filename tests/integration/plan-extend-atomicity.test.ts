@@ -26,8 +26,8 @@ const DONE_PAYLOAD = {
 
 const BASE_PLAN = {
   milestones: [
-    { clientKey: "m1", title: "Corte 0", objective: "First cut." },
-    { clientKey: "m2", title: "Corte 1 Roadmap", objective: "Placeholder for Corte 1." },
+    { clientKey: "m1", title: "Completed upstream work", objective: "Foundational work already done." },
+    { clientKey: "m2", title: "Refinable future work", objective: "Placeholder for future detailed work." },
   ],
   workUnits: [
     {
@@ -45,8 +45,8 @@ const BASE_PLAN = {
     {
       clientKey: "wu2",
       milestoneClientKey: "m2",
-      title: "Corte 1 placeholder",
-      objective: "Corte 1 placeholder objective.",
+      title: "Refinable future work unit",
+      objective: "Future work objective.",
       scope: ["Scope"],
       outOfScope: ["Out of scope"],
       acceptanceCriteria: ["Criterion"],
@@ -58,18 +58,18 @@ const BASE_PLAN = {
   dependencies: [{ fromClientKey: "wu1", toClientKey: "wu2", type: "blocks" }],
 };
 
-const EXTENSION_INPUT = {
+const REFINEMENT_INPUT = {
   extension: {
     entryWorkUnitClientKeys: ["e1"],
     exitWorkUnitClientKeys: ["e1"],
-    reason: "Detail Corte 1.",
+    reason: "Detail the refinable future work.",
   },
-  milestones: [{ clientKey: "c1-m", title: "Corte 1 detail", objective: "Detailed Corte 1 work." }],
+  milestones: [{ clientKey: "r-m", title: "Refinement detail", objective: "Detailed replacement work." }],
   workUnits: [
     {
       clientKey: "e1",
-      milestoneClientKey: "c1-m",
-      title: "Corte 1 entry/exit",
+      milestoneClientKey: "r-m",
+      title: "Replacement entry/exit",
       objective: "Entry/exit objective.",
       scope: ["Scope"],
       outOfScope: ["Out of scope"],
@@ -110,7 +110,7 @@ describe("aiqt plan --extend: A39 atomicity under a simulated persistence failur
     dir = null;
   });
 
-  it("leaves state.json, runlog.jsonl, and the placeholder status completely untouched", async () => {
+  it("leaves state.json, runlog.jsonl, and the target work unit status completely untouched", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     const beforeState = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
@@ -123,10 +123,10 @@ describe("aiqt plan --extend: A39 atomicity under a simulated persistence failur
       });
 
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
     const result = runPlan(contextFor(dir), {
       extend: true,
-      replacePlaceholder: "WU002",
+      refineWorkUnit: "WU002",
       fromFile: extPath,
     });
     expect(result.exitCode).toBe(ExitCode.InvalidInput);
@@ -151,10 +151,10 @@ describe("aiqt plan --extend: A39 atomicity under a simulated persistence failur
         throw new Error("Simulated persistence failure");
       });
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
     const failed = runPlan(contextFor(dir), {
       extend: true,
-      replacePlaceholder: "WU002",
+      refineWorkUnit: "WU002",
       fromFile: extPath,
     });
     expect(failed.exitCode).toBe(ExitCode.InvalidInput);
@@ -162,7 +162,7 @@ describe("aiqt plan --extend: A39 atomicity under a simulated persistence failur
 
     const retried = runPlan(contextFor(dir), {
       extend: true,
-      replacePlaceholder: "WU002",
+      refineWorkUnit: "WU002",
       fromFile: extPath,
     });
     expect(retried.exitCode).toBe(ExitCode.Success);

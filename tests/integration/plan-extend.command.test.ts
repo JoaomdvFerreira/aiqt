@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runInit } from "../../src/cli/commands/init.command.js";
@@ -9,6 +9,7 @@ import { runCheckpoint } from "../../src/cli/commands/checkpoint.command.js";
 import { normalizeInitOptions } from "../../src/cli/options.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
 import { makeTempDir, removeDir, contextFor } from "../helpers.js";
+import * as workflowStateStore from "../../src/state/workflow-state-store.js";
 
 function readState(dir: string) {
   return JSON.parse(readFileSync(join(dir, ".aiqt", "state.json"), "utf8"));
@@ -38,9 +39,9 @@ const DONE_PAYLOAD = {
 
 const BASE_PLAN = {
   milestones: [
-    { clientKey: "m1", title: "Corte 0", objective: "First cut." },
-    { clientKey: "m2", title: "Corte 1 Roadmap", objective: "Placeholder for Corte 1." },
-    { clientKey: "m3", title: "Corte 2 Roadmap", objective: "Placeholder for Corte 2." },
+    { clientKey: "m1", title: "Completed upstream work", objective: "Foundational work already done." },
+    { clientKey: "m2", title: "Refinable future work", objective: "Placeholder for future detailed work." },
+    { clientKey: "m3", title: "Further future work", objective: "Placeholder for later detailed work." },
   ],
   workUnits: [
     {
@@ -58,8 +59,8 @@ const BASE_PLAN = {
     {
       clientKey: "wu2",
       milestoneClientKey: "m2",
-      title: "Corte 1 placeholder",
-      objective: "Corte 1 placeholder objective.",
+      title: "Refinable future work unit",
+      objective: "Future work objective.",
       scope: ["Scope"],
       outOfScope: ["Out of scope"],
       acceptanceCriteria: ["Criterion"],
@@ -70,8 +71,8 @@ const BASE_PLAN = {
     {
       clientKey: "wu3",
       milestoneClientKey: "m3",
-      title: "Corte 2 placeholder",
-      objective: "Corte 2 placeholder objective.",
+      title: "Further future work unit",
+      objective: "Further future work objective.",
       scope: ["Scope"],
       outOfScope: ["Out of scope"],
       acceptanceCriteria: ["Criterion"],
@@ -86,18 +87,18 @@ const BASE_PLAN = {
   ],
 };
 
-const EXTENSION_INPUT = {
+const REFINEMENT_INPUT = {
   extension: {
     entryWorkUnitClientKeys: ["e1"],
     exitWorkUnitClientKeys: ["e2"],
-    reason: "Detail Corte 1.",
+    reason: "Detail the refinable future work.",
   },
-  milestones: [{ clientKey: "c1-m", title: "Corte 1 detail", objective: "Detailed Corte 1 work." }],
+  milestones: [{ clientKey: "r-m", title: "Refinement detail", objective: "Detailed replacement work." }],
   workUnits: [
     {
       clientKey: "e1",
-      milestoneClientKey: "c1-m",
-      title: "Corte 1 entry",
+      milestoneClientKey: "r-m",
+      title: "Replacement entry",
       objective: "Entry objective.",
       scope: ["Scope"],
       outOfScope: ["Out of scope"],
@@ -108,8 +109,8 @@ const EXTENSION_INPUT = {
     },
     {
       clientKey: "e2",
-      milestoneClientKey: "c1-m",
-      title: "Corte 1 exit",
+      milestoneClientKey: "r-m",
+      title: "Replacement exit",
       objective: "Exit objective.",
       scope: ["Scope"],
       outOfScope: ["Out of scope"],
@@ -122,7 +123,7 @@ const EXTENSION_INPUT = {
   dependencies: [{ fromClientKey: "e1", toClientKey: "e2", type: "blocks" }],
 };
 
-/** Build a small non-empty graph: WU001 done, WU002 ready (the placeholder), WU003 planned/blocked behind WU002. */
+/** Build a small non-empty graph: WU001 done, WU002 ready (refinable), WU003 planned/blocked behind WU002. */
 async function makeExtendableProject(dir: string) {
   runInit(contextFor(dir), normalizeInitOptions({}));
   await runUpdate(contextFor(dir), { objective: "Ship it", targetUser: ["devs"] });
@@ -163,10 +164,10 @@ describe("aiqt plan --extend: core CLI contract", () => {
     dir = makeTempDir();
     runInit(contextFor(dir), normalizeInitOptions({}));
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
     const result = runPlan(contextFor(dir), {
       extend: true,
-      replacePlaceholder: "WU001",
+      refineWorkUnit: "WU001",
       fromFile: extPath,
     });
     expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
@@ -174,66 +175,81 @@ describe("aiqt plan --extend: core CLI contract", () => {
     expect(result.nextRecommendedCommand).toBe("aiqt plan");
   });
 
-  it("A7: --extend without --replace-placeholder returns exit 3", async () => {
+  it("--extend without a refinement target on a non-empty graph selects append, not an error", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
-    const result = runPlan(contextFor(dir), { extend: true });
+    const appendPath = join(dir, "append.json");
+    writeFileSync(appendPath, JSON.stringify({ milestones: [], workUnits: [], dependencies: [] }));
+    const result = runPlan(contextFor(dir), { extend: true, fromFile: appendPath });
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const data = result.data as { operation: string };
+    expect(data.operation).toBe("append");
+  });
+
+  it("--refine-work-unit and --replace-placeholder together return exit 3", async () => {
+    dir = makeTempDir();
+    await makeExtendableProject(dir);
+    const result = runPlan(contextFor(dir), {
+      extend: true,
+      refineWorkUnit: "WU002",
+      replacePlaceholder: "WU002",
+    });
     expect(result.exitCode).toBe(ExitCode.InvalidInput);
   });
 
-  it("--replace-placeholder without --extend returns exit 3", async () => {
+  it("--refine-work-unit without --extend returns exit 3", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
-    const result = runPlan(contextFor(dir), { replacePlaceholder: "WU002" });
+    const result = runPlan(contextFor(dir), { refineWorkUnit: "WU002" });
     expect(result.exitCode).toBe(ExitCode.InvalidInput);
   });
 
-  it("A8: unknown placeholder returns exit 3", async () => {
+  it("A8: unknown refinement target returns exit 3", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
     const result = runPlan(contextFor(dir), {
       extend: true,
-      replacePlaceholder: "WU999",
+      refineWorkUnit: "WU999",
       fromFile: extPath,
     });
     expect(result.exitCode).toBe(ExitCode.InvalidInput);
-    expect(result.blockingIssues[0]?.id).toBe("PLAN-EXTEND-PLACEHOLDER-NOT-FOUND");
+    expect(result.blockingIssues[0]?.id).toBe("PLAN-EXTEND-TARGET-NOT-FOUND");
   });
 
-  it("A1: applies a valid extension via --from-file, exit 0", async () => {
+  it("A1: applies a valid refinement via --from-file, exit 0", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
     const result = runPlan(contextFor(dir), {
       extend: true,
-      replacePlaceholder: "WU002",
+      refineWorkUnit: "WU002",
       fromFile: extPath,
     });
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(result.status).toBe("passed");
 
     const state = readState(dir);
-    const placeholder = state.workGraph.workUnits.find((wu: { id: string }) => wu.id === "WU002");
-    expect(placeholder.status).toBe("replanned");
-    expect(placeholder.replanReason).toBe("Detail Corte 1.");
+    const target = state.workGraph.workUnits.find((wu: { id: string }) => wu.id === "WU002");
+    expect(target.status).toBe("replanned");
+    expect(target.replanReason).toBe("Detail the refinable future work.");
     expect(state.workGraph.milestones).toHaveLength(4);
     expect(state.workGraph.workUnits).toHaveLength(5);
   });
 
-  it("A2: --preview validates and reports the extension without writing files or appending runlog events", async () => {
+  it("A2: --preview validates and reports the refinement without writing files or appending runlog events", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     const before = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     const runlogBefore = readRunlogLines(dir).length;
 
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
     const result = runPlan(contextFor(dir), {
       extend: true,
-      replacePlaceholder: "WU002",
+      refineWorkUnit: "WU002",
       fromFile: extPath,
       preview: true,
     });
@@ -246,34 +262,35 @@ describe("aiqt plan --extend: core CLI contract", () => {
     expect(readRunlogLines(dir)).toHaveLength(runlogBefore);
   });
 
-  it("A46: JSON output keeps action 'plan' and reports operation 'extend' in data", async () => {
+  it("A46: JSON output keeps action 'plan' and reports operation 'refine' in data", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
     const result = runPlan(contextFor(dir), {
       extend: true,
-      replacePlaceholder: "WU002",
+      refineWorkUnit: "WU002",
       fromFile: extPath,
     });
     expect(result.action).toBe("plan");
-    const data = result.data as { operation: string; placeholderFinalStatus: string };
-    expect(data.operation).toBe("extend");
-    expect(data.placeholderFinalStatus).toBe("replanned");
+    const data = result.data as { operation: string; targetFinalStatus: string };
+    expect(data.operation).toBe("refine");
+    expect(data.targetFinalStatus).toBe("replanned");
   });
 
-  it("A40: successful extension appends plan.extended and a work_unit.status_changed(replanned) runlog event", async () => {
+  it("A40: successful refinement appends plan.extended and a work_unit.status_changed(replanned) runlog event", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
-    runPlan(contextFor(dir), { extend: true, replacePlaceholder: "WU002", fromFile: extPath });
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
+    runPlan(contextFor(dir), { extend: true, refineWorkUnit: "WU002", fromFile: extPath });
 
     const lines = readRunlogLines(dir);
     const extended = lines.find((l) => l.type === "plan.extended")!;
     expect(extended).toBeDefined();
-    expect(extended.data.placeholderWorkUnitId).toBe("WU002");
-    expect(extended.data.reason).toBe("Detail Corte 1.");
+    expect(extended.data.operation).toBe("refine");
+    expect(extended.data.targetWorkUnitId).toBe("WU002");
+    expect(extended.data.reason).toBe("Detail the refinable future work.");
 
     const replanned = lines.find(
       (l) =>
@@ -285,13 +302,13 @@ describe("aiqt plan --extend: core CLI contract", () => {
     expect(replanned.data.toStatus).toBe("replanned");
   });
 
-  it("A36: completed work units remain unchanged after extension", async () => {
+  it("A36: completed work units remain unchanged after refinement", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     const before = readState(dir).workGraph.workUnits.find((wu: { id: string }) => wu.id === "WU001");
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
-    runPlan(contextFor(dir), { extend: true, replacePlaceholder: "WU002", fromFile: extPath });
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
+    runPlan(contextFor(dir), { extend: true, refineWorkUnit: "WU002", fromFile: extPath });
     const after = readState(dir).workGraph.workUnits.find((wu: { id: string }) => wu.id === "WU001");
     expect(after).toEqual(before);
   });
@@ -300,63 +317,63 @@ describe("aiqt plan --extend: core CLI contract", () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
-    runPlan(contextFor(dir), { extend: true, replacePlaceholder: "WU002", fromFile: extPath });
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
+    runPlan(contextFor(dir), { extend: true, refineWorkUnit: "WU002", fromFile: extPath });
 
     const state = readState(dir);
-    const entry = state.workGraph.workUnits.find((wu: { title: string }) => wu.title === "Corte 1 entry");
+    const entry = state.workGraph.workUnits.find((wu: { title: string }) => wu.title === "Replacement entry");
     expect(entry.status).toBe("ready");
     const down = state.workGraph.workUnits.find((wu: { id: string }) => wu.id === "WU003");
     expect(down.status).toBe("planned");
   });
 });
 
-describe("aiqt plan --extend: placeholder eligibility", () => {
+describe("aiqt plan --extend: refinement target eligibility", () => {
   let dir: string | null = null;
   afterEach(() => {
     if (dir) removeDir(dir);
     dir = null;
   });
 
-  function extendAttempt(dir: string, placeholderId = "WU002") {
+  function refineAttempt(dir: string, targetWorkUnitId = "WU002") {
     const extPath = join(dir, "ext.json");
-    writeFileSync(extPath, JSON.stringify(EXTENSION_INPUT));
-    return runPlan(contextFor(dir), { extend: true, replacePlaceholder: placeholderId, fromFile: extPath });
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
+    return runPlan(contextFor(dir), { extend: true, refineWorkUnit: targetWorkUnitId, fromFile: extPath });
   }
 
-  it("A9/A10: placeholder ready or planned is allowed", async () => {
+  it("A9/A10: target ready or planned is allowed", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
-    expect(extendAttempt(dir).exitCode).toBe(ExitCode.Success);
+    expect(refineAttempt(dir).exitCode).toBe(ExitCode.Success);
   });
 
-  it("A11: placeholder blocked by an unsatisfied dependency is allowed (status planned)", async () => {
+  it("A11: target blocked by an unsatisfied dependency is allowed (status planned)", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     // WU003 is "planned" (blocked behind WU002).
-    const result = extendAttempt(dir, "WU003");
+    const result = refineAttempt(dir, "WU003");
     expect(result.exitCode).toBe(ExitCode.Success);
   });
 
-  it("A12: placeholder in_progress is rejected with exit 2", async () => {
+  it("A12: target in_progress is rejected with exit 2", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     expect(runNext(contextFor(dir)).exitCode).toBe(ExitCode.Success); // selects WU002, now the only ready work unit
-    const result = extendAttempt(dir, "WU002");
+    const result = refineAttempt(dir, "WU002");
     expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
-    expect(result.blockingIssues[0]?.id).toBe("PLAN-EXTEND-PLACEHOLDER-INELIGIBLE");
+    expect(result.blockingIssues[0]?.id).toBe("PLAN-EXTEND-TARGET-INELIGIBLE");
   });
 
-  it("A14: placeholder done is rejected with exit 2", async () => {
+  it("A14: target done is rejected with exit 2", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     expect(runNext(contextFor(dir)).exitCode).toBe(ExitCode.Success);
     expect(runCheckpoint(contextFor(dir), { input: DONE_PAYLOAD }).exitCode).toBe(ExitCode.Success);
-    const result = extendAttempt(dir, "WU002");
+    const result = refineAttempt(dir, "WU002");
     expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
   });
 
-  it("A13: placeholder needs_review is rejected with exit 2", async () => {
+  it("A13: target needs_review is rejected with exit 2", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     expect(runNext(contextFor(dir)).exitCode).toBe(ExitCode.Success);
@@ -369,30 +386,30 @@ describe("aiqt plan --extend: placeholder eligibility", () => {
     expect(readState(dir).workGraph.workUnits.find((wu: { id: string }) => wu.id === "WU002").status).toBe(
       "needs_review",
     );
-    const result = extendAttempt(dir, "WU002");
+    const result = refineAttempt(dir, "WU002");
     expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
   });
 
-  it("A16: placeholder cancelled is rejected with exit 2", async () => {
+  it("A16: target cancelled is rejected with exit 2", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     const state = readState(dir);
     const wu = state.workGraph.workUnits.find((w: { id: string }) => w.id === "WU002");
     wu.status = "cancelled";
     writeState(dir, state);
-    const result = extendAttempt(dir, "WU002");
+    const result = refineAttempt(dir, "WU002");
     expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
   });
 
-  it("A15: placeholder already replanned is rejected with exit 2", async () => {
+  it("A15: target already replanned is rejected with exit 2", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
-    expect(extendAttempt(dir, "WU002").exitCode).toBe(ExitCode.Success);
-    const result = extendAttempt(dir, "WU002");
+    expect(refineAttempt(dir, "WU002").exitCode).toBe(ExitCode.Success);
+    const result = refineAttempt(dir, "WU002");
     expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
   });
 
-  it("A17: placeholder with a checkpoint on record is rejected with exit 2 even if its status was reset", async () => {
+  it("A17: target with a checkpoint on record is rejected with exit 2 even if its status was reset", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     expect(runNext(contextFor(dir)).exitCode).toBe(ExitCode.Success);
@@ -403,12 +420,12 @@ describe("aiqt plan --extend: placeholder eligibility", () => {
     const wu = state.workGraph.workUnits.find((w: { id: string }) => w.id === "WU002");
     wu.status = "ready";
     writeState(dir, state);
-    const result = extendAttempt(dir, "WU002");
+    const result = refineAttempt(dir, "WU002");
     expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
-    expect(result.blockingIssues[0]?.id).toBe("PLAN-EXTEND-PLACEHOLDER-HAS-HISTORY");
+    expect(result.blockingIssues[0]?.id).toBe("PLAN-EXTEND-TARGET-HAS-HISTORY");
   });
 
-  it("A18: placeholder with an active agent packet is rejected with exit 2", async () => {
+  it("A18: target with an active agent packet is rejected with exit 2", async () => {
     dir = makeTempDir();
     await makeExtendableProject(dir);
     const state = readState(dir);
@@ -422,8 +439,200 @@ describe("aiqt plan --extend: placeholder eligibility", () => {
       sourceCommand: "aiqt next",
     };
     writeState(dir, state);
-    const result = extendAttempt(dir, "WU002");
+    const result = refineAttempt(dir, "WU002");
     expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
-    expect(result.blockingIssues[0]?.id).toBe("PLAN-EXTEND-PLACEHOLDER-HAS-HISTORY");
+    expect(result.blockingIssues[0]?.id).toBe("PLAN-EXTEND-TARGET-HAS-HISTORY");
+  });
+});
+
+describe("aiqt plan --extend: deprecated --replace-placeholder alias", () => {
+  let dir: string | null = null;
+  afterEach(() => {
+    if (dir) removeDir(dir);
+    dir = null;
+  });
+
+  it("still refines a target and emits a non-blocking deprecation warning", async () => {
+    dir = makeTempDir();
+    await makeExtendableProject(dir);
+    const extPath = join(dir, "ext.json");
+    writeFileSync(extPath, JSON.stringify(REFINEMENT_INPUT));
+    const result = runPlan(contextFor(dir), {
+      extend: true,
+      replacePlaceholder: "WU002",
+      fromFile: extPath,
+    });
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const data = result.data as { operation: string; targetWorkUnitId: string };
+    expect(data.operation).toBe("refine");
+    expect(data.targetWorkUnitId).toBe("WU002");
+    expect(result.warnings.some((w) => w.id === "PLAN-EXTEND-DEPRECATED-ALIAS")).toBe(true);
+  });
+});
+
+describe("aiqt plan --extend: append CLI contract", () => {
+  let dir: string | null = null;
+  afterEach(() => {
+    if (dir) removeDir(dir);
+    dir = null;
+  });
+
+  it("applies a valid append, adding a milestone and work unit, exit 0", async () => {
+    dir = makeTempDir();
+    await makeExtendableProject(dir);
+    const appendInput = {
+      milestones: [{ clientKey: "new-m", title: "New milestone", objective: "New milestone objective." }],
+      workUnits: [
+        {
+          clientKey: "new-wu",
+          milestoneClientKey: "new-m",
+          title: "Appended work unit",
+          objective: "Appended objective.",
+          scope: ["Scope"],
+          outOfScope: ["Out of scope"],
+          acceptanceCriteria: ["Criterion"],
+          agentContextRefs: [],
+          suggestedFiles: ["src/"],
+          validationCommands: ["pnpm test"],
+        },
+      ],
+      dependencies: [],
+    };
+    const appendPath = join(dir, "append.json");
+    writeFileSync(appendPath, JSON.stringify(appendInput));
+    const before = readState(dir);
+
+    const result = runPlan(contextFor(dir), { extend: true, fromFile: appendPath });
+    expect(result.exitCode).toBe(ExitCode.Success);
+    expect(result.action).toBe("plan");
+    const data = result.data as { operation: string; addedMilestoneIds: string[]; addedWorkUnitIds: string[] };
+    expect(data.operation).toBe("append");
+    expect(data.addedMilestoneIds).toHaveLength(1);
+    expect(data.addedWorkUnitIds).toHaveLength(1);
+
+    const after = readState(dir);
+    expect(after.workGraph.milestones).toHaveLength(before.workGraph.milestones.length + 1);
+    expect(after.workGraph.workUnits).toHaveLength(before.workGraph.workUnits.length + 1);
+  });
+
+  it("--preview validates and reports the append without writing files or appending runlog events", async () => {
+    dir = makeTempDir();
+    await makeExtendableProject(dir);
+    const appendPath = join(dir, "append.json");
+    writeFileSync(appendPath, JSON.stringify({ milestones: [], workUnits: [], dependencies: [] }));
+    const before = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
+    const runlogBefore = readRunlogLines(dir).length;
+
+    const result = runPlan(contextFor(dir), { extend: true, fromFile: appendPath, preview: true });
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const data = result.data as { preview: boolean; mutationPerformed: boolean; operation: string };
+    expect(data.preview).toBe(true);
+    expect(data.mutationPerformed).toBe(false);
+    expect(data.operation).toBe("append");
+
+    expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(before);
+    expect(readRunlogLines(dir)).toHaveLength(runlogBefore);
+  });
+
+  it("a simulated persistence failure leaves state.json and runlog.jsonl completely untouched", async () => {
+    dir = makeTempDir();
+    await makeExtendableProject(dir);
+    const beforeState = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
+    const beforeRunlog = readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8");
+
+    const spy = vi
+      .spyOn(workflowStateStore, "writeStateModel")
+      .mockImplementation(() => {
+        throw new Error("Simulated persistence failure");
+      });
+
+    const appendInput = {
+      milestones: [{ clientKey: "new-m", title: "New milestone", objective: "New milestone objective." }],
+      workUnits: [
+        {
+          clientKey: "new-wu",
+          milestoneClientKey: "new-m",
+          title: "Appended work unit",
+          objective: "Appended objective.",
+          scope: ["Scope"],
+          outOfScope: ["Out of scope"],
+          acceptanceCriteria: ["Criterion"],
+          agentContextRefs: [],
+          suggestedFiles: ["src/"],
+          validationCommands: ["pnpm test"],
+        },
+      ],
+      dependencies: [],
+    };
+    const appendPath = join(dir, "append.json");
+    writeFileSync(appendPath, JSON.stringify(appendInput));
+
+    const result = runPlan(contextFor(dir), { extend: true, fromFile: appendPath });
+    expect(result.exitCode).toBe(ExitCode.InvalidInput);
+    expect(result.status).toBe("failed");
+
+    spy.mockRestore();
+
+    expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(beforeState);
+    expect(readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8")).toBe(beforeRunlog);
+  });
+
+  it("still allocates correct, uncorrupted IDs on a subsequent valid append attempt after a persistence failure", async () => {
+    dir = makeTempDir();
+    await makeExtendableProject(dir);
+
+    const appendInput = {
+      milestones: [{ clientKey: "new-m", title: "New milestone", objective: "New milestone objective." }],
+      workUnits: [
+        {
+          clientKey: "new-wu",
+          milestoneClientKey: "new-m",
+          title: "Appended work unit",
+          objective: "Appended objective.",
+          scope: ["Scope"],
+          outOfScope: ["Out of scope"],
+          acceptanceCriteria: ["Criterion"],
+          agentContextRefs: [],
+          suggestedFiles: ["src/"],
+          validationCommands: ["pnpm test"],
+        },
+      ],
+      dependencies: [],
+    };
+    const appendPath = join(dir, "append.json");
+    writeFileSync(appendPath, JSON.stringify(appendInput));
+
+    const spy = vi
+      .spyOn(workflowStateStore, "writeStateModel")
+      .mockImplementation(() => {
+        throw new Error("Simulated persistence failure");
+      });
+    const failed = runPlan(contextFor(dir), { extend: true, fromFile: appendPath });
+    expect(failed.exitCode).toBe(ExitCode.InvalidInput);
+    spy.mockRestore();
+
+    const retried = runPlan(contextFor(dir), { extend: true, fromFile: appendPath });
+    expect(retried.exitCode).toBe(ExitCode.Success);
+    const data = retried.data as { addedMilestoneIds: string[]; addedWorkUnitIds: string[] };
+    expect(data.addedMilestoneIds).toEqual(["M004"]);
+    expect(data.addedWorkUnitIds).toEqual(["WU004"]);
+  });
+
+  it("appends plan.extended with operation 'append' and no new work_unit.status_changed event", async () => {
+    dir = makeTempDir();
+    await makeExtendableProject(dir);
+    const linesBefore = readRunlogLines(dir);
+    const statusChangedBefore = linesBefore.filter((l) => l.type === "work_unit.status_changed").length;
+
+    const appendPath = join(dir, "append.json");
+    writeFileSync(appendPath, JSON.stringify({ milestones: [], workUnits: [], dependencies: [] }));
+    runPlan(contextFor(dir), { extend: true, fromFile: appendPath });
+
+    const lines = readRunlogLines(dir);
+    const extended = lines.find((l) => l.type === "plan.extended")!;
+    expect(extended).toBeDefined();
+    expect(extended.data.operation).toBe("append");
+    const statusChangedAfter = lines.filter((l) => l.type === "work_unit.status_changed").length;
+    expect(statusChangedAfter).toBe(statusChangedBefore);
   });
 });
