@@ -1,6 +1,7 @@
 import type { WorkUnit, WorkUnitStatus } from "../schema/work-unit.schema.js";
 import type { Dependency, DependencyType } from "../schema/dependency.schema.js";
 import { findCycle } from "./dependency-graph.js";
+import { isBlockingSourceSatisfied } from "./dependency-readiness.js";
 
 /**
  * M12 §8.2/§11: true if changing `dependency` to `newType` would introduce a
@@ -75,9 +76,10 @@ export function recalculateReadinessAfterDependencyUpdate(
     const incomingBlocking = dependencies.filter(
       (d) => d.toId === wu.id && (d.type === "blocks" || d.type === "requires"),
     );
-    const allSourcesDone = incomingBlocking.every(
-      (d) => statusById.get(d.fromId) === "done",
-    );
+    const allSourcesDone = incomingBlocking.every((d) => {
+      const status = statusById.get(d.fromId);
+      return status !== undefined && isBlockingSourceSatisfied(status);
+    });
     const desired: WorkUnitStatus = allSourcesDone ? "ready" : "planned";
     if (desired === wu.status) return wu;
 

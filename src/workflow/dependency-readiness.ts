@@ -1,9 +1,22 @@
-import type { WorkUnit } from "../schema/work-unit.schema.js";
+import type { WorkUnit, WorkUnitStatus } from "../schema/work-unit.schema.js";
 import type { Dependency } from "../schema/dependency.schema.js";
 
 export interface DependencyReadinessResult {
   workUnits: WorkUnit[];
   newlyReadyWorkUnitIds: string[];
+}
+
+/**
+ * M17 §9.4: a blocking dependency whose source has been replanned (via
+ * `aiqt plan --extend`) is treated as satisfied for readiness purposes. The
+ * replanned work unit itself can never become "done", so treating it as
+ * still-blocking would permanently freeze every downstream dependent; the
+ * replacement subgraph's own copied boundary dependency (from its exit work
+ * units) is what actually gates downstream readiness now. This was
+ * unreachable before M17 -- no prior command ever set status "replanned".
+ */
+export function isBlockingSourceSatisfied(sourceStatus: WorkUnitStatus): boolean {
+  return sourceStatus === "done" || sourceStatus === "replanned";
 }
 
 /**
@@ -31,9 +44,10 @@ export function recalculateDependencyReadiness(
     );
     if (incomingBlocking.length === 0) return wu;
 
-    const allSourcesDone = incomingBlocking.every(
-      (d) => statusById.get(d.fromId) === "done",
-    );
+    const allSourcesDone = incomingBlocking.every((d) => {
+      const status = statusById.get(d.fromId);
+      return status !== undefined && isBlockingSourceSatisfied(status);
+    });
     if (!allSourcesDone) return wu;
 
     newlyReadyWorkUnitIds.push(wu.id);

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { ProjectModelSchema } from "../../src/schema/project.schema.js";
 import { StateModelSchema } from "../../src/schema/state.schema.js";
 import { RunlogEventSchema } from "../../src/schema/runlog-event.schema.js";
+import { WorkUnitSchema } from "../../src/schema/work-unit.schema.js";
 import { buildInitialProjectModel } from "../../src/state/project-store.js";
 import { buildInitialStateModel } from "../../src/state/workflow-state-store.js";
 import { buildProjectInitializedEvent } from "../../src/state/runlog-store.js";
@@ -59,5 +60,50 @@ describe("schema validation", () => {
       relatedIds: [],
     };
     expect(RunlogEventSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it("M17 §11.2: a pre-M17 work unit without replanReason/replacedByWorkUnitIds remains valid", () => {
+    const preM17WorkUnit = {
+      id: "WU001",
+      milestoneId: "M001",
+      title: "Title",
+      objective: "Objective",
+      scope: ["Scope"],
+      outOfScope: ["Out of scope"],
+      acceptanceCriteria: ["Criterion"],
+      agentContextRefs: [],
+      suggestedFiles: [],
+      validationCommands: ["pnpm test"],
+      status: "done",
+      dependencies: [],
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const parsed = WorkUnitSchema.safeParse(preM17WorkUnit);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.replanReason).toBeUndefined();
+    expect(parsed.success && parsed.data.replacedByWorkUnitIds).toBeUndefined();
+  });
+
+  it("M17 §8.4: accepts a replanned work unit with replacement metadata", () => {
+    const replannedWorkUnit = {
+      id: "WU015",
+      milestoneId: "M006",
+      title: "Corte 1 roadmap placeholder",
+      objective: "Objective",
+      scope: ["Scope"],
+      outOfScope: ["Out of scope"],
+      acceptanceCriteria: ["Criterion"],
+      agentContextRefs: [],
+      suggestedFiles: [],
+      validationCommands: ["pnpm test"],
+      status: "replanned",
+      dependencies: [],
+      createdAt: NOW,
+      updatedAt: NOW,
+      replanReason: "Expand the Corte 1 roadmap placeholder.",
+      replacedByWorkUnitIds: ["WU022", "WU023"],
+    };
+    expect(WorkUnitSchema.safeParse(replannedWorkUnit).success).toBe(true);
   });
 });

@@ -17,6 +17,10 @@ export interface RunImportOptions {
   importType?: string;
   fromFile?: string;
   stdin?: boolean;
+  /** M17: plan import only -- forwarded to `aiqt plan --extend`. */
+  extend?: boolean;
+  replacePlaceholder?: string;
+  preview?: boolean;
 }
 
 /** Test-only dependency injection point; defaults to the real process.stdin. */
@@ -136,6 +140,7 @@ function delegateImport(
   ctx: CommandContext,
   importType: ImportType,
   transport: InputTransport,
+  extension: { extend?: boolean; replacePlaceholder?: string; preview?: boolean },
 ): Promise<CommandResult> {
   const options = transport.source === "file"
     ? { fromFile: transport.sourcePath }
@@ -144,7 +149,10 @@ function delegateImport(
     case "update":
       return runUpdate(ctx, options);
     case "plan":
-      return Promise.resolve(runPlan(ctx, options));
+      // M17: --extend/--replace-placeholder/--preview pass through to the
+      // same extension engine `aiqt plan --extend` uses -- this is not a
+      // second implementation.
+      return Promise.resolve(runPlan(ctx, { ...options, ...extension }));
     case "checkpoint":
       return Promise.resolve(runCheckpoint(ctx, options));
   }
@@ -229,7 +237,11 @@ export async function runImport(
       transport = { source: "file", sourcePath: options.fromFile!, value: preflight.value };
     }
 
-    const delegated = await delegateImport(ctx, importType, transport);
+    const delegated = await delegateImport(ctx, importType, transport, {
+      extend: options.extend,
+      replacePlaceholder: options.replacePlaceholder,
+      preview: options.preview,
+    });
     const nextRecommendedCommand = preferGuidedCommand(delegated.nextRecommendedCommand);
 
     const importData: ImportResultData = {

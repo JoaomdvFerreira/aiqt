@@ -52,6 +52,12 @@ export interface RawPlanOptions {
   json?: boolean;
   fromFile?: string;
   example?: boolean;
+  /** M17: extend an existing (non-empty) work graph instead of the one-shot initial plan. */
+  extend?: boolean;
+  /** M17: the roadmap-placeholder work unit id targeted by --extend. */
+  replacePlaceholder?: string;
+  /** M17: validate and report the extension without persisting or appending runlog events. */
+  preview?: boolean;
 }
 
 export interface RawCheckpointOptions {
@@ -70,12 +76,19 @@ export interface RawPromptOptions {
   json?: boolean;
   out?: string;
   idea?: string;
+  /** M17: render extension guidance for the named placeholder instead of the initial-plan prompt (plan kind only). */
+  extend?: boolean;
+  replacePlaceholder?: string;
 }
 
 export interface RawImportOptions {
   json?: boolean;
   fromFile?: string;
   stdin?: boolean;
+  /** M17: forwarded to `aiqt plan --extend` when importType is "plan". */
+  extend?: boolean;
+  replacePlaceholder?: string;
+  preview?: boolean;
 }
 
 export interface RawReviewOptions {
