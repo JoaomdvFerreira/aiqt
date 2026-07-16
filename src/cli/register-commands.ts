@@ -189,6 +189,20 @@ export function buildProgram(): Command {
     .option("--json", "emit machine-readable JSON output", false)
     .option("--from-file <path>", "load a JSON plan input file")
     .option("--example", "print a sample plan input JSON and exit", false)
+    .option(
+      "--extend",
+      "extend an existing work graph instead of one-shot initial planning (M17)",
+      false,
+    )
+    .option(
+      "--replace-placeholder <workUnitId>",
+      "the roadmap-placeholder work unit id targeted by --extend",
+    )
+    .option(
+      "--preview",
+      "validate and report an --extend operation without persisting or appending runlog events",
+      false,
+    )
     .action((raw: RawPlanOptions) => {
       if (raw.example && raw.json) {
         const result = errorToResult(
@@ -216,7 +230,12 @@ export function buildProgram(): Command {
       }
 
       const ctx = makeContext({ json: Boolean(raw.json) });
-      const result = runPlan(ctx, { fromFile: raw.fromFile });
+      const result = runPlan(ctx, {
+        fromFile: raw.fromFile,
+        extend: raw.extend,
+        replacePlaceholder: raw.replacePlaceholder,
+        preview: raw.preview,
+      });
       emit(result, ctx.json);
     });
 
@@ -342,9 +361,24 @@ export function buildProgram(): Command {
     .option("--json", "emit machine-readable JSON output", false)
     .option("--out <path>", "write the prompt to a file under .aiqt/inputs/ (update/plan/checkpoint only)")
     .option("--idea <idea>", "rough product idea (driver/interview only)")
+    .option(
+      "--extend",
+      "plan kind only (M17): render guidance for extending an existing graph instead of initial planning",
+      false,
+    )
+    .option(
+      "--replace-placeholder <workUnitId>",
+      "plan kind only (M17): the roadmap-placeholder work unit id to explain how to replace",
+    )
     .action((kind: string, raw: RawPromptOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
-      const result = runPrompt(ctx, { kind, out: raw.out, idea: raw.idea });
+      const result = runPrompt(ctx, {
+        kind,
+        out: raw.out,
+        idea: raw.idea,
+        extend: raw.extend,
+        replacePlaceholder: raw.replacePlaceholder,
+      });
 
       // No --out, human mode, success: print the raw prompt text so it is
       // directly copy-pasteable, matching aiqt next's packet bypass pattern.
@@ -425,12 +459,29 @@ export function buildProgram(): Command {
     .option("--json", "emit machine-readable JSON output", false)
     .option("--from-file <path>", "path to the agent-generated JSON file")
     .option("--stdin", "read the agent-generated JSON from standard input", false)
+    .option(
+      "--extend",
+      "plan import only (M17): extend an existing work graph instead of one-shot initial planning",
+      false,
+    )
+    .option(
+      "--replace-placeholder <workUnitId>",
+      "plan import only (M17): the roadmap-placeholder work unit id targeted by --extend",
+    )
+    .option(
+      "--preview",
+      "plan import only (M17): validate and report an --extend operation without persisting",
+      false,
+    )
     .action(async (type: string, raw: RawImportOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = await runImport(ctx, {
         importType: type,
         fromFile: raw.fromFile,
         stdin: Boolean(raw.stdin),
+        extend: raw.extend,
+        replacePlaceholder: raw.replacePlaceholder,
+        preview: raw.preview,
       });
       emit(result, ctx.json);
     });

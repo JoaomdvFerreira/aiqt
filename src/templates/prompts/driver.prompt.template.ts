@@ -103,6 +103,29 @@ export function renderDriverPrompt(input: DriverPromptInput): string {
   );
   lines.push("");
 
+  // M17 §16: mention progressive planning when a non-empty graph still has
+  // an untouched roadmap placeholder and nothing is currently in progress --
+  // the moment aiqt plan --extend becomes the right next step instead of
+  // hand-editing canonical files.
+  if (state && state.workGraph.milestones.length > 0 && state.currentWorkUnitId === null) {
+    const placeholder = state.workGraph.workUnits.find(
+      (wu) => (wu.status === "ready" || wu.status === "planned") && !wu.replacedByWorkUnitIds,
+    );
+    if (placeholder) {
+      lines.push("Progressive planning guidance:");
+      lines.push(
+        `This project's work graph already exists and work unit "${placeholder.id}" looks like an undetailed roadmap placeholder.`,
+      );
+      lines.push(
+        `To detail it, run aiqt prompt plan --extend --replace-placeholder ${placeholder.id} rather than editing .aiqt/state.json directly.`,
+      );
+      lines.push(
+        "Always preview the extension before applying it, and detail only the next cut unless the user asks for deeper planning.",
+      );
+      lines.push("");
+    }
+  }
+
   lines.push("Preferred agent path:");
   lines.push("- Run aiqt init if .aiqt/ does not exist.");
   lines.push("- Run aiqt start.");

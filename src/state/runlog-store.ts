@@ -173,6 +173,8 @@ function defaultWorkUnitStatusChangedSummary(data: WorkUnitStatusChangedEventDat
       return `Work unit ${data.workUnitId} completed.`;
     case "ready":
       return `Work unit ${data.workUnitId} became ready.`;
+    case "replanned":
+      return `Work unit ${data.workUnitId} replanned.`;
     default:
       return `Work unit ${data.workUnitId} status changed to ${data.toStatus}.`;
   }
@@ -191,6 +193,37 @@ export function buildWorkUnitStatusChangedEvent(input: {
     timestamp: input.timestamp,
     actor: "aiqt",
     summary: input.summary ?? defaultWorkUnitStatusChangedSummary(input.data),
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface PlanExtendedEventData {
+  placeholderWorkUnitId: string;
+  reason: string;
+  addedMilestoneIds: string[];
+  addedWorkUnitIds: string[];
+  addedDependencyIds: string[];
+  entryWorkUnitIds: string[];
+  exitWorkUnitIds: string[];
+  copiedIncomingDependencyIds: string[];
+  copiedOutgoingDependencyIds: string[];
+  nextRecommendedCommand: string | null;
+}
+
+/** M17 §12.1: the plan.extended event appended by `aiqt plan --extend` on success. Reused verbatim by `aiqt import plan --stdin --extend`. */
+export function buildPlanExtendedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: PlanExtendedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "plan.extended",
+    timestamp: input.timestamp,
+    actor: "aiqt",
+    summary: `Work graph extended; replaced placeholder ${input.data.placeholderWorkUnitId}.`,
     relatedIds: input.relatedIds,
     data: { ...input.data },
   };

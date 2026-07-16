@@ -168,3 +168,91 @@ export function renderPlanPrompt(project: ProjectModel, repoRoot: string | null 
   lines.push("aiqt import plan --from-file .aiqt/inputs/plan.json");
   return lines.join("\n");
 }
+
+const PLAN_EXTENSION_JSON_SHAPE = {
+  extension: {
+    entryWorkUnitClientKeys: ["..."],
+    exitWorkUnitClientKeys: ["..."],
+    reason: "...",
+  },
+  milestones: [{ clientKey: "...", title: "...", objective: "..." }],
+  workUnits: [
+    {
+      clientKey: "...",
+      milestoneClientKey: "...",
+      title: "...",
+      objective: "...",
+      scope: ["..."],
+      outOfScope: ["..."],
+      acceptanceCriteria: ["..."],
+      agentContextRefs: [],
+      suggestedFiles: ["..."],
+      validationCommands: ["..."],
+    },
+  ],
+  dependencies: [],
+};
+
+/**
+ * M17 §4.3/§16: deterministic prompt for `aiqt prompt plan --extend
+ * --replace-placeholder <id>`, explaining how to produce a bounded
+ * extension payload for the named roadmap placeholder. Read-only -- it does
+ * not validate or mutate the current graph itself.
+ */
+export function renderPlanExtendPrompt(placeholderWorkUnitId: string): string {
+  const lines: string[] = [];
+  lines.push("You are helping create an AIQT plan EXTENSION input for an existing work graph.");
+  lines.push("Return JSON only. Do not wrap the JSON in markdown.");
+  lines.push("Do not modify any source code.");
+  lines.push("");
+  lines.push(`Target roadmap placeholder: ${placeholderWorkUnitId}`);
+  lines.push(
+    `This placeholder is preserved and marked "replanned" -- it is never deleted, and it is never selected by aiqt next again.`,
+  );
+  lines.push("");
+  lines.push("Guidance:");
+  lines.push("- Detail only the next cut unless the user asks for deeper planning.");
+  lines.push(
+    "- entryWorkUnitClientKeys must reference work units in this payload that become the first executable nodes of the replacement subgraph.",
+  );
+  lines.push(
+    "- exitWorkUnitClientKeys must reference work units in this payload whose completion should satisfy any downstream work the placeholder currently blocks.",
+  );
+  lines.push(
+    "- AIQT copies every existing incoming blocks/requires dependency of the placeholder to every declared entry, and every existing outgoing blocks/requires dependency from every declared exit, preserving each original dependency type exactly.",
+  );
+  lines.push("- relates_to dependencies are never copied automatically and never affect readiness.");
+  lines.push("- reason must explain why this placeholder is being replaced now.");
+  lines.push("");
+  lines.push("Create an extension JSON with this shape:");
+  lines.push(JSON.stringify(PLAN_EXTENSION_JSON_SHAPE, null, 2));
+  lines.push("");
+  lines.push("Always preview before applying:");
+  lines.push(
+    `aiqt import plan --stdin --extend --replace-placeholder ${placeholderWorkUnitId} --preview`,
+  );
+  lines.push("");
+  lines.push("Preferred agent path (after a successful preview):");
+  lines.push("Pipe the JSON directly into:");
+  lines.push(`aiqt import plan --stdin --extend --replace-placeholder ${placeholderWorkUnitId}`);
+  lines.push("");
+  lines.push("Optional human-review path:");
+  lines.push("Save the JSON under .aiqt/inputs/ and run:");
+  lines.push(
+    `aiqt plan --extend --replace-placeholder ${placeholderWorkUnitId} --from-file .aiqt/inputs/plan-extension.json --preview`,
+  );
+  lines.push(
+    `aiqt plan --extend --replace-placeholder ${placeholderWorkUnitId} --from-file .aiqt/inputs/plan-extension.json`,
+  );
+  lines.push("");
+  lines.push("After a successful extension, validate before continuing:");
+  lines.push("aiqt graph validate");
+  lines.push("aiqt review");
+  lines.push("aiqt status");
+  lines.push("aiqt next --preview");
+  lines.push("");
+  lines.push(
+    "Do not execute the first new work unit in this same planning-only session unless the user explicitly instructs it.",
+  );
+  return lines.join("\n");
+}

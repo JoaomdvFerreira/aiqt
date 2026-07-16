@@ -619,4 +619,67 @@ describe("aiqt CLI entrypoint", () => {
     const parsed = JSON.parse(res.stdout || res.stderr);
     expect(parsed.exitCode).toBe(3);
   });
+
+  it("M17: no new public commands are registered -- --help still lists exactly the pre-M17 command set", () => {
+    dir = makeTempDir();
+    const res = runCli(["--help"], dir);
+    expect(res.status).toBe(0);
+    for (const command of [
+      "init",
+      "status",
+      "next",
+      "update",
+      "plan",
+      "checkpoint",
+      "review",
+      "export",
+      "start",
+      "continue",
+      "prompt",
+      "manage",
+      "skills",
+      "import",
+      "issue",
+      "repair",
+      "dependency",
+      "graph",
+    ]) {
+      expect(res.stdout).toContain(command);
+    }
+    // --extend/--replace-placeholder are options on existing commands, not new commands.
+    expect(res.stdout).not.toMatch(/^\s*extend\s/m);
+    expect(res.stdout).not.toMatch(/^\s*replace-placeholder\s/m);
+  });
+
+  it("M17: representative pre-M17 exit-code contracts remain unchanged", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    expect(runCli(["export"], dir).status).toBe(10);
+    expect(runCli(["prompt", "bogus"], dir).status).toBe(3);
+    expect(runCli(["frobnicate"], dir).status).toBe(3);
+    expect(runCli(["next"], dir).status).toBe(2);
+  });
+
+  it("M17: ordinary aiqt plan on a non-empty graph still returns PLAN-GRAPH-NOT-EMPTY with exit 2", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    expect(
+      runCli(["update", "--objective", "Ship it", "--target-user", "devs"], dir).status,
+    ).toBe(0);
+    const patchPath = join(dir, "patch.json");
+    writeFileSync(
+      patchPath,
+      JSON.stringify({ context: { constraints: ["Local files are the source of truth"] } }),
+    );
+    expect(runCli(["update", "--from-file", patchPath], dir).status).toBe(0);
+    const planRes = runCli(["plan", "--example"], dir);
+    const planPath = join(dir, "plan.json");
+    writeFileSync(planPath, planRes.stdout);
+    expect(runCli(["plan", "--from-file", planPath], dir).status).toBe(0);
+
+    const res = runCli(["plan", "--from-file", planPath, "--json"], dir);
+    expect(res.status).toBe(2);
+    const parsed = JSON.parse(res.stdout || res.stderr);
+    expect(parsed.blockingIssues[0].id).toBe("PLAN-GRAPH-NOT-EMPTY");
+  });
 });

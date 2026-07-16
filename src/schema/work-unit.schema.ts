@@ -26,5 +26,9 @@ export const WorkUnitSchema = z.object({
   dependencies: z.array(z.string()),
   createdAt: z.string(),
   updatedAt: z.string(),
+  /** M17 §8.4: additive, optional replanning metadata. Set only when this work unit is replaced via `aiqt plan --extend`. Absent means never replanned. */
+  replanReason: z.string().optional(),
+  /** M17 §8.4: additive, optional. IDs of the new work units that replace this placeholder. Absent means never replanned. */
+  replacedByWorkUnitIds: z.array(z.string()).optional(),
 });
 export type WorkUnit = z.infer<typeof WorkUnitSchema>;

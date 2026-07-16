@@ -15,11 +15,102 @@ import {
   buildInterviewPromptData,
   validateOutPath,
 } from "../../services/prompt-service.js";
+import { renderPlanExtendPrompt } from "../../templates/prompts/plan.prompt.template.js";
 
 export interface RunPromptOptions {
   kind?: string;
   out?: string;
   idea?: string;
+  /** M17: plan kind only -- render extension guidance instead of the initial-plan prompt. */
+  extend?: boolean;
+  replacePlaceholder?: string;
+}
+
+/**
+ * M17 §4.3: `aiqt prompt plan --extend --replace-placeholder <id>` explains
+ * how to produce a bounded extension payload for a named placeholder.
+ * Distinct availability rule from ordinary `aiqt prompt plan`: it requires a
+ * non-empty graph (the opposite of the one-shot initial-plan prompt) and an
+ * explicit placeholder id. Prompt generation remains entirely read-only --
+ * it does not validate placeholder eligibility itself.
+ */
+function runPlanExtendPrompt(ctx: CommandContext, replacePlaceholder: string | undefined): CommandResult {
+  if (!replacePlaceholder) {
+    const message = "--extend requires --replace-placeholder <workUnitId>.";
+    return makeResult({
+      status: "failed",
+      action: "prompt",
+      summary: message,
+      nextRecommendedCommand: null,
+      exitCode: ExitCode.InvalidInput,
+      blockingIssues: [
+        { id: "PROMPT-EXTEND-PLACEHOLDER-REQUIRED", severity: "critical", area: "input", message, agentCanFix: false },
+      ],
+    });
+  }
+
+  if (!aiqtDirExists(ctx)) {
+    return makeResult({
+      status: "failed",
+      action: "prompt",
+      summary: "No AIQT project found. Run aiqt init to create the canonical state files.",
+      nextRecommendedCommand: "aiqt init",
+      exitCode: ExitCode.InvalidInput,
+      blockingIssues: [
+        {
+          id: "PROMPT-NO-PROJECT",
+          severity: "high",
+          area: "workflow",
+          message: ".aiqt/ not found in the current folder.",
+          suggestedAction: "Run aiqt init.",
+          agentCanFix: false,
+        },
+      ],
+    });
+  }
+
+  const { project, state } = loadProject(ctx);
+
+  if (state.workGraph.milestones.length === 0) {
+    const message = "No work graph exists yet. aiqt plan --extend requires an existing graph; run ordinary aiqt plan first.";
+    return makeResult({
+      status: "blocked",
+      action: "prompt",
+      projectStatus: state.projectStatus,
+      currentMilestoneId: state.currentMilestoneId,
+      currentWorkUnitId: state.currentWorkUnitId,
+      summary: message,
+      nextRecommendedCommand: "aiqt plan",
+      exitCode: ExitCode.WorkflowBlocked,
+      blockingIssues: [
+        { id: "PLAN-EXTEND-GRAPH-EMPTY", severity: "high", area: "workflow", message, agentCanFix: false },
+      ],
+    });
+  }
+
+  const prompt = renderPlanExtendPrompt(replacePlaceholder);
+  const followUpCommand = `aiqt import plan --stdin --extend --replace-placeholder ${replacePlaceholder} --preview`;
+
+  return makeResult({
+    status: "passed",
+    action: "prompt",
+    projectStatus: state.projectStatus,
+    currentMilestoneId: state.currentMilestoneId,
+    currentWorkUnitId: state.currentWorkUnitId,
+    summary: `Generated plan extension prompt for placeholder ${replacePlaceholder}.`,
+    completedActions: ["Read project.json", "Read state.json", "Rendered plan extension prompt"],
+    changedFiles: [],
+    affectedItems: [project.project.id, replacePlaceholder],
+    nextRecommendedCommand: followUpCommand,
+    exitCode: ExitCode.Success,
+    data: {
+      promptKind: "plan",
+      operation: "extend",
+      placeholderWorkUnitId: replacePlaceholder,
+      prompt,
+      followUpCommand,
+    },
+  });
 }
 
 /**
@@ -87,6 +178,10 @@ export function runPrompt(ctx: CommandContext, options: RunPromptOptions): Comma
 
     if (kind === "driver" || kind === "interview") {
       return runDriverOrInterviewPrompt(ctx, kind, options.idea ?? null);
+    }
+
+    if (kind === "plan" && options.extend) {
+      return runPlanExtendPrompt(ctx, options.replacePlaceholder);
     }
 
     // .aiqt/ missing: exit code 3, not 2 (only valid workflow-position
