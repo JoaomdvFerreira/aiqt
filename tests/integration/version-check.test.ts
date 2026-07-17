@@ -503,3 +503,25 @@ describe("runVersionCheck: public documentation classification (M19-RC1 §7/§10
     expect(result.relevantPaths).toEqual(["README.md"]);
   });
 });
+
+describe("version-check CLI process: literal '--' separator tolerance (M19-RC1-fix)", () => {
+  it("real CLI process: `-- --base <ref> --json` (pnpm's own forwarding, observed to not always strip '--') still parses correctly", () => {
+    const here = process.cwd();
+    const result = spawnSync(
+      process.execPath,
+      [
+        join(here, "node_modules", "tsx", "dist", "cli.mjs"),
+        join(here, "src", "tooling", "version-check-cli.ts"),
+        "--",
+        "--base",
+        "HEAD",
+        "--json",
+      ],
+      { cwd: here, encoding: "utf8" },
+    );
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.mode).toBe("comparison");
+    expect(parsed.baseRef).toBe("HEAD");
+  });
+});
