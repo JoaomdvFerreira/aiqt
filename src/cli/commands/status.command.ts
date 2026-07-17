@@ -9,6 +9,7 @@ import { loadProject } from "./load-project.js";
 import { computeNextAction } from "../../workflow/next-action.js";
 import { workUnitCountsByStatus } from "../../workflow/statuses.js";
 import { resolveRoots } from "../../workflow/root-resolution.js";
+import { computeEffectiveReadinessForState } from "../../workflow/effective-readiness.js";
 
 export function runStatus(ctx: CommandContext): CommandResult {
   try {
@@ -18,6 +19,21 @@ export function runStatus(ctx: CommandContext): CommandResult {
     const workUnitCounts = workUnitCountsByStatus(state);
     const milestoneCount = state.workGraph.milestones.length;
     const workUnitCount = state.workGraph.workUnits.length;
+
+    // M18 §9: additive effective-readiness counts alongside the canonical
+    // status counts above. `ready` remains the canonical stored count;
+    // `effectivelyReady` is the actionable execution count; `staleReady` is
+    // the number of canonical-ready units blocked by an active dependency.
+    const readiness = [...computeEffectiveReadinessForState(state).values()];
+    const effectivelyReadyCount = readiness.filter((r) => r.effectivelyReady).length;
+    const staleReadyCount = readiness.filter(
+      (r) => r.canonicalStatus === "ready" && !r.effectivelyReady,
+    ).length;
+    const workUnitCountsWithReadiness = {
+      ...workUnitCounts,
+      effectivelyReady: effectivelyReadyCount,
+      staleReady: staleReadyCount,
+    };
 
     const allWarnings = [...warnings, ...next.warnings];
 
@@ -45,7 +61,7 @@ export function runStatus(ctx: CommandContext): CommandResult {
         projectStatus: state.projectStatus,
         milestoneCount,
         workUnitCount,
-        workUnitCounts,
+        workUnitCounts: workUnitCountsWithReadiness,
         currentMilestoneId: state.currentMilestoneId,
         currentWorkUnitId: state.currentWorkUnitId,
         nextActionReason: next.reason,

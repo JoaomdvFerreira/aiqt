@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { AIQT_PACKAGE_VERSION } from "../core/constants/package-version.js";
 import { makeContext } from "./command-context.js";
 import {
   normalizeInitOptions,
@@ -83,7 +84,7 @@ export function buildProgram(): Command {
   program
     .name("aiqt")
     .description("AIQT CLI - local workflow state engine")
-    .version("0.5.0")
+    .version(AIQT_PACKAGE_VERSION)
     // M9: required so that a same-named option (e.g. --json) declared on
     // both a parent command (next, review) and its nested subcommand
     // (cancel, acknowledge) is parsed against the subcommand actually
@@ -117,7 +118,9 @@ export function buildProgram(): Command {
 
   program
     .command("status")
-    .description("Inspect current AIQT state without modifying files")
+    .description(
+      "Inspect current AIQT state without modifying files (M18: reports canonical ready, effectively ready, and stale-ready work unit counts)",
+    )
     .option("--json", "emit machine-readable JSON output", false)
     .action((raw: { json?: boolean }) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
@@ -127,7 +130,9 @@ export function buildProgram(): Command {
 
   const nextCommand = program
     .command("next")
-    .description("Select the next ready work unit and generate its agent handoff packet")
+    .description(
+      "Select the next effectively ready work unit and generate its agent handoff packet (M18: canonical status \"ready\" is not sufficient when an active blocking dependency is unsatisfied -- --preview and the real selection always agree)",
+    )
     .option("--json", "emit machine-readable JSON output", false)
     .option("--preview", "preview the next selection without mutating state", false)
     .action((raw: RawNextOptions) => {
@@ -602,11 +607,13 @@ export function buildProgram(): Command {
 
   const graphCommand = program
     .command("graph")
-    .description("Read-only graph validation and dry-run repair planning");
+    .description("Graph validation, and dry-run or apply deterministic graph repair");
 
   graphCommand
     .command("validate")
-    .description("Validate work graph structure, cycles, and readiness semantics")
+    .description(
+      "Validate work graph structure, cycles, and readiness semantics (M18: reports stale-ready work units -- canonically ready but blocked by an unsatisfied dependency -- as a non-blocking warning)",
+    )
     .option("--json", "emit machine-readable JSON output", false)
     .action((raw: RawGraphValidateOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
@@ -616,12 +623,13 @@ export function buildProgram(): Command {
 
   graphCommand
     .command("repair")
-    .description("Propose candidate graph repairs without applying them")
+    .description("Propose or apply deterministic graph repairs (--dry-run or --apply, required)")
     .option("--json", "emit machine-readable JSON output", false)
-    .option("--dry-run", "required: propose repairs without mutating state", false)
+    .option("--dry-run", "propose repairs without mutating state", false)
+    .option("--apply", "M18: atomically apply deterministic stale-readiness repairs (ready -> planned)", false)
     .action((raw: RawGraphRepairOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
-      const result = runGraphRepair(ctx, { dryRun: Boolean(raw.dryRun) });
+      const result = runGraphRepair(ctx, { dryRun: Boolean(raw.dryRun), apply: Boolean(raw.apply) });
       emit(result, ctx.json);
     });
 

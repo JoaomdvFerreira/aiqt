@@ -44,14 +44,16 @@ describe("aiqt graph repair --dry-run", () => {
     );
   });
 
-  it("blocks with exit code 2 when no deterministic repair suggestions are available", async () => {
+  it("M18: succeeds with exit code 0 when no deterministic repair suggestions are available (dry-run always succeeds)", async () => {
     dir = makeTempDir();
     const { runInit } = await import("../../src/cli/commands/init.command.js");
     const { normalizeInitOptions } = await import("../../src/cli/options.js");
     runInit(contextFor(dir), normalizeInitOptions({}));
     const result = runGraphRepair(contextFor(dir), { dryRun: true });
-    expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
-    expect(result.blockingIssues[0].id).toBe("GRAPH-REPAIR-NO-DETERMINISTIC-SUGGESTIONS");
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const data = result.data as { suggestions: unknown[]; staleReadinessRepairs: unknown[] };
+    expect(data.suggestions).toHaveLength(0);
+    expect(data.staleReadinessRepairs).toHaveLength(0);
   });
 
   it("is read-only: never mutates state.json or runlog.jsonl", async () => {

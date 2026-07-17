@@ -349,13 +349,13 @@ describe("aiqt CLI entrypoint", () => {
     expect(parsed.action).toBe("graph");
   });
 
-  it("M12: aiqt graph repair --dry-run parses through the nested subcommand in human mode", () => {
+  it("M12/M18: aiqt graph repair --dry-run parses through the nested subcommand in human mode", () => {
     dir = makeTempDir();
     expect(runCli(["init"], dir).status).toBe(0);
     const res = runCli(["graph", "repair", "--dry-run"], dir);
-    // A bare project has no deterministic repair suggestions -> exit 2, not 0;
-    // still confirms --dry-run parses correctly through the nested subcommand.
-    expect(res.status).toBe(2);
+    // M18: dry-run always succeeds (exit 0), with or without proposed
+    // changes -- a bare project simply has zero deterministic proposals.
+    expect(res.status).toBe(0);
   });
 
   it("M14: no new public commands are registered -- --help lists exactly the pre-M14 command set", () => {
@@ -681,5 +681,46 @@ describe("aiqt CLI entrypoint", () => {
     expect(res.status).toBe(2);
     const parsed = JSON.parse(res.stdout || res.stderr);
     expect(parsed.blockingIssues[0].id).toBe("PLAN-GRAPH-NOT-EMPTY");
+  });
+
+  it("M18: aiqt --version reports 0.5.1, matching package.json's canonical version", () => {
+    dir = makeTempDir();
+    const res = runCli(["--version"], dir);
+    expect(res.status).toBe(0);
+    expect(res.stdout.trim()).toBe("0.5.1");
+    const packageJson = JSON.parse(
+      readFileSync(join(repoRoot, "package.json"), "utf8"),
+    ) as { version: string };
+    expect(packageJson.version).toBe("0.5.1");
+    expect(res.stdout.trim()).toBe(packageJson.version);
+  });
+
+  it("M18: no new public commands are registered except graph repair --apply -- --help still lists exactly the pre-M18 command set plus the new option", () => {
+    dir = makeTempDir();
+    const res = runCli(["--help"], dir);
+    expect(res.status).toBe(0);
+    for (const command of [
+      "init",
+      "status",
+      "update",
+      "plan",
+      "next",
+      "checkpoint",
+      "manage",
+      "export",
+      "prompt",
+      "review",
+      "skills",
+      "issue",
+      "repair",
+      "dependency",
+      "graph",
+      "import",
+    ]) {
+      expect(res.stdout).toContain(command);
+    }
+    const repairHelp = runCli(["graph", "repair", "--help"], dir);
+    expect(repairHelp.stdout).toContain("--dry-run");
+    expect(repairHelp.stdout).toContain("--apply");
   });
 });

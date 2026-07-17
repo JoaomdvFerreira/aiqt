@@ -2,6 +2,7 @@ import type { ProjectModel } from "../schema/project.schema.js";
 import type { StateModel } from "../schema/state.schema.js";
 import type { ReviewFinding } from "../schema/review-finding.schema.js";
 import { isPlanningContextReady } from "./planning-readiness.js";
+import { computeEffectiveReadinessForState } from "./effective-readiness.js";
 
 /**
  * The single authoritative nextRecommendedCommand precedence for aiqt
@@ -41,8 +42,11 @@ export function computeReviewNextCommand(
     return isPlanningContextReady(project) ? "aiqt plan" : "aiqt update";
   }
 
-  // 7. At least one ready work unit exists and no current work is active.
-  if (workUnits.some((wu) => wu.status === "ready") && state.currentWorkUnitId === null) {
+  // 7. At least one effectively ready work unit exists and no current work
+  // is active. M18 §9: a canonically "ready" but stale (dependency-blocked)
+  // unit must not trigger this recommendation.
+  const readiness = computeEffectiveReadinessForState(state);
+  if ([...readiness.values()].some((r) => r.effectivelyReady) && state.currentWorkUnitId === null) {
     return "aiqt next";
   }
 

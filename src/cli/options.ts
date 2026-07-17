@@ -164,4 +164,6 @@ export interface RawGraphValidateOptions {
 export interface RawGraphRepairOptions {
   json?: boolean;
   dryRun?: boolean;
+  /** M18 §11.2: atomically apply deterministic stale-readiness repairs (ready -> planned). */
+  apply?: boolean;
 }

@@ -3,9 +3,11 @@ import type { StateModel } from "../schema/state.schema.js";
 import type {
   ReviewFindingCategory,
   ReviewFindingSeverity,
+  StaleReadinessDetails,
 } from "../schema/review-finding.schema.js";
 import { isPlanningContextReady } from "./planning-readiness.js";
 import { findCycle } from "./dependency-graph.js";
+import { computeEffectiveReadinessForState } from "./effective-readiness.js";
 import {
   getCheckpointAmendments,
   computeEffectiveCheckpointResult,
@@ -30,6 +32,8 @@ export interface ReviewFindingCandidate {
   relatedIds: string[];
   suggestedAction: string;
   nextRecommendedCommand: string | null;
+  /** M18 §10: present only on WORK_UNIT_STALE_READINESS findings. */
+  staleReadinessDetails?: StaleReadinessDetails;
 }
 
 const ACTIONABLE_STATUSES = new Set(["ready", "in_progress", "needs_review", "done"]);
@@ -344,8 +348,12 @@ export function collectWorkflowFindings(
     });
   }
 
-  const hasReady = workUnits.some((wu) => wu.status === "ready");
-  if (hasReady && state.currentWorkUnitId === null) {
+  // M18 §9: only an *effectively* ready work unit should surface this
+  // informational finding -- a canonically "ready" but stale
+  // (dependency-blocked) unit would only be rejected by aiqt next.
+  const readiness = computeEffectiveReadinessForState(state);
+  const hasEffectivelyReady = [...readiness.values()].some((r) => r.effectivelyReady);
+  if (hasEffectivelyReady && state.currentWorkUnitId === null) {
     findings.push({
       ruleKey: "workflow.ready-available",
       findingKey: "review:ready-workunit-available",
