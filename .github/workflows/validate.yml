@@ -23,7 +23,14 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          # M19-RC1: pinned to match this repository's pnpm-lock.yaml
+          # (lockfileVersion: 5.4, the format written by pnpm 7.x). pnpm 9
+          # rejects that lockfile outright ("Ignoring not compatible
+          # lockfile") and then fails --frozen-lockfile as if no lockfile
+          # existed at all -- this broke every CI run since M19 first
+          # merged, undetected until M19-RC1's real-workflow verification
+          # step (gh run view) surfaced it.
+          version: 7
 
       - name: Setup Node
         uses: actions/setup-node@v4
