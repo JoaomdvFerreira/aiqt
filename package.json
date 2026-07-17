@@ -1,6 +1,6 @@
 {
   "name": "aiqt",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "type": "module",
   "bin": {
     "aiqt": "./dist/index.js"
@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "validate": "pnpm typecheck && pnpm lint && pnpm test"
+    "version:check": "tsx src/tooling/version-check-cli.ts",
+    "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm version:check"
   },
   "dependencies": {
     "@inquirer/prompts": "^7.0.0",

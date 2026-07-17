@@ -1,0 +1,73 @@
+name: Validate
+
+# M19: full repository validation plus version-governance enforcement.
+# Never publishes a package, creates a tag/release, or commits/mutates any
+# file -- read-only validation only. Requires no secrets.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          # M19 §18: sufficient history to resolve the PR base and merge
+          # base deterministically -- a shallow checkout cannot do this.
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Version check (local consistency)
+        run: pnpm version:check
+
+      - name: Fetch PR base branch
+        if: github.event_name == 'pull_request'
+        # M19 §18: use the pull request's actual base ref from event
+        # metadata -- never assume origin/main for every PR.
+        run: git fetch origin "${{ github.event.pull_request.base.ref }}":"refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
+
+      - name: Version check (base comparison)
+        if: github.event_name == 'pull_request'
+        run: pnpm version:check -- --base "origin/${{ github.event.pull_request.base.ref }}" --json
+
+      - name: Version check (previous revision, direct push to main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # M19 §17: for a direct push to main, compare against the previous
+        # revision where it is safely available (e.g. not the repository's
+        # very first commit); this step is advisory context, not a hard
+        # merge gate the way the PR comparison is.
+        run: |
+          if git rev-parse --verify "HEAD~1^{commit}" >/dev/null 2>&1; then
+            pnpm version:check -- --base HEAD~1 --json
+          else
+            echo "No previous revision to compare against (initial commit) -- skipping."
+          fi

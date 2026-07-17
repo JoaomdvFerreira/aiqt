@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the M18 target version 0.5.1", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.5.1");
+  it("is the M19 target version 0.6.0", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.6.0");
   });
 });
