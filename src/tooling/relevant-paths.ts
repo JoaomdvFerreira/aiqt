@@ -1,21 +1,36 @@
 /**
- * M19 §11/§12: deterministic relevant-change classification via one
+ * M19/M19-RC1 §6-§9: deterministic relevant-change classification via one
  * explicit allowlist -- a changed path requires a version increment only
- * when it matches one of these prefixes/exact paths. Everything else
- * (tests/**, coverage/**, editor config, gitignored/local artifacts, any
- * docs/ file other than the versioning policy itself) is deterministically
- * exempt. No heuristic text scanning; adding a new relevant surface means
- * adding an explicit entry here.
+ * when it matches one of these prefixes/exact paths. No heuristic text
+ * scanning, no directory-existence assumptions: a path is listed here only
+ * because it is (or, for a well-known universal convention like README.md,
+ * unambiguously would be the moment it exists) part of AIQT's public
+ * contract. Adding a new relevant surface (e.g. a future `docs/cli/`
+ * reference tree) means adding an explicit entry here and to
+ * docs/versioning.md's rationale table -- never inferring it from content.
  *
  * Directory entries match by prefix (after normalizing to forward slashes);
- * file entries match exactly. Public CLI documentation is covered because
- * `docs/versioning.md` -- the one tracked file under the otherwise-ignored
- * `docs/` directory -- is listed explicitly; the CLI's own --help text
- * lives in src/cli/** and is already covered by the src/ prefix.
+ * file entries match exactly. As of M19-RC1, `git ls-files docs/` shows
+ * this repository has exactly one tracked documentation file
+ * (docs/versioning.md -- everything else under docs/ is local-only PDFs
+ * and spec drafts, gitignored via docs/* + a per-file negation); there is
+ * no docs/cli/**, docs/commands/**, docs/reference/**, docs/workflow/**,
+ * docs/architecture/**, or docs/specifications/** in the actual repository
+ * structure, so none of those speculative paths are listed below.
  */
-const RELEVANT_DIRECTORY_PREFIXES: readonly string[] = ["src/", ".github/workflows/"];
 
-const RELEVANT_EXACT_FILES: readonly string[] = ["package.json", "pnpm-lock.yaml", "docs/versioning.md"];
+/** Each entry's own comment documents *why* it defines AIQT's public contract. */
+const RELEVANT_DIRECTORY_PREFIXES: readonly string[] = [
+  "src/", // all product source: CLI commands/flags/exit codes, schemas, workflow engine, graph validation/repair, handoff packets, runtime output contracts, and this tool itself.
+  ".github/workflows/", // release-validation/CI tooling -- changing what gets enforced is itself a release-governance-relevant change.
+];
+
+const RELEVANT_EXACT_FILES: readonly string[] = [
+  "package.json", // the canonical version source, and the published command/dependency surface.
+  "pnpm-lock.yaml", // resolved dependency versions that ship with every release.
+  "docs/versioning.md", // the contributor-facing release/version policy itself.
+  "README.md", // the universal public entry point (install/usage/compatibility) -- listed even though this repository does not yet have one, so the policy is already correct the moment it is added; git diff simply never matches a nonexistent path until then.
+];
 
 /** Normalize a repository-relative path to forward slashes for cross-platform comparison. */
 export function normalizeRepoPath(path: string): string {

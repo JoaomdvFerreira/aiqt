@@ -683,15 +683,15 @@ describe("aiqt CLI entrypoint", () => {
     expect(parsed.blockingIssues[0].id).toBe("PLAN-GRAPH-NOT-EMPTY");
   });
 
-  it("M18/M19: aiqt --version reports 0.6.0, matching package.json's canonical version", () => {
+  it("M18/M19/M19-RC1: aiqt --version reports 0.6.1, matching package.json's canonical version", () => {
     dir = makeTempDir();
     const res = runCli(["--version"], dir);
     expect(res.status).toBe(0);
-    expect(res.stdout.trim()).toBe("0.6.0");
+    expect(res.stdout.trim()).toBe("0.6.1");
     const packageJson = JSON.parse(
       readFileSync(join(repoRoot, "package.json"), "utf8"),
     ) as { version: string };
-    expect(packageJson.version).toBe("0.6.0");
+    expect(packageJson.version).toBe("0.6.1");
     expect(res.stdout.trim()).toBe(packageJson.version);
   });
 

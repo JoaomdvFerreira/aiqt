@@ -1,6 +1,6 @@
 # AIQT Versioning Policy
 
-**Status:** Implemented (v0.6.0)
+**Status:** Implemented (v0.6.1)
 **Applies to:** the AIQT CLI repository and its release process.
 
 ## Canonical version source
@@ -83,25 +83,46 @@ increment or to omit a breaking-change label.
 ## When a version bump is required
 
 A version increment is required whenever a completed branch changes AIQT
-product behavior or its public contributor/release contract. `pnpm
-version:check --base <ref>` enforces this deterministically via one
-explicit path allowlist (`src/tooling/relevant-paths.ts`) — a changed path
-requires a bump only if it matches:
+product behavior **or its public documentation of that behavior** —
+public documentation that defines commands, flags, exit codes, JSON
+contracts, or workflow behavior is just as much a public contract as the
+source code that implements it, and a documentation-only correction that
+changes what users are told to expect requires the same bump a code change
+would. `pnpm version:check --base <ref>` enforces this deterministically
+via one explicit path allowlist (`src/tooling/relevant-paths.ts`) — a
+changed path requires a bump only if it matches:
 
-| Pattern | Matches |
-|---|---|
-| `src/**` | any product source file |
-| `package.json` | exact file |
-| `pnpm-lock.yaml` | exact file |
-| `.github/workflows/**` | CI/release-validation tooling |
-| `docs/versioning.md` | exact file (this document) |
+| Pattern | Matches | Why it's public |
+|---|---|---|
+| `src/**` | any product source file | implements every CLI command, flag, exit code, JSON contract, schema, and workflow behavior |
+| `package.json` | exact file | the canonical version source and published command/dependency surface |
+| `pnpm-lock.yaml` | exact file | resolved dependency versions that ship with every release |
+| `.github/workflows/**` | CI/release-validation tooling | changes what gets enforced before a release is considered valid |
+| `docs/versioning.md` | exact file | the contributor-facing release/version policy itself |
+| `README.md` | exact file | the universal public entry point (install/usage/compatibility) — listed even though this repository does not have one yet, so the policy is already correct the moment it's added |
+
+As of this policy revision (M19-RC1), `git ls-files docs/` confirms this
+repository has exactly one tracked file under `docs/`
+(`docs/versioning.md` — everything else in that directory is local-only
+PDFs and spec drafts, gitignored). There is no `docs/cli/`,
+`docs/commands/`, `docs/reference/`, `docs/workflow/`, `docs/architecture/`,
+or `docs/specifications/` in the actual repository structure. **If any such
+public-documentation directory is created in the future, it must be added
+to this table and to `RELEVANT_DIRECTORY_PREFIXES`/`RELEVANT_EXACT_FILES`
+in `src/tooling/relevant-paths.ts` explicitly** — classification is never
+inferred from a directory merely existing under `docs/`, and it is never
+inferred from scanning file content for keywords.
 
 **Everything else is exempt**, including but not limited to: `tests/**`
-(pure test-only changes never require a bump on their own), `coverage/`,
-editor configuration, and any other file under `docs/` (all gitignored
-except this one). This is a strict allowlist, not a heuristic — a path not
+(pure test-only changes never require a bump on their own), `coverage/`
+and other generated report output, editor configuration, and any file
+under `docs/` other than `docs/versioning.md` (internal implementation
+notes, archived planning drafts, historical milestone specs — all
+gitignored, and even if one were force-added, it is still not on the
+allowlist). This is a strict allowlist, not a heuristic — a path not
 listed above is never classified as relevant, and a new relevant surface
-must be added here explicitly rather than inferred.
+must be added here explicitly rather than inferred from its content or
+its location under a broad directory.
 
 If a completed change touches both a relevant and an exempt path, the
 change as a whole still requires a bump (the relevant path alone is
@@ -196,14 +217,32 @@ never reuses AIQT's own workflow exit codes (`0`/`2`/`3`/`10`).
 
 `.github/workflows/validate.yml` runs, on every push and pull request:
 typecheck → lint → test → build → `pnpm version:check` (local mode) →
-`pnpm version:check -- --base <resolved PR base> --json` (comparison
-mode, pull requests only). For a pull request, the base is the actual
+a **blocking** base-comparison check. CI never publishes a package,
+creates a tag or GitHub Release, or commits/mutates any file; it only
+reads and reports. There is no `continue-on-error`, `|| true`, or any
+other soft-failure pattern on either comparison step — a policy failure
+fails the workflow exactly like a failing test would.
+
+**Pull requests** compare against the actual
 `github.event.pull_request.base.ref`, fetched explicitly before
-comparison — never an assumed `origin/main`. For a direct push to `main`,
-only local consistency validation runs (there is no meaningful "base" for
-a direct push in this repository's workflow). CI never publishes a
-package, creates a tag or GitHub Release, or commits/mutates any file; it
-only reads and reports.
+comparison — never an assumed `origin/main`.
+
+**Direct pushes to `main`** (M19-RC1 correction — this was previously
+advisory-only and used the non-authoritative `HEAD~1`) compare against
+GitHub's own `github.event.before`, resolved via the tested pure function
+`resolveDirectPushBase` (`src/tooling/push-base.ts`) and its CI wrapper
+(`src/tooling/resolve-push-base-cli.ts`):
+
+- a non-empty, non-zero `before` that resolves to a known commit →
+  **enforced comparison** against it (relevant change with no bump fails
+  the job, exactly like a non-compliant PR);
+- a missing or all-zero `before` (the SHA GitHub sends for a branch's
+  first push) → no previous revision exists, comparison is safely skipped
+  and the reason is recorded in the step output; local consistency
+  validation still runs regardless;
+- a non-empty, non-zero `before` that does **not** resolve (an anomaly,
+  e.g. a checkout that doesn't reach it) → the resolution step itself
+  fails the job immediately, rather than silently skipping enforcement.
 
 ## Tag conventions
 
