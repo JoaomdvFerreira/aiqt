@@ -417,3 +417,89 @@ describe("runVersionCheck: shallow-history structural failure (M19 §22.6)", () 
     expect(result.errors.length).toBeGreaterThan(0);
   });
 });
+
+describe("runVersionCheck: public documentation classification (M19-RC1 §7/§10/§17.1/§17.2)", () => {
+  let dir: string | null = null;
+  afterEach(() => {
+    if (dir) removeDir(dir);
+    dir = null;
+  });
+
+  it("fails when README.md (public entry point) changes but the version is unchanged", () => {
+    dir = initRepo("0.6.1");
+    commitChange(dir, "README.md", "# fixture\ninstall/usage docs\n", "README public docs change");
+    const result = runVersionCheck({ cwd: dir, base: "main~1", ...withCurrentVersionReader("0.6.1") });
+    expect(result.status).toBe("failed");
+    expect(result.checks.requiredBumpPresent).toBe(false);
+    expect(result.relevantPaths).toContain("README.md");
+  });
+
+  it("passes when README.md changes alongside a patch bump", () => {
+    dir = initRepo("0.6.1");
+    commitChange(dir, "README.md", "# fixture\ninstall/usage docs\n", "README public docs change");
+    writePackageJson(dir, "0.6.2");
+    git(["add", "package.json"], dir);
+    git(["commit", "-m", "bump patch"], dir);
+    const result = runVersionCheck({ cwd: dir, base: "main~2", ...withCurrentVersionReader("0.6.2") });
+    expect(result.status).toBe("passed");
+    expect(result.increment).toBe("patch");
+  });
+
+  it("fails when docs/versioning.md (release policy) changes but the version is unchanged", () => {
+    dir = initRepo("0.6.1");
+    commitChange(dir, "docs/versioning.md", "updated release policy\n", "versioning policy change");
+    const result = runVersionCheck({ cwd: dir, base: "main~1", ...withCurrentVersionReader("0.6.1") });
+    expect(result.status).toBe("failed");
+    expect(result.relevantPaths).toContain("docs/versioning.md");
+  });
+
+  it("fails when a CI workflow file (release-validation tooling) changes but the version is unchanged", () => {
+    dir = initRepo("0.6.1");
+    commitChange(dir, ".github/workflows/validate.yml", "name: Validate\n", "workflow change");
+    const result = runVersionCheck({ cwd: dir, base: "main~1", ...withCurrentVersionReader("0.6.1") });
+    expect(result.status).toBe("failed");
+    expect(result.relevantPaths).toContain(".github/workflows/validate.yml");
+  });
+
+  it("fails when a public CLI/JSON-contract source file changes but the version is unchanged (behavior unchanged from before M19-RC1)", () => {
+    dir = initRepo("0.6.1");
+    commitChange(dir, "src/cli/register-commands.ts", "// CLI command surface\n", "CLI command change");
+    const result = runVersionCheck({ cwd: dir, base: "main~1", ...withCurrentVersionReader("0.6.1") });
+    expect(result.status).toBe("failed");
+    expect(result.relevantPaths).toContain("src/cli/register-commands.ts");
+  });
+
+  it("keeps an internal-note-only documentation change exempt (not README.md, not docs/versioning.md)", () => {
+    dir = initRepo("0.6.1");
+    commitChange(dir, "docs/internal-scratch-notes.md", "private planning notes\n", "internal note only");
+    const result = runVersionCheck({ cwd: dir, base: "main~1", ...withCurrentVersionReader("0.6.1") });
+    expect(result.status).toBe("passed");
+    expect(result.relevantChangesDetected).toBe(false);
+    expect(result.ignoredPaths).toContain("docs/internal-scratch-notes.md");
+  });
+
+  it("keeps a generated-report-only change exempt", () => {
+    dir = initRepo("0.6.1");
+    commitChange(dir, "coverage/lcov-report/index.html", "<html></html>\n", "generated coverage report");
+    const result = runVersionCheck({ cwd: dir, base: "main~1", ...withCurrentVersionReader("0.6.1") });
+    expect(result.status).toBe("passed");
+    expect(result.relevantChangesDetected).toBe(false);
+  });
+
+  it("requires a bump for a mix of public documentation and exempt test files", () => {
+    dir = initRepo("0.6.1");
+    commitChange(dir, "README.md", "install docs\n", "README change");
+    commitChange(dir, "tests/unit/x.test.ts", "// test only\n", "test-only change");
+    const result = runVersionCheck({ cwd: dir, base: "main~2", ...withCurrentVersionReader("0.6.1") });
+    expect(result.status).toBe("failed");
+    expect(result.relevantPaths).toContain("README.md");
+    expect(result.ignoredPaths).toContain("tests/unit/x.test.ts");
+  });
+
+  it("classifies a Windows-style changed path for README.md correctly (git itself always reports forward slashes, but the classifier still normalizes defensively)", () => {
+    dir = initRepo("0.6.1");
+    commitChange(dir, "README.md", "install docs\n", "README change");
+    const result = runVersionCheck({ cwd: dir, base: "main~1", ...withCurrentVersionReader("0.6.1") });
+    expect(result.relevantPaths).toEqual(["README.md"]);
+  });
+});

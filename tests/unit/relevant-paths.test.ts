@@ -42,8 +42,8 @@ describe("isRelevantPath (M19 §11/§12/§22.4)", () => {
     expect(isRelevantPath(".vscode/settings.json")).toBe(false);
   });
 
-  it("classifies README.md as not relevant (not in the explicit allowlist)", () => {
-    expect(isRelevantPath("README.md")).toBe(false);
+  it("classifies README.md as relevant (M19-RC1: universal public entry point)", () => {
+    expect(isRelevantPath("README.md")).toBe(true);
   });
 });
 

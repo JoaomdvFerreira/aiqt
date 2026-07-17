@@ -59,15 +59,23 @@ jobs:
         if: github.event_name == 'pull_request'
         run: pnpm version:check -- --base "origin/${{ github.event.pull_request.base.ref }}" --json
 
-      - name: Version check (previous revision, direct push to main)
+      - name: Resolve direct-push comparison base
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        # M19 §17: for a direct push to main, compare against the previous
-        # revision where it is safely available (e.g. not the repository's
-        # very first commit); this step is advisory context, not a hard
-        # merge gate the way the PR comparison is.
-        run: |
-          if git rev-parse --verify "HEAD~1^{commit}" >/dev/null 2>&1; then
-            pnpm version:check -- --base HEAD~1 --json
-          else
-            echo "No previous revision to compare against (initial commit) -- skipping."
-          fi
+        id: resolve_push_base
+        # M19-RC1 §12: use GitHub's own authoritative github.event.before
+        # (never HEAD~1, which is not authoritative under e.g. a squash
+        # merge or force-push) via the single tested decision function in
+        # src/tooling/push-base.ts. Exits 1 (failing this step, and the
+        # job) if `before` is a non-empty, non-zero SHA that does not
+        # resolve -- an anomaly that must not be silently treated as "no
+        # previous revision".
+        run: node node_modules/tsx/dist/cli.mjs src/tooling/resolve-push-base-cli.ts --before "${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+
+      - name: Version check (direct push to main, enforced)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.resolve_push_base.outputs.action == 'compare'
+        # M19-RC1 §11/§14: this is a blocking merge gate, identical in kind
+        # to the PR comparison step below -- no continue-on-error, no
+        # `|| true`, no swallowed exit code. A relevant change pushed
+        # directly to main without a version bump fails this step, and the
+        # job, exactly like a non-compliant PR would.
+        run: pnpm version:check -- --base "${{ steps.resolve_push_base.outputs.base }}" --json
