@@ -18,6 +18,17 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   let json = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (arg === "--") {
+      // M19-RC1: pnpm's own "--" argument separator (used to forward flags
+      // through `pnpm version:check -- --base <ref>`) is not always
+      // stripped before reaching this script -- observed directly in a
+      // real CI run: `pnpm version:check -- --base <sha> --json` invoked
+      // this script as `tsx version-check-cli.ts "--" "--base" "<sha>"
+      // "--json"`. A bare "--" carries no meaning for this tool (every
+      // remaining argument is a named flag), so it is always a harmless
+      // no-op to skip rather than an unknown argument.
+      continue;
+    }
     if (arg === "--json") {
       json = true;
     } else if (arg === "--base") {
