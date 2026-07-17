@@ -2,6 +2,7 @@ import type { ProjectModel } from "../schema/project.schema.js";
 import type { StateModel } from "../schema/state.schema.js";
 import type { WorkUnit } from "../schema/work-unit.schema.js";
 import type { ReviewFindingCandidate } from "./review-rules.js";
+import { findStaleReadyWorkUnits } from "./effective-readiness.js";
 
 /**
  * M9 §11.1: keywords that suggest a work unit is late-stage/polish work
@@ -148,43 +149,53 @@ export function collectOrphanedRequirementFragmentWarnings(
 }
 
 /**
- * M12 §8.3/§11: warn (non-blocking) when a work unit's stored status
- * ("ready" or "planned") no longer matches what its current blocking/requires
- * dependencies imply -- e.g. after a dependency type is changed but before
- * readiness is recalculated, or in any other drift scenario. Only "ready"
- * and "planned" are considered; done/in_progress/needs_review/cancelled/
- * replanned are terminal or active states this warning does not second-guess.
+ * M18 §6/§10 (supersedes the original M12 §8.3/§11 implementation): warn
+ * (non-blocking, code WORK_UNIT_STALE_READINESS) for every work unit that is
+ * canonically "ready" but not effectively ready -- an active unsatisfied
+ * `blocks`/`requires` dependency (e.g. after M17-RC1 append adds a new
+ * dependency onto an existing ready unit, which append must never revert).
+ * Delegates entirely to the single centralized effective-readiness engine
+ * (`findStaleReadyWorkUnits`) rather than re-implementing the satisfaction
+ * check here, so this is the one and only stale-readiness finding source
+ * shared by both `aiqt graph validate` and `aiqt review` (both consume
+ * `collectGraphAndPlanQualityWarnings`) -- no duplicate findings from
+ * independent validators. The affected work unit is always excluded from
+ * `aiqt next` selection regardless of this finding's non-blocking severity.
  */
 export function collectStaleReadinessWarnings(state: StateModel): ReviewFindingCandidate[] {
-  const workUnits = state.workGraph.workUnits;
-  const statusById = new Map(workUnits.map((wu) => [wu.id, wu.status]));
-  const findings: ReviewFindingCandidate[] = [];
+  const dependencyById = new Map(state.workGraph.dependencies.map((d) => [d.id, d]));
 
-  for (const wu of workUnits) {
-    if (wu.status !== "ready" && wu.status !== "planned") continue;
+  return findStaleReadyWorkUnits(state).map((r) => {
+    const dependencyTypes = [
+      ...new Set(
+        r.unsatisfiedDependencyIds
+          .map((id) => dependencyById.get(id)?.type)
+          .filter((t): t is "blocks" | "requires" => t === "blocks" || t === "requires"),
+      ),
+    ];
 
-    const incomingBlocking = state.workGraph.dependencies.filter(
-      (d) => d.toId === wu.id && (d.type === "blocks" || d.type === "requires"),
-    );
-    const allSourcesDone = incomingBlocking.every((d) => statusById.get(d.fromId) === "done");
-    const expected: "ready" | "planned" = allSourcesDone ? "ready" : "planned";
-    if (expected === wu.status) continue;
-
-    findings.push({
-      ruleKey: `warning.stale-readiness.${wu.id}`,
-      findingKey: `workunit:${wu.id}:stale-readiness`,
+    return {
+      ruleKey: `warning.stale-readiness.${r.workUnitId}`,
+      findingKey: `workunit:${r.workUnitId}:stale-readiness`,
       category: "graph",
       severity: "medium",
       blocking: false,
       title: "Work unit readiness state is stale relative to its dependencies",
-      message: `Work unit "${wu.id}" has status "${wu.status}", but its blocking/requires dependencies imply it should be "${expected}".`,
-      relatedIds: [wu.id],
-      suggestedAction: "Run aiqt graph validate or aiqt graph repair --dry-run to investigate.",
-      nextRecommendedCommand: "aiqt graph validate",
-    });
-  }
-
-  return findings;
+      message: `Work unit "${r.workUnitId}" has status "ready", but ${r.unsatisfiedDependencyIds.length} of its blocking/requires ${r.unsatisfiedDependencyIds.length === 1 ? "dependency is" : "dependencies are"} unsatisfied (blocked by: ${r.blockingPredecessorWorkUnitIds.join(", ")}). It will not be selected by aiqt next until repaired.`,
+      relatedIds: [r.workUnitId, ...r.blockingPredecessorWorkUnitIds],
+      suggestedAction: "Run aiqt graph repair --dry-run to review the deterministic ready -> planned repair.",
+      nextRecommendedCommand: "aiqt graph repair --dry-run",
+      staleReadinessDetails: {
+        workUnitId: r.workUnitId,
+        canonicalStatus: r.canonicalStatus,
+        expectedStatus: "planned",
+        unsatisfiedDependencyIds: r.unsatisfiedDependencyIds,
+        blockingPredecessorWorkUnitIds: r.blockingPredecessorWorkUnitIds,
+        dependencyTypes,
+        repairable: true,
+      },
+    };
+  });
 }
 
 /**

@@ -178,7 +178,7 @@ describe("buildGraphRepairPlan", () => {
       },
     });
     const validation = validateGraph(project(), state, []);
-    const plan = buildGraphRepairPlan(validation);
+    const plan = buildGraphRepairPlan(validation, state);
 
     expect(plan.wouldMutate).toBe(false);
     expect(plan.suggestions).toHaveLength(1);
@@ -198,7 +198,7 @@ describe("buildGraphRepairPlan", () => {
       },
     });
     const validation = validateGraph(project(), state, []);
-    const plan = buildGraphRepairPlan(validation);
+    const plan = buildGraphRepairPlan(validation, state);
 
     expect(plan.suggestions).toEqual([]);
     expect(plan.investigationGuidance.length).toBeGreaterThan(0);
@@ -213,8 +213,8 @@ describe("buildGraphRepairPlan", () => {
       },
     });
     const validation = validateGraph(project(), state, []);
-    const first = buildGraphRepairPlan(validation);
-    const second = buildGraphRepairPlan(validation);
+    const first = buildGraphRepairPlan(validation, state);
+    const second = buildGraphRepairPlan(validation, state);
     expect(first).toEqual(second);
   });
 });

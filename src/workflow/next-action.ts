@@ -2,6 +2,7 @@ import type { Issue } from "../core/output/issue.js";
 import type { ProjectModel } from "../schema/project.schema.js";
 import type { StateModel } from "../schema/state.schema.js";
 import { isPlanningContextReady } from "./planning-readiness.js";
+import { computeEffectiveReadinessForState } from "./effective-readiness.js";
 
 export interface NextActionResult {
   /** The recommended next CLI command, or null if blocked. */
@@ -49,11 +50,14 @@ export function computeNextAction(
     };
   }
 
-  const hasReadyWorkUnit = state.workGraph.workUnits.some(
-    (wu) => wu.status === "ready",
-  );
+  // M18 §9: recommend "aiqt next" only when an effectively ready work unit
+  // exists -- a canonically "ready" but stale (dependency-blocked) unit
+  // would only be rejected by aiqt next, so it must not drive this
+  // recommendation.
+  const readiness = computeEffectiveReadinessForState(state);
+  const hasEffectivelyReadyWorkUnit = [...readiness.values()].some((r) => r.effectivelyReady);
 
-  if (hasReadyWorkUnit) {
+  if (hasEffectivelyReadyWorkUnit) {
     return {
       nextRecommendedCommand: "aiqt next",
       reason:

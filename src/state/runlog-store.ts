@@ -455,6 +455,36 @@ export function buildDependencyUpdatedEvent(input: {
   };
 }
 
+export interface GraphRepairedChange {
+  workUnitId: string;
+  from: string;
+  to: string;
+}
+
+export interface GraphRepairedEventData {
+  repairType: "stale_readiness";
+  workUnitIds: string[];
+  changes: GraphRepairedChange[];
+}
+
+/** Build the graph.repaired event appended by `aiqt graph repair --apply` (M18 §13). */
+export function buildGraphRepairedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: GraphRepairedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "graph.repaired",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Repaired ${input.data.workUnitIds.length} stale-ready work unit(s): ${input.data.workUnitIds.join(", ")}.`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 /**
  * Find the most recent agent_packet.created event whose packetId is not
  * `excludePacketId`, scanning runlog history in chronological (append) order.

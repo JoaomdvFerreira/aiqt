@@ -21,6 +21,23 @@ export const ReviewFindingSeveritySchema = z.enum([
 ]);
 export type ReviewFindingSeverity = z.infer<typeof ReviewFindingSeveritySchema>;
 
+/**
+ * M18 §10: optional structured detail attached to a WORK_UNIT_STALE_READINESS
+ * finding -- a work unit whose canonical status is "ready" but whose active
+ * blocking/requires dependencies are not (yet, or no longer) satisfied.
+ * Additive only; absent on every other finding type.
+ */
+export const StaleReadinessDetailsSchema = z.object({
+  workUnitId: z.string(),
+  canonicalStatus: z.string(),
+  expectedStatus: z.literal("planned"),
+  unsatisfiedDependencyIds: z.array(z.string()),
+  blockingPredecessorWorkUnitIds: z.array(z.string()),
+  dependencyTypes: z.array(z.enum(["blocks", "requires"])),
+  repairable: z.boolean(),
+});
+export type StaleReadinessDetails = z.infer<typeof StaleReadinessDetailsSchema>;
+
 export const ReviewFindingSchema = z.object({
   id: z.string(),
   /**
@@ -37,5 +54,7 @@ export const ReviewFindingSchema = z.object({
   relatedIds: z.array(z.string()),
   suggestedAction: z.string(),
   nextRecommendedCommand: z.string().nullable(),
+  /** M18 §10: present only on WORK_UNIT_STALE_READINESS findings. */
+  staleReadinessDetails: StaleReadinessDetailsSchema.optional(),
 });
 export type ReviewFinding = z.infer<typeof ReviewFindingSchema>;
