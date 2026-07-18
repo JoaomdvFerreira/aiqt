@@ -19,8 +19,16 @@ import {
 import { nextId } from "../../state/ids.js";
 import { sha256Hex } from "../../core/util/hash.js";
 import { isPlanningContextReady } from "../../workflow/planning-readiness.js";
-import { selectNextReadyWorkUnit } from "../../workflow/next-work-unit-selector.js";
+import { resolveNextSelection } from "../../workflow/next-work-unit-selector.js";
 import { runAgentHandoffGate } from "../../workflow/agent-handoff-gate.js";
+import {
+  parseSelectionRequest,
+  buildActiveWorkUnitGuardResult,
+  buildSelectionBlockedResult,
+  buildCandidateReportingData,
+  buildAlternativeCandidateGuidance,
+  type RawSelectionOptions,
+} from "./next-selection-helpers.js";
 import { applyWorkUnitStartTransition } from "../../workflow/status-transitions.js";
 import {
   resolveAgentContextRefs,
@@ -63,8 +71,13 @@ function blockedOnState(
   });
 }
 
-export function runNext(ctx: CommandContext): CommandResult {
+export type RunNextOptions = RawSelectionOptions;
+
+export function runNext(ctx: CommandContext, options: RunNextOptions = {}): CommandResult {
   try {
+    const parsed = parseSelectionRequest(options, "NEXT");
+    if (!parsed.ok) return parsed.result;
+
     // .aiqt/ missing has a specific next-command hint ("aiqt init") per the
     // M4 error table; the generic AiqtError -> errorToResult path used for
     // other failures below always leaves nextRecommendedCommand null.
@@ -104,17 +117,28 @@ export function runNext(ctx: CommandContext): CommandResult {
       );
     }
 
+    // M20 §7: the active-work-unit guard takes precedence over every
+    // selection mode.
     if (state.currentWorkUnitId !== null) {
-      return blockedOnState(
-        state,
-        "A work unit is already in progress. Run aiqt checkpoint before starting another.",
-        "aiqt checkpoint",
-        "NEXT-WORK-UNIT-IN-PROGRESS",
-      );
+      return buildActiveWorkUnitGuardResult(state, "NEXT");
     }
 
-    const { workUnit, milestone } = selectNextReadyWorkUnit(state);
-    if (!workUnit) {
+    const selection = resolveNextSelection(state, parsed.request);
+    if (!selection.selectedWorkUnit) {
+      // Preserve the exact pre-M20 issue id/message for default mode's
+      // "nothing is ready" case; work_unit/milestone modes are new, so use
+      // the richer M20 blocked-result builder for those instead.
+      if (selection.mode === "default") {
+        return blockedOnState(
+          state,
+          "No ready work unit exists. Run aiqt review.",
+          "aiqt review",
+          "NEXT-NO-READY-WORK-UNIT",
+        );
+      }
+      if (selection.blockingReason) {
+        return buildSelectionBlockedResult(state, selection.blockingReason, "NEXT");
+      }
       return blockedOnState(
         state,
         "No ready work unit exists. Run aiqt review.",
@@ -122,6 +146,8 @@ export function runNext(ctx: CommandContext): CommandResult {
         "NEXT-NO-READY-WORK-UNIT",
       );
     }
+    const workUnit = selection.selectedWorkUnit;
+    const milestone = selection.selectedMilestone;
 
     try {
       runAgentHandoffGate(workUnit, milestone, state);
@@ -269,13 +295,15 @@ export function runNext(ctx: CommandContext): CommandResult {
       }),
     );
 
+    const alternativeGuidance = buildAlternativeCandidateGuidance(selection);
+
     return makeResult({
       status: warnings.length > 0 ? "warning" : "passed",
       action: "next",
       projectStatus: "in_progress",
       currentMilestoneId: selectedMilestone.id,
       currentWorkUnitId: workUnit.id,
-      summary: `Agent packet created for ${workUnit.id}.`,
+      summary: `Agent packet created for ${workUnit.id}.${alternativeGuidance ? ` ${alternativeGuidance}` : ""}`,
       completedActions: [
         "Read project.json",
         "Read state.json",
@@ -296,6 +324,7 @@ export function runNext(ctx: CommandContext): CommandResult {
         packetFormat: "markdown" as const,
         contentHash,
         packet: packetBody,
+        ...buildCandidateReportingData(selection),
         statusChanges: [
           { entityType: "workUnit", id: workUnit.id, from: "ready", to: "in_progress" },
           {
