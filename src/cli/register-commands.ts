@@ -131,13 +131,24 @@ export function buildProgram(): Command {
   const nextCommand = program
     .command("next")
     .description(
-      "Select the next effectively ready work unit and generate its agent handoff packet (M18: canonical status \"ready\" is not sufficient when an active blocking dependency is unsatisfied -- --preview and the real selection always agree)",
+      "Select the next effectively ready work unit and generate its agent handoff packet (M18: canonical status \"ready\" is not sufficient when an active blocking dependency is unsatisfied -- --preview and the real selection always agree; M20: --work-unit/--milestone select among effectively ready candidates explicitly, without bypassing readiness or active-execution state)",
     )
     .option("--json", "emit machine-readable JSON output", false)
     .option("--preview", "preview the next selection without mutating state", false)
+    .option(
+      "--work-unit <id>",
+      "M20: select this exact work unit instead of the default (must be effectively ready; mutually exclusive with --milestone)",
+    )
+    .option(
+      "--milestone <id>",
+      "M20: select the first effectively ready work unit within this milestone (never falls back to another milestone; mutually exclusive with --work-unit)",
+    )
     .action((raw: RawNextOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
-      const result = raw.preview ? runNextPreview(ctx) : runNext(ctx);
+      const selectionOptions = { workUnit: raw.workUnit, milestone: raw.milestone };
+      const result = raw.preview
+        ? runNextPreview(ctx, selectionOptions)
+        : runNext(ctx, selectionOptions);
 
       // On successful packet generation (non-preview), human-mode output is
       // the packet text itself (paste-ready for a coding agent), not the

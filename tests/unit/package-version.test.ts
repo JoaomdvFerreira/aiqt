@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the M19-RC1 CI-fix target version 0.6.3", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.6.3");
+  it("is the M20 target version 0.7.0", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.7.0");
   });
 });

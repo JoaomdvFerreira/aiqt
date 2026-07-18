@@ -112,6 +112,10 @@ export interface RawReviewAcknowledgeOptions {
 export interface RawNextOptions {
   json?: boolean;
   preview?: boolean;
+  /** M20: explicit work unit selector. Mutually exclusive with --milestone. */
+  workUnit?: string;
+  /** M20: explicit milestone-scoped selector. Mutually exclusive with --work-unit. */
+  milestone?: string;
 }
 
 export interface RawManageOptions {
