@@ -157,47 +157,64 @@ an already-pushed tag or commit.
 
 ## 10. Dependency-update review
 
-`.github/dependabot.yml` (M21-WU04) opens weekly, capped (5 open PRs),
-grouped update pull requests for the npm ecosystem and GitHub Actions.
-None are auto-merged. Review each PR like any other change: CI must pass,
-and a version bump is required if the update touches a relevant path
+`.github/dependabot.yml` (M21-WU04) opens weekly, capped, grouped update
+pull requests for the npm ecosystem and GitHub Actions. None are
+auto-merged. Review each PR like any other change: CI must pass, and a
+version bump is required if the update touches a relevant path
 (`package.json`, `pnpm-lock.yaml`) per `docs/versioning.md`'s policy.
 
-**Snapshot (2026-07-20):** Dependabot opened three real PRs the same day
-this file's config was added -- `actions/checkout` 4->7 (#1),
-`pnpm/action-setup` 4->6 (#2), `actions/setup-node` 4->7 (#3) -- confirming
-the configuration is active. All three currently fail their `Validate`
-CI run at the "Version check (base comparison)" step, because each touches
-`.github/workflows/**` (a relevant path) without a version bump, which
-Dependabot's automated commits never include. This is the gate working as
-intended, not a bug: the owner action is to review the three Actions-
-version bumps together and merge them with one accompanying version bump
-(smallest applicable increment), either in the same change or immediately
-after. This snapshot will go stale as PRs are merged or superseded --
-`gh pr list` and `gh run list --workflow=validate.yml` are the live
-source of truth, not this paragraph.
+**The npm ecosystem entry has `open-pull-requests-limit: 0`** (set
+2026-07-20, supply-chain maintenance). This is a deliberate response to a
+confirmed external `dependabot-core` limitation, not a monitoring
+reduction of detection -- see `GOVERNANCE.md`'s "Lockfile-parsing
+limitation" record for the full evidence trail (job logs, a byte-for-byte
+lockfile regeneration proof, and the matching unresolved
+`dependabot-core` issue #7584). In short: `dependabot-core`'s
+`npm_and_yarn` updater cannot parse this repository's
+`pnpm-lock.yaml` (`lockfileVersion: 5.4`) even though the lockfile itself
+is fully valid for the exact approved `pnpm@7.33.5`. Vulnerability alert
+*detection* is unaffected; only automated PR creation for npm/pnpm is
+blocked. Do not remove this limit without first confirming
+`dependabot-core` has added `lockfileVersion: 5.4` support, or without a
+separately approved pnpm-version migration.
+
+The `github-actions` ecosystem entry is unaffected and remains fully
+functional (weekly Actions-version update PRs).
+
+**Snapshot (resolved 2026-07-20, combined maintenance PR merged):** the
+three GitHub Actions bumps Dependabot originally opened separately
+(`actions/checkout` 4->7, `pnpm/action-setup` 4->6, `actions/setup-node`
+4->7) were reviewed for compatibility (release notes checked for each;
+no breaking changes affecting this repository's usage), combined into one
+maintenance branch, validated, merged after real CI passed, and the
+original three Dependabot PRs closed as superseded. `gh pr list` and
+`gh run list --workflow=validate.yml` are the live source of truth for
+current state, not this paragraph.
 
 ## 11. Owner actions still required outside this repository
 
-Confirmed via live GitHub API evidence (2026-07-20, M21 governance
-micro-closure) rather than assumed:
+Confirmed via live GitHub API evidence (2026-07-20) rather than assumed:
 
-- **Vulnerability alerts / dependency graph:** confirmed **disabled**
-  (`GET .../vulnerability-alerts` -> 404). Enable in repository Settings
-  -> Code security, or upgrade/make-public per the plan gate documented in
-  `GOVERNANCE.md`.
 - **Private vulnerability reporting:** confirmed **unavailable** on this
   plan/visibility (`GET`/`PUT .../private-vulnerability-reporting` both
   -> 404, including a real enable attempt). See `SECURITY.md` and
   `GOVERNANCE.md`'s "Vulnerability reporting decision" for the current,
-  honest state -- there is no working private reporting channel today.
+  honest state -- there is no working private *reporting* channel for
+  external researchers today, though automated detection works (below).
+- **Vulnerability alerts / dependency graph / Dependabot security
+  updates:** confirmed **enabled** (re-verified 2026-07-20, a change from
+  earlier the same day) and already surfacing 6 real alerts in
+  `vitest`/`vite`/`esbuild` (devDependencies). Review these periodically
+  via `gh api repos/{owner}/aiqt/dependabot/alerts` or the repository's
+  Security tab -- they cannot be auto-fixed by Dependabot for this
+  ecosystem (see item 10 above) so any real remediation is manual.
 - If/when branch protection becomes a priority, either upgrade the GitHub
   plan or make the repository public (see `GOVERNANCE.md`'s
   `revisit_when` list) and then configure required status checks -- the
-  same plan/visibility change also unlocks the two items above.
-- Once any of the above is enabled, update `SECURITY.md` and
-  `GOVERNANCE.md` to reflect the new verified state -- neither document
-  updates itself.
+  same plan/visibility change also unlocks private vulnerability
+  reporting.
+- Once any of the above changes, update `SECURITY.md` and `GOVERNANCE.md`
+  to reflect the new verified state -- neither document updates itself.
 
 ## Smoke-test evidence
 

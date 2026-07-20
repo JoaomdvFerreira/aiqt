@@ -4,11 +4,33 @@
 # version:check) as any other change to this repository.
 version: 2
 updates:
+  # Supply-chain maintenance (2026-07-20): open-pull-requests-limit set to
+  # 0 for this ecosystem. Real evidence (Dependabot job logs, a byte-for-
+  # byte lockfile regeneration proof, and dependabot-core issue #7584)
+  # shows dependabot-core's npm_and_yarn updater cannot parse this
+  # repository's pnpm-lock.yaml (lockfileVersion: 5.4, the format written
+  # by pnpm 7.x) -- "dependency_file_not_parseable" -- even though
+  # `pnpm@7.33.5 install --frozen-lockfile` succeeds cleanly and
+  # regenerating the lockfile from scratch with that exact pnpm version
+  # produces an identical file. This is an external dependabot-core
+  # limitation, not a defect in this repository, and is not "fixed" by
+  # this setting -- it only stops Dependabot's own *scheduled* npm-
+  # ecosystem update attempts from repeatedly failing on a known-
+  # unwinnable parse step. See docs/maintainer-recovery.md for the full
+  # evidence trail, including the caveat that alert-triggered *security*
+  # update attempts are a separate GitHub setting this file does not
+  # control and will still be attempted (and still fail the same way)
+  # whenever a new vulnerability alert fires for a dependency in this
+  # ecosystem. Vulnerability *detection* (Dependency Graph, Dependabot
+  # alerts) is unaffected either way -- only automated PR creation is
+  # blocked. Do not remove this limit or re-enable npm-ecosystem PRs
+  # without first confirming dependabot-core has added lockfileVersion
+  # 5.4 support, or without a separately approved pnpm-version migration.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       dev-dependencies:
         dependency-type: "development"

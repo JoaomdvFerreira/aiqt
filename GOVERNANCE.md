@@ -79,23 +79,27 @@ inaccurate and should be corrected.
 
 ```yaml
 vulnerability_reporting_decision:
-  status: unavailable_on_current_plan
+  status: partially_available_reverified_2026_07_20
   evidence:
-    - "GET /repos/{owner}/aiqt/private-vulnerability-reporting -> HTTP 404"
-    - "PUT /repos/{owner}/aiqt/private-vulnerability-reporting -> HTTP 404 (enable attempt also rejected)"
-    - "GET /repos/{owner}/aiqt/vulnerability-alerts -> HTTP 404: 'Vulnerability alerts are disabled.'"
-    - "GET /repos/{owner}/aiqt -> security_and_analysis: null"
-    - "Verified via live gh api calls, 2026-07-20 (M21 governance micro-closure)."
+    - "GET /repos/{owner}/aiqt/private-vulnerability-reporting -> HTTP 404 (still unavailable; re-verified 2026-07-20, unchanged since Gate A)"
+    - "GET /repos/{owner}/aiqt/vulnerability-alerts -> 204 (now ENABLED -- was HTTP 404 'disabled' at Gate A, 2026-07-20 earlier same day)"
+    - "GET /repos/{owner}/aiqt/dependabot/alerts -> 6 real open alerts (2 critical, 1 high, 3 medium -- vitest/vite/esbuild devDependencies)"
+    - "GET /repos/{owner}/aiqt/automated-security-fixes -> {enabled: true, paused: false}"
+    - "GET /repos/{owner}/aiqt/dependency-graph/sbom -> succeeds with real SBOM data"
+    - "Verified via live gh api calls, 2026-07-20 (supply-chain maintenance session, same day as Gate A but later)."
   rationale: >
-    Private vulnerability reporting and the dependency graph/vulnerability
-    alerts it depends on are both gated the same way branch protection is
-    on this repository -- unavailable while private on the current GitHub
-    plan. An API enable attempt was made and rejected, confirming this is
-    a platform gate, not a missed configuration step. SECURITY.md states
-    this gap honestly rather than claiming an inactive feature works.
+    Vulnerability alerts, the dependency graph, and Dependabot security
+    updates are now confirmed ENABLED -- a change from the Gate A snapshot
+    taken earlier the same day, most likely GitHub's own asynchronous
+    processing catching up rather than any repository-side action taken
+    here. Private vulnerability reporting specifically remains the one
+    unavailable piece, gated the same way branch protection is (plan/
+    visibility). SECURITY.md is updated to reflect this: alerts work and
+    are actively finding real issues; only the private *reporting*
+    channel for external researchers is still missing.
   revisit_when:
     - "The repository is made public, or"
-    - "The GitHub plan is upgraded to one that includes these features for private repositories."
+    - "The GitHub plan is upgraded to one that includes private vulnerability reporting for private repositories."
 ```
 
 ## Dependency and supply-chain monitoring
@@ -105,11 +109,49 @@ grouped update pull requests for the npm ecosystem and GitHub Actions.
 Dependabot does not auto-merge anything; every update PR requires the same
 manual review and CI run as any other change.
 
-Dependabot itself is confirmed active (it opened three real update PRs on
-2026-07-20: `actions/checkout` 4->7, `pnpm/action-setup` 4->6,
-`actions/setup-node` 4->7). Repository-level **vulnerability alerts** and
-the **dependency graph**, however, are confirmed disabled (see
-"Vulnerability reporting decision" above) -- these are a related but
-distinct GitHub setting from Dependabot version updates, and enabling one
-does not enable the other. Enabling vulnerability alerts/dependency graph
-remains an explicit owner action.
+Dependabot itself is confirmed active (it opened three real GitHub Actions
+update PRs on 2026-07-20: `actions/checkout` 4->7, `pnpm/action-setup`
+4->6, `actions/setup-node` 4->7). Vulnerability alerts and the dependency
+graph are now confirmed **enabled** (see "Vulnerability reporting
+decision" above), and have already surfaced 6 real alerts in
+`vitest`/`vite`/`esbuild` (devDependencies).
+
+## Lockfile-parsing limitation (npm/pnpm ecosystem)
+
+```yaml
+dependabot_pnpm_parsing_limitation:
+  status: external_limitation_workaround_applied
+  symptom: "GitHub UI: '/pnpm-lock.yaml not parseable'"
+  evidence:
+    - "Dependabot job log (run for security update on 'vite', 2026-07-20): corepack correctly activates pnpm@7.33.5 per packageManager, then the npm_and_yarn updater subprocess exits 1 with error type dependency_file_not_parseable, message '/pnpm-lock.yaml not parseable', file-path '/pnpm-lock.yaml'."
+    - "pnpm@7.33.5 install --frozen-lockfile succeeds cleanly in a disposable clean clone against the committed lockfile."
+    - "Regenerating pnpm-lock.yaml from scratch with the exact same pnpm@7.33.5 in that clean clone produces a byte-for-byte identical file (md5 4288c0576b2b424de3fb5b93fd6dcbf5, both the committed file and the from-scratch regeneration)."
+    - "dependabot-core issue #7584 (github.com/dependabot/dependabot-core/issues/7584): an unresolved, 'closed as not planned' report of the identical dependency_file_not_parseable / JSON-parse-error signature for a pnpm lockfile, no fix ever shipped."
+  conclusion: >
+    This repository's pnpm-lock.yaml (lockfileVersion: 5.4, the format
+    pnpm 7.x writes) is valid and deterministic for the exact approved
+    pnpm version. The failure is in dependabot-core's own npm_and_yarn
+    updater, which cannot parse this lockfile format/version combination
+    -- an external tool limitation, not a defect in this repository.
+  workaround_applied:
+    - "open-pull-requests-limit: 0 on the npm ecosystem entry in .github/dependabot.yml, stopping Dependabot's own scheduled npm-ecosystem update-PR attempts."
+  not_changed:
+    - "pnpm version (still exactly 7.33.5, matching lockfileVersion 5.4) -- no unapproved package-manager migration."
+    - "Lockfile format/content -- unchanged, proven byte-identical to a fresh regeneration."
+    - "GitHub Actions ecosystem monitoring -- fully independent, unaffected."
+    - "Vulnerability alert detection -- unaffected; alerts fire correctly regardless of whether Dependabot can open a fix PR."
+  known_residual_effect: >
+    Alert-triggered *security* update attempts (as opposed to scheduled
+    version updates) are controlled by the repository's separate
+    "Dependabot security updates" setting, not by open-pull-requests-limit
+    in dependabot.yml. Those will still be attempted whenever a new
+    vulnerability alert fires for an npm-ecosystem dependency, and will
+    still fail with the same parse error, until dependabot-core adds
+    lockfileVersion 5.4 support or a separately approved pnpm-version
+    migration changes the lockfile format. This residual noise was an
+    explicit, accepted tradeoff (owner decision, 2026-07-20) in exchange
+    for not reducing security-update *capability* further.
+  revisit_when:
+    - "dependabot-core adds lockfileVersion 5.4 (or pnpm 7.x-lockfile) support, or"
+    - "A separately reviewed and approved pnpm major-version migration changes the lockfile format to one dependabot-core supports."
+```

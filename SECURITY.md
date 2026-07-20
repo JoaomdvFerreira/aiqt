@@ -15,22 +15,28 @@ patch/minor release on the current line, per
 
 ## Reporting a vulnerability
 
-**No working private reporting channel currently exists for this
-repository.** GitHub's private vulnerability reporting and vulnerability
-alerts (dependency graph) are both unavailable on this private
-repository's current GitHub plan -- verified via the GitHub API
-(2026-07-20): `GET/PUT .../private-vulnerability-reporting` and
-`GET .../vulnerability-alerts` both return `404`, the same plan/visibility
-gate documented for branch protection in `GOVERNANCE.md`. This is a
-genuine, currently-unresolved gap, not an oversight -- it will not be
-papered over with a channel that doesn't actually work.
+**No working private *reporting* channel currently exists for external
+researchers.** GitHub's private vulnerability reporting feature is
+unavailable on this private repository's current GitHub plan -- verified
+via the GitHub API (re-checked 2026-07-20): `GET`/`PUT
+.../private-vulnerability-reporting` both return `404`, the same
+plan/visibility gate documented for branch protection in `GOVERNANCE.md`.
+This is a genuine, currently-unresolved gap, not an oversight.
 
-Until this is resolved (see "Owner action" below), do **not** open a
-public GitHub issue for a suspected vulnerability, and do not include
-exploit details, credentials, tokens, or other secrets in any public
-issue, pull request, or discussion. If you believe you have found a
-vulnerability, please wait for the maintainer to enable a working private
-channel rather than reporting through a public or insecure one.
+This is distinct from automated *detection*, which does work: GitHub's
+Dependency Graph, Dependabot alerts, and Dependabot security updates are
+all confirmed enabled on this repository (verified 2026-07-20) and are
+actively finding real issues in dependencies. If your concern is already
+covered by an automated dependency alert, it is already being tracked --
+this section is specifically about vulnerabilities a human needs to
+report that automated scanning would not catch (e.g. in AIQT's own code).
+
+Until private reporting is available, do **not** open a public GitHub
+issue for a suspected vulnerability, and do not include exploit details,
+credentials, tokens, or other secrets in any public issue, pull request,
+or discussion. If you believe you have found a vulnerability, please wait
+for the maintainer to enable a working private channel rather than
+reporting through a public or insecure one.
 
 **Owner action required:** upgrade the GitHub plan or make the repository
 public (either unlocks private vulnerability reporting), then enable it
@@ -62,10 +68,19 @@ program associated with this project.
 
 ## Repository visibility
 
-This repository is currently private. Reports should still go through
-GitHub's private vulnerability reporting flow above rather than a direct
-message or email, so the report stays attached to the repository and
-its eventual fix.
+This repository is currently private, which is the reason private
+vulnerability reporting is unavailable (see above). Do not substitute a
+direct message or email in the meantime -- wait for a working channel
+rather than reporting through an unverified one.
+
+## Dependency supply-chain monitoring
+
+Dependency Graph, Dependabot alerts, and Dependabot security updates are
+enabled (verified 2026-07-20). Automated update-PR creation for the npm
+ecosystem (which covers pnpm) is currently limited by an external
+`dependabot-core` parser limitation with this repository's pnpm lockfile
+format -- alert *detection* is unaffected. See `GOVERNANCE.md`'s
+"Lockfile-parsing limitation" record for full evidence.
 
 ## Scope
 
