@@ -24,21 +24,21 @@ jobs:
         node-version: [22, 24]
     steps:
       - name: Checkout (full history)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # M19 §18: sufficient history to resolve the PR base and merge
           # base deterministically -- a shallow checkout cannot do this.
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         # M21-WU10-fix: no `version:` input here. M19-RC1 pinned `version:
         # 7` to match pnpm-lock.yaml's lockfileVersion 5.4 (the format
         # written by pnpm 7.x) -- pnpm 9 rejected that lockfile outright
         # and then failed --frozen-lockfile as if no lockfile existed at
         # all. M21-WU02 later added an exact `packageManager: "pnpm@7.33.5"`
         # to package.json for the same reason (truthful, exact package-
-        # manager metadata). pnpm/action-setup@v4 auto-detects the version
+        # manager metadata). pnpm/action-setup@v6 auto-detects the version
         # from `packageManager` when present and *fails outright* if a
         # `version:` input is also given and doesn't byte-for-byte match --
         # this broke the very first CI run after M21-WU02+WU03 merged
@@ -48,7 +48,7 @@ jobs:
         # for both local installs and CI.
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
