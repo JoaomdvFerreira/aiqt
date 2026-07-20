@@ -2,6 +2,12 @@
   "name": "aiqt",
   "version": "0.7.0",
   "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@7.33.5",
   "bin": {
     "aiqt": "./dist/index.js"
   },
