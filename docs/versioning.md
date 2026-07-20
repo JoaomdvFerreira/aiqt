@@ -1,6 +1,6 @@
 # AIQT Versioning Policy
 
-**Status:** Implemented (v0.8.2)
+**Status:** Implemented (v0.8.3)
 **Applies to:** the AIQT CLI repository and its release process.
 
 ## Canonical version source

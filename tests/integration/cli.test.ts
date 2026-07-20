@@ -74,29 +74,38 @@ describe("aiqt CLI entrypoint", () => {
     expect(parsed.exitCode).toBe(3);
   });
 
-  it("aiqt next human mode prints the raw packet text on success, paste-ready", () => {
-    dir = makeTempDir();
-    expect(runCli(["init"], dir).status).toBe(0);
-    expect(
-      runCli(["update", "--objective", "Ship it", "--target-user", "devs"], dir).status,
-    ).toBe(0);
-    const patchPath = join(dir, "patch.json");
-    writeFileSync(
-      patchPath,
-      JSON.stringify({ context: { constraints: ["Local files are the source of truth"] } }),
-    );
-    expect(runCli(["update", "--from-file", patchPath], dir).status).toBe(0);
-    const planRes = runCli(["plan", "--example"], dir);
-    const planPath = join(dir, "plan.json");
-    writeFileSync(planPath, planRes.stdout);
-    expect(runCli(["plan", "--from-file", planPath], dir).status).toBe(0);
+  it(
+    "aiqt next human mode prints the raw packet text on success, paste-ready",
+    () => {
+      dir = makeTempDir();
+      expect(runCli(["init"], dir).status).toBe(0);
+      expect(
+        runCli(["update", "--objective", "Ship it", "--target-user", "devs"], dir).status,
+      ).toBe(0);
+      const patchPath = join(dir, "patch.json");
+      writeFileSync(
+        patchPath,
+        JSON.stringify({ context: { constraints: ["Local files are the source of truth"] } }),
+      );
+      expect(runCli(["update", "--from-file", patchPath], dir).status).toBe(0);
+      const planRes = runCli(["plan", "--example"], dir);
+      const planPath = join(dir, "plan.json");
+      writeFileSync(planPath, planRes.stdout);
+      expect(runCli(["plan", "--from-file", planPath], dir).status).toBe(0);
 
-    const res = runCli(["next"], dir);
-    expect(res.status).toBe(0);
-    expect(res.stdout.startsWith("# AGENT EXECUTION PACKET")).toBe(true);
-    expect(res.stdout).not.toContain("AIQT next:");
-    expect(res.stdout).not.toContain("Next recommended command:");
-  });
+      const res = runCli(["next"], dir);
+      expect(res.status).toBe(0);
+      expect(res.stdout.startsWith("# AGENT EXECUTION PACKET")).toBe(true);
+      expect(res.stdout).not.toContain("AIQT next:");
+      expect(res.stdout).not.toContain("Next recommended command:");
+    },
+    // M21 vitest-3 upgrade: this test chains 5 real spawnSync CLI child
+    // processes (init/update/update/plan/next). The default 5000ms
+    // testTimeout was already tight for that under plain `vitest run` and
+    // is exceeded under `vitest run --coverage`'s added instrumentation
+    // overhead -- a timing budget issue, not a functional regression.
+    20000,
+  );
 
   it("aiqt checkpoint --example prints sample JSON, exits 0, without requiring .aiqt/", () => {
     dir = makeTempDir();
@@ -683,15 +692,15 @@ describe("aiqt CLI entrypoint", () => {
     expect(parsed.blockingIssues[0].id).toBe("PLAN-GRAPH-NOT-EMPTY");
   });
 
-  it("M18/M19/M19-RC1/M20/M21: aiqt --version reports 0.8.2, matching package.json's canonical version", () => {
+  it("M18/M19/M19-RC1/M20/M21: aiqt --version reports 0.8.3, matching package.json's canonical version", () => {
     dir = makeTempDir();
     const res = runCli(["--version"], dir);
     expect(res.status).toBe(0);
-    expect(res.stdout.trim()).toBe("0.8.2");
+    expect(res.stdout.trim()).toBe("0.8.3");
     const packageJson = JSON.parse(
       readFileSync(join(repoRoot, "package.json"), "utf8"),
     ) as { version: string };
-    expect(packageJson.version).toBe("0.8.2");
+    expect(packageJson.version).toBe("0.8.3");
     expect(res.stdout.trim()).toBe(packageJson.version);
   });
 
