@@ -509,7 +509,7 @@ describe("M20: M18/M19 compatibility spot checks", () => {
     dir = null;
   });
 
-  it("aiqt --version reports 0.7.0 in this build", async () => {
+  it("aiqt --version reporting is unaffected by explicit selection (version-agnostic by design)", async () => {
     dir = makeTempDir();
     await makeTwoBranchProject(dir);
     // Selection behavior is unaffected by version; this simply confirms

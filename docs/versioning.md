@@ -1,6 +1,6 @@
 # AIQT Versioning Policy
 
-**Status:** Implemented (v0.7.0)
+**Status:** Implemented (v0.8.0)
 **Applies to:** the AIQT CLI repository and its release process.
 
 ## Canonical version source
@@ -101,15 +101,22 @@ changed path requires a bump only if it matches:
 | `docs/versioning.md` | exact file | the contributor-facing release/version policy itself |
 | `README.md` | exact file | the universal public entry point (install/usage/compatibility) — listed even though this repository does not have one yet, so the policy is already correct the moment it's added |
 
-As of this policy revision (M19-RC1), `git ls-files docs/` confirms this
-repository has exactly one tracked file under `docs/`
-(`docs/versioning.md` — everything else in that directory is local-only
-PDFs and spec drafts, gitignored). There is no `docs/cli/`,
-`docs/commands/`, `docs/reference/`, `docs/workflow/`, `docs/architecture/`,
-or `docs/specifications/` in the actual repository structure. **If any such
-public-documentation directory is created in the future, it must be added
-to this table and to `RELEVANT_DIRECTORY_PREFIXES`/`RELEVANT_EXACT_FILES`
-in `src/tooling/relevant-paths.ts` explicitly** — classification is never
+As of this policy revision (M21), `git ls-files docs/` confirms this
+repository has three tracked files under `docs/`: `docs/versioning.md`
+(this policy — on the relevant-paths allowlist above), plus two files
+added in M21 (`docs/coverage-baseline.md`, `docs/maintainer-recovery.md`)
+that are **deliberately not** on the allowlist. Both are operational/
+governance documentation (install steps, coverage snapshots, release and
+recovery procedure) — neither one defines a public command, flag, exit
+code, or JSON contract the way this file or `README.md` would, so a
+change to either one does not by itself require a version bump. Everything
+else in `docs/` remains local-only PDFs and spec drafts, gitignored. There
+is no `docs/cli/`, `docs/commands/`, `docs/reference/`, `docs/workflow/`,
+`docs/architecture/`, or `docs/specifications/` in the actual repository
+structure. **If any such public-documentation directory or file is
+created in the future, it must be added to this table and to
+`RELEVANT_DIRECTORY_PREFIXES`/`RELEVANT_EXACT_FILES` in
+`src/tooling/relevant-paths.ts` explicitly** — classification is never
 inferred from a directory merely existing under `docs/`, and it is never
 inferred from scanning file content for keywords.
 
