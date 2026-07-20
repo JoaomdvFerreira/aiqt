@@ -1,6 +1,12 @@
 name: Validate
 
 # M19: full repository validation plus version-governance enforcement.
+# M21-WU03: matrix-tests the currently supported Node.js runtime range
+# (verified live against endoflife.date during M21 Gate A, 2026-07-20:
+# Node 20 reached end of security support 2026-04-30 and is EOL; Node 22 is
+# Maintenance LTS through 2027-04-30 and Node 24 is Active LTS through
+# 2028-04-30). Version-governance enforcement runs once, on the primary
+# (highest) supported version, to avoid duplicate merge-gate evaluation.
 # Never publishes a package, creates a tag/release, or commits/mutates any
 # file -- read-only validation only. Requires no secrets.
 
@@ -12,6 +18,10 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@v4
@@ -35,7 +45,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
           cache: pnpm
 
       - name: Install dependencies
@@ -54,20 +64,25 @@ jobs:
         run: pnpm build
 
       - name: Version check (local consistency)
+        # M21-WU03: version governance is a single repository-wide policy
+        # decision, not a per-runtime one -- it runs once, on the primary
+        # (highest) supported Node version, to avoid evaluating the same
+        # merge gate twice per push/PR.
+        if: matrix.node-version == 24
         run: pnpm version:check
 
       - name: Fetch PR base branch
-        if: github.event_name == 'pull_request'
+        if: matrix.node-version == 24 && github.event_name == 'pull_request'
         # M19 §18: use the pull request's actual base ref from event
         # metadata -- never assume origin/main for every PR.
         run: git fetch origin "${{ github.event.pull_request.base.ref }}":"refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
 
       - name: Version check (base comparison)
-        if: github.event_name == 'pull_request'
+        if: matrix.node-version == 24 && github.event_name == 'pull_request'
         run: pnpm version:check -- --base "origin/${{ github.event.pull_request.base.ref }}" --json
 
       - name: Resolve direct-push comparison base
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: matrix.node-version == 24 && github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: resolve_push_base
         # M19-RC1 §12: use GitHub's own authoritative github.event.before
         # (never HEAD~1, which is not authoritative under e.g. a squash
@@ -79,7 +94,7 @@ jobs:
         run: node node_modules/tsx/dist/cli.mjs src/tooling/resolve-push-base-cli.ts --before "${{ github.event.before }}" >> "$GITHUB_OUTPUT"
 
       - name: Version check (direct push to main, enforced)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.resolve_push_base.outputs.action == 'compare'
+        if: matrix.node-version == 24 && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.resolve_push_base.outputs.action == 'compare'
         # M19-RC1 §11/§14: this is a blocking merge gate, identical in kind
         # to the PR comparison step below -- no continue-on-error, no
         # `|| true`, no swallowed exit code. A relevant change pushed
