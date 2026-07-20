@@ -1,0 +1,27 @@
+# M21-WU04: conservative dependency and supply-chain monitoring.
+# Dependabot never auto-merges anything here -- every update PR requires
+# the same manual review and full CI run (typecheck/lint/test/build/
+# version:check) as any other change to this repository.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+      production-dependencies:
+        dependency-type: "production"
+    labels:
+      - "dependencies"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
