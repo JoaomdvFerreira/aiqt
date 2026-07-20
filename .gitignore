@@ -1,10 +1,16 @@
 node_modules/
 dist/
 coverage/
+.tmp-pnpm7-store/
 *.log
 .DS_Store
 # M19: docs/* (not docs/) so the negation below can still re-include one
 # tracked file -- a trailing-slash directory ignore prevents git from ever
 # evaluating per-file negations inside it.
+# M21-WU05/WU09: extended with the coverage baseline and maintainer
+# recovery runbook -- each new tracked docs/ file must be added here
+# explicitly, per docs/versioning.md's relevant-paths discipline.
 docs/*
 !docs/versioning.md
+!docs/coverage-baseline.md
+!docs/maintainer-recovery.md

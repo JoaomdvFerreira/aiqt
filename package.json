@@ -21,6 +21,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
     "version:check": "tsx src/tooling/version-check-cli.ts",
     "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm version:check"
   },
@@ -32,6 +33,7 @@
   "devDependencies": {
     "@eslint/js": "^9.9.0",
     "@types/node": "^22.5.0",
+    "@vitest/coverage-v8": "2.1.9",
     "eslint": "^9.9.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.4",
