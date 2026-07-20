@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.8.2 (post-M21 supply-chain maintenance patch)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.8.2");
+  it("is the current released version 0.8.3 (post-M21 dependency-vulnerability triage patch)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.8.3");
   });
 });
