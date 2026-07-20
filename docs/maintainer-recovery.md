@@ -163,20 +163,41 @@ None are auto-merged. Review each PR like any other change: CI must pass,
 and a version bump is required if the update touches a relevant path
 (`package.json`, `pnpm-lock.yaml`) per `docs/versioning.md`'s policy.
 
+**Snapshot (2026-07-20):** Dependabot opened three real PRs the same day
+this file's config was added -- `actions/checkout` 4->7 (#1),
+`pnpm/action-setup` 4->6 (#2), `actions/setup-node` 4->7 (#3) -- confirming
+the configuration is active. All three currently fail their `Validate`
+CI run at the "Version check (base comparison)" step, because each touches
+`.github/workflows/**` (a relevant path) without a version bump, which
+Dependabot's automated commits never include. This is the gate working as
+intended, not a bug: the owner action is to review the three Actions-
+version bumps together and merge them with one accompanying version bump
+(smallest applicable increment), either in the same change or immediately
+after. This snapshot will go stale as PRs are merged or superseded --
+`gh pr list` and `gh run list --workflow=validate.yml` are the live
+source of truth, not this paragraph.
+
 ## 11. Owner actions still required outside this repository
 
-These cannot be verified or changed via the API evidence gathered during
-M21 and are recorded here, not silently assumed:
+Confirmed via live GitHub API evidence (2026-07-20, M21 governance
+micro-closure) rather than assumed:
 
-- confirm Dependabot alerts and the dependency graph are enabled in
-  GitHub repository settings for this private repository;
-- if/when branch protection becomes a priority, either upgrade the GitHub
+- **Vulnerability alerts / dependency graph:** confirmed **disabled**
+  (`GET .../vulnerability-alerts` -> 404). Enable in repository Settings
+  -> Code security, or upgrade/make-public per the plan gate documented in
+  `GOVERNANCE.md`.
+- **Private vulnerability reporting:** confirmed **unavailable** on this
+  plan/visibility (`GET`/`PUT .../private-vulnerability-reporting` both
+  -> 404, including a real enable attempt). See `SECURITY.md` and
+  `GOVERNANCE.md`'s "Vulnerability reporting decision" for the current,
+  honest state -- there is no working private reporting channel today.
+- If/when branch protection becomes a priority, either upgrade the GitHub
   plan or make the repository public (see `GOVERNANCE.md`'s
-  `revisit_when` list) and then configure required status checks;
-- if the security-reporting channel needs to change from "GitHub private
-  vulnerability reporting only" (e.g. adding a monitored email), update
-  `SECURITY.md` explicitly -- this is a human decision, not something
-  AIQT or its build tooling infers.
+  `revisit_when` list) and then configure required status checks -- the
+  same plan/visibility change also unlocks the two items above.
+- Once any of the above is enabled, update `SECURITY.md` and
+  `GOVERNANCE.md` to reflect the new verified state -- neither document
+  updates itself.
 
 ## Smoke-test evidence
 

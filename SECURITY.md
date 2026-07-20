@@ -15,15 +15,27 @@ patch/minor release on the current line, per
 
 ## Reporting a vulnerability
 
-Please report suspected vulnerabilities using
-[GitHub's private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing/privately-reporting-a-security-vulnerability)
-feature on this repository ("Security" tab -> "Report a vulnerability").
-This keeps the report private between you and the maintainer until a fix
-is available.
+**No working private reporting channel currently exists for this
+repository.** GitHub's private vulnerability reporting and vulnerability
+alerts (dependency graph) are both unavailable on this private
+repository's current GitHub plan -- verified via the GitHub API
+(2026-07-20): `GET/PUT .../private-vulnerability-reporting` and
+`GET .../vulnerability-alerts` both return `404`, the same plan/visibility
+gate documented for branch protection in `GOVERNANCE.md`. This is a
+genuine, currently-unresolved gap, not an oversight -- it will not be
+papered over with a channel that doesn't actually work.
 
-**Do not open a public GitHub issue for a suspected vulnerability**, and
-do not include exploit details, credentials, tokens, or other secrets in
-any public issue, pull request, or discussion.
+Until this is resolved (see "Owner action" below), do **not** open a
+public GitHub issue for a suspected vulnerability, and do not include
+exploit details, credentials, tokens, or other secrets in any public
+issue, pull request, or discussion. If you believe you have found a
+vulnerability, please wait for the maintainer to enable a working private
+channel rather than reporting through a public or insecure one.
+
+**Owner action required:** upgrade the GitHub plan or make the repository
+public (either unlocks private vulnerability reporting), then enable it
+from the repository's "Security" tab. Once enabled, this section must be
+updated to point at it -- this document does not update itself.
 
 ## What to expect
 
