@@ -4,6 +4,7 @@ import {
   errorToResult,
   type CommandResult,
 } from "../../core/output/result.js";
+import type { Issue } from "../../core/output/issue.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
 import { loadProject } from "./load-project.js";
 import { computeNextAction } from "../../workflow/next-action.js";
@@ -35,14 +36,31 @@ export function runStatus(ctx: CommandContext): CommandResult {
       staleReady: staleReadyCount,
     };
 
-    const allWarnings = [...warnings, ...next.warnings];
-
     // M16 §10: status displays the runtime control root and resolved
     // implementation root alongside the existing project summary.
     const roots = resolveRoots({
       controlRoot: paths.root,
       existingRepositoryPath: project.project.existingRepositoryPath,
     });
+
+    // M21-WU08 §5.8/§9: an external/missing/unreadable implementation root
+    // is a deterministic, non-blocking warning -- it never changes
+    // `projectStatus`, `nextRecommendedCommand`, or `exitCode` (still 0
+    // below), and no command execution happens at the root to produce it.
+    const rootWarnings: Issue[] = roots.diagnostics.warning
+      ? [
+          {
+            id: "STATUS-IMPLEMENTATION-ROOT-DIAGNOSTIC",
+            severity: "low",
+            area: "roots",
+            message: roots.diagnostics.warning,
+            suggestedAction:
+              "Verify existingRepositoryPath in project.json points at the intended implementation repository.",
+            agentCanFix: false,
+          },
+        ]
+      : [];
+    const allWarnings = [...warnings, ...next.warnings, ...rootWarnings];
 
     const summary = `Project "${project.project.name}" is ${state.projectStatus} with ${milestoneCount} milestone(s) and ${workUnitCount} work unit(s). AIQT control root: ${roots.controlRoot}. Implementation root: ${roots.implementationRoot}.`;
 
