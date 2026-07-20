@@ -24,7 +24,7 @@ jobs:
         node-version: [22, 24]
     steps:
       - name: Checkout (full history)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # M19 §18: sufficient history to resolve the PR base and merge
           # base deterministically -- a shallow checkout cannot do this.
