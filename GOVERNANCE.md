@@ -1,5 +1,25 @@
 # AIQT Repository Governance
 
+## Distribution and license decision
+
+```yaml
+package_distribution_intent:
+  status: proprietary_private
+  package_json:
+    private: true
+    license: "UNLICENSED"
+  decided: 2026-07-20 (M21 Gate A, explicit owner decision)
+  rationale: >
+    Matches current reality: private repository, solo maintainer, no
+    public npm publication planned at this time. Not a permanent
+    commitment -- revisit if/when public distribution is intended, at
+    which point an approved SPDX license and a LICENSE file become
+    required (see M21 Build Spec v0.2 §5.2).
+```
+
+See `SECURITY.md` for the related vulnerability-reporting policy, decided
+in the same Gate A session.
+
 ## Branch-protection decision
 
 ```yaml
