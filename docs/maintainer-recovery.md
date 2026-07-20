@@ -1,0 +1,189 @@
+# AIQT Maintainer Recovery and Release Runbook
+
+**Status:** Implemented (M21-WU09). Exercised through a real clean-clone
+smoke test (see "Smoke-test evidence" below) rather than written and left
+unverified.
+
+## 1. Clean installation from a fresh clone
+
+```bash
+git clone <repo-url> aiqt-clean
+cd aiqt-clean
+corepack enable
+corepack prepare pnpm@7.33.5 --activate   # matches package.json's packageManager and pnpm-lock.yaml's lockfileVersion 5.4
+pnpm install --frozen-lockfile
+```
+
+If `pnpm install --frozen-lockfile` fails immediately with a lockfile
+compatibility error, check that the active pnpm major version is 7 (`pnpm
+--version`) -- a pnpm 8/9/10/11 install can silently rewrite
+`pnpm-lock.yaml` to an incompatible format (this happened once during
+M19-RC1; see `docs/versioning.md`). If that happens, `git checkout --
+pnpm-lock.yaml` to discard the rewrite and re-run with the correct pnpm
+version.
+
+## 2. Supported Node/pnpm setup
+
+- **Node.js:** `>=22.0.0` (`package.json` `engines.node`). Verified
+  supported range as of M21 (2026-07-20): Node 22 (Maintenance LTS,
+  security support through 2027-04-30) and Node 24 (Active LTS, through
+  2028-04-30). Node 20 reached end of security support on 2026-04-30 and
+  is no longer supported by this project.
+- **pnpm:** exactly `7.33.5` (`package.json` `packageManager`), matching
+  CI's `pnpm/action-setup` pin and `pnpm-lock.yaml`'s `lockfileVersion:
+  5.4` format.
+
+## 3. Build / test / coverage commands
+
+```bash
+pnpm typecheck   # tsc --noEmit
+pnpm lint        # eslint .
+pnpm test        # vitest run
+pnpm build       # tsc (emits dist/)
+pnpm coverage    # vitest run --coverage (see docs/coverage-baseline.md)
+pnpm version:check                        # local consistency
+pnpm version:check -- --base <ref> --json # comparison mode
+pnpm validate    # typecheck && lint && test && version:check, in sequence
+```
+
+If `pnpm run <script>` (or `pnpm validate`) fails in a sandboxed/restricted
+environment with an install-hook or store error unrelated to the actual
+command, fall back to direct invocation, which every AIQT milestone since
+M19-RC1 has used successfully in exactly that situation:
+
+```bash
+node_modules/.bin/tsc --noEmit
+node_modules/.bin/eslint .
+node_modules/.bin/vitest run
+node_modules/.bin/tsc
+node_modules/.bin/vitest run --coverage
+node_modules/.bin/tsx src/tooling/version-check-cli.ts
+```
+
+## 4. Canonical-state backup and validation
+
+AIQT's own canonical state (when a project has been initialized with `aiqt
+init`) lives entirely under `.aiqt/`: `project.json`, `state.json`,
+`runlog.jsonl`, and the `exports/` directory. To back up a project's
+state, copy `.aiqt/` as-is -- it is plain JSON/JSONL, no database, no
+external service dependency.
+
+To validate a project's canonical state is well-formed:
+
+```bash
+aiqt status --json    # fails loudly (exit 3) on structurally invalid state.json/project.json
+aiqt graph validate --json
+```
+
+This repository itself (`aiqt`'s own source tree) has no `.aiqt/` project
+-- it is the tool, not a project managed by the tool. There is nothing to
+back up here beyond ordinary Git history.
+
+## 5. Tag/version verification
+
+```bash
+node -p "require('./package.json').version"
+git tag -l | grep -E "^(m[0-9]+|v[0-9])"
+git log --oneline -1 v<expected-version>
+git log --oneline -1 m<N>-<slug>
+```
+
+Both the milestone tag and the semantic-version tag for the same milestone
+must point at the same commit (verified for M20: `m20-explicit-next-
+selection` and `v0.7.0` both resolve to `ab227d2`).
+
+## 6. Failed atomic-write recovery expectations
+
+Every canonical write goes through `atomicWriteFileSync`
+(`src/core/filesystem/atomic-write.ts`, hardened in M21-WU07): write to a
+same-directory, exclusively-created (`wx`), UUID-named temp file, `fsync`,
+`rename` over the target. On any failure at any step, the temp file is
+removed and the pre-existing target (if any) is left untouched -- there is
+no canonical-state recovery procedure needed beyond "the write either
+fully happened or it didn't," because partial writes are structurally
+impossible by construction. If a `.{uuid}.tmp` file is ever found orphaned
+in `.aiqt/` (e.g. after a hard process kill mid-`fsync`, before the
+`rename`), it is always safe to delete -- the target it was headed for was
+never modified.
+
+## 7. CI and branch-protection status
+
+See `GOVERNANCE.md` for the full, current, evidence-backed decision.
+Summary: CI (`.github/workflows/validate.yml`) runs on every push to
+`main` and every pull request, matrix-tested on Node 22 and 24, and fails
+visibly on any check failure -- but it is **advisory, not platform-
+enforced**, because branch protection is unavailable on this private
+repository's current GitHub plan (confirmed via API: 403 on the
+protection endpoint, `protected: false`). Compensating controls (solo
+maintainer, no force-push, always validate locally before push) are
+documented in `GOVERNANCE.md`.
+
+## 8. Release checklist
+
+For every completed milestone (extends `docs/versioning.md`'s existing
+contributor checklist):
+
+1. implement the change on a feature branch;
+2. select and apply the correct version increment;
+3. run the full local validation suite (`pnpm validate` or the direct
+   fallback above);
+4. run `pnpm coverage` and compare against `docs/coverage-baseline.md` for
+   any critical-module regression;
+5. merge to `main` with `--no-ff`;
+6. create the milestone tag (`m<N>[-suffix]-<slug>`) and the
+   semantic-version tag (`v<version>`) on the merge commit;
+7. push the feature branch, `main`, and both tags explicitly (never `git
+   push --tags`);
+8. verify the real CI run via `gh run view` -- do not consider the
+   milestone closed on local validation alone;
+9. update this runbook and `docs/versioning.md` if the release process
+   itself changed.
+
+## 9. Rollback to the previous milestone tag
+
+Tags are never moved, deleted, or force-pushed. To roll back a bad
+release:
+
+```bash
+git checkout main
+git revert --no-edit <bad-merge-commit>   # preferred: preserves history
+# or, only if the bad commit was never pushed/shared:
+git reset --hard <previous-milestone-tag>
+```
+
+A rollback is itself a new commit (via `revert`) or an explicitly
+communicated, pre-agreed local-only reset -- it never rewrites or deletes
+an already-pushed tag or commit.
+
+## 10. Dependency-update review
+
+`.github/dependabot.yml` (M21-WU04) opens weekly, capped (5 open PRs),
+grouped update pull requests for the npm ecosystem and GitHub Actions.
+None are auto-merged. Review each PR like any other change: CI must pass,
+and a version bump is required if the update touches a relevant path
+(`package.json`, `pnpm-lock.yaml`) per `docs/versioning.md`'s policy.
+
+## 11. Owner actions still required outside this repository
+
+These cannot be verified or changed via the API evidence gathered during
+M21 and are recorded here, not silently assumed:
+
+- confirm Dependabot alerts and the dependency graph are enabled in
+  GitHub repository settings for this private repository;
+- if/when branch protection becomes a priority, either upgrade the GitHub
+  plan or make the repository public (see `GOVERNANCE.md`'s
+  `revisit_when` list) and then configure required status checks;
+- if the security-reporting channel needs to change from "GitHub private
+  vulnerability reporting only" (e.g. adding a monitored email), update
+  `SECURITY.md` explicitly -- this is a human decision, not something
+  AIQT or its build tooling infers.
+
+## Smoke-test evidence
+
+This runbook's install/build/test/coverage/version-check sequence (§1-3)
+was exercised end-to-end from a clean, isolated temporary copy of this
+repository's committed state during M21-WU09/WU10 (see the M21 closure
+report for the exact commands run and their results). Steps requiring an
+external GitHub account action (owner actions in §11, and the real-CI
+verification in §8's step 8) were not and cannot be exercised from a local
+clone -- they are explicitly listed, not silently skipped.
