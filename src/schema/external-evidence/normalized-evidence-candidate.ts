@@ -46,6 +46,18 @@ export interface NormalizedEvidenceCandidate {
   capturedAt: string;
 }
 
+/**
+ * M23 §10 (generic-CI reconciliation): the standard adapter return shape
+ * whenever an adapter may need to surface bounded, non-fatal warnings
+ * alongside its normalized candidate (e.g. a run-status/checks-aggregate
+ * disagreement). Adapters that never produce warnings may still return
+ * this shape with an empty array, for a uniform caller contract.
+ */
+export interface AdapterNormalizationResult {
+  candidate: NormalizedEvidenceCandidate;
+  warnings: string[];
+}
+
 export interface NormalizedDecisionEscalationCandidate {
   localId: string;
   category: "product" | "architecture" | "security" | "legal_compliance" | "governance" | "external_setup" | "other";

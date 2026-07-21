@@ -46,7 +46,8 @@ function mapProviderType(providerType: GenericEvidenceV1["source"]["providerType
   }
 }
 
-function mapFinding(finding: ExternalFinding): SourceFinding {
+/** Shared with other adapters (e.g. the generic-CI adapter's per-check findings) -- not reimplemented per format. */
+export function mapExternalFindingToSourceFinding(finding: ExternalFinding): SourceFinding {
   const scopeClaim = finding.scopeClaim ?? "unknown";
   const relatedIds = finding.relatedIds ?? [];
   return {
@@ -66,7 +67,8 @@ function mapFinding(finding: ExternalFinding): SourceFinding {
   };
 }
 
-function mapArtifact(artifact: ExternalArtifact): ArtifactReference {
+/** Shared with other adapters (e.g. the generic-CI adapter's per-check artifacts) -- not reimplemented per format. */
+export function mapExternalArtifactToArtifactReference(artifact: ExternalArtifact): ArtifactReference {
   const locatorResult = validateArtifactLocator(artifact.locator);
   if (!locatorResult.ok) {
     throw new UnsafeArtifactLocatorError(artifact.artifactId, locatorResult.reason);
@@ -143,8 +145,8 @@ export function normalizeGenericEvidenceV1(
       acceptanceCriteriaResult: payload.results.acceptanceCriteriaResult,
       summary: payload.results.summary,
     },
-    sourceFindings: (payload.findings ?? []).map(mapFinding),
-    artifactReferences: (payload.artifacts ?? []).map(mapArtifact),
+    sourceFindings: (payload.findings ?? []).map(mapExternalFindingToSourceFinding),
+    artifactReferences: (payload.artifacts ?? []).map(mapExternalArtifactToArtifactReference),
     decisionEscalationCandidates: (payload.decisionEscalations ?? []).map(mapDecisionEscalation),
     capturedAt: payload.binding.capturedAt,
   };
