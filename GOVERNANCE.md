@@ -358,3 +358,38 @@ m23_runlog_append_recovery_model:
   documented_during: >
     M23 Governance and Atomicity Micro-Closure (2026-07-21).
 ```
+
+## M24 runlog-append recovery model (inherited, not redesigned)
+
+```yaml
+m24_runlog_append_recovery_model:
+  status: inherited_unchanged
+  applies_to: >
+    aiqt plan (create/--extend/refine) carrying M24 executionMetadata --
+    the same writeStateModel -> appendRunlogEvent sequence as every other
+    mutation path, unmodified by M24.
+  recovery_model: authoritative_state_with_advisory_runlog_gap
+  evidence: >
+    Verified directly for M24's own metadata-bearing plan-creation path
+    (not merely assumed from the M23 precedent): a runlog-append failure
+    after a successful `aiqt plan --from-file` state write (using the
+    same chmod-0o444 technique as the M23 test) leaves state.json fully
+    correct, including the new Work Unit's executionMetadata; the command
+    reports failure (exit code from errorToResult's fallback); a retry is
+    safe and produces zero further state mutation (the pre-existing
+    "graph not empty" guard, unrelated to M24, rejects a second plan
+    attempt once one has already succeeded, which is itself proof no
+    duplicate graph/metadata record can be created on retry).
+  test: tests/integration/execution-metadata-runlog-recovery.test.ts >
+    "a runlog-append failure after a successful plan-with-metadata state
+    write leaves state.json correct, and a retry is a safe no-op with no
+    duplicate graph records"
+  not_redesigned: >
+    M24 does not broaden or alter the cross-file recovery model in any
+    way -- this section only records that the pre-existing model was
+    verified against M24's own new mutation content, per the M24 build
+    specification's explicit requirement.
+  documented_during: >
+    M24-WU08 (Compatibility, Limits, Atomicity, and Security Hardening),
+    2026-07-21.
+```
