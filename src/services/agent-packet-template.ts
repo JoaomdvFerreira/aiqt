@@ -185,6 +185,13 @@ export function renderAgentPacket(context: PacketContext): string {
   lines.push(context.sourceControlExpectationsSection);
   lines.push("");
 
+  // M24 §13: bounded, advisory-only workspace/parallel metadata section,
+  // always rendered (a short serialized/missing-metadata note when no
+  // M24 metadata is declared) -- every other packet section above and
+  // below is unaffected.
+  lines.push(context.executionMetadataAdvisorySection);
+  lines.push("");
+
   lines.push("## Required Agent Output");
   lines.push("");
   // M16 §13.3: changed-file paths must be reported relative to the resolved

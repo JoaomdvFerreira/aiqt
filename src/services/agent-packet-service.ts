@@ -25,6 +25,10 @@ import {
 } from "../workflow/component-system-preferences.js";
 import { renderSourceControlExpectationsSection } from "../workflow/source-control-discipline.js";
 import { resolveRoots } from "../workflow/root-resolution.js";
+import {
+  buildExecutionMetadataAdvisory,
+  renderExecutionMetadataAdvisorySection,
+} from "../workflow/execution-metadata-advisory.js";
 
 export interface PacketContext {
   projectId: string;
@@ -53,6 +57,8 @@ export interface PacketContext {
   sourceControlExpectationsSection: string;
   /** M16 §12: resolved implementation root (existingRepositoryPath resolved relative to controlRoot, or controlRoot itself). Always present. */
   implementationRoot: string;
+  /** M24 §13: rendered Workspace and Parallel Execution Advisory section. Always present -- missing/serialized metadata still produces a short advisory noting that. */
+  executionMetadataAdvisorySection: string;
 }
 
 export interface ResolvedContextRefs {
@@ -259,6 +265,11 @@ export function buildPacketContext(
       implementationRoot: roots.implementationRoot,
     }),
     implementationRoot: roots.implementationRoot,
+    // M24 §13: bounded, additive advisory section -- computed for the
+    // CURRENT work unit only, never for the whole graph.
+    executionMetadataAdvisorySection: renderExecutionMetadataAdvisorySection(
+      buildExecutionMetadataAdvisory(workUnit, state),
+    ),
   };
 }
 
