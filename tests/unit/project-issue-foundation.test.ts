@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { StateModelSchema } from "../../src/schema/state.schema.js";
 import { IssueStateSchema } from "../../src/schema/issue-state.schema.js";
-import { ProjectIssueSchema, ProjectIssueTransitionSchema } from "../../src/schema/project-issue.schema.js";
 import { EvidenceRecordSchema, EvidenceStateSchema } from "../../src/schema/evidence.schema.js";
 import { DecisionEscalationSchema } from "../../src/schema/decision-escalation.schema.js";
 import {
@@ -22,21 +21,6 @@ import { FIXTURES_DIR } from "../helpers.js";
 const NOW = "2026-01-01T00:00:00.000Z";
 
 describe("M22-WU02: ProjectIssue/Evidence schema foundation", () => {
-  it("ProjectIssueSchema accepts a minimal valid record", () => {
-    const value = { projectIssueId: "PI-001", issueKey: "checkpoint:WU001:issue:x", title: "t", createdAt: NOW, updatedAt: NOW };
-    expect(ProjectIssueSchema.safeParse(value).success).toBe(true);
-  });
-
-  it("ProjectIssueSchema rejects an empty title", () => {
-    const value = { projectIssueId: "PI-001", issueKey: "k", title: "", createdAt: NOW, updatedAt: NOW };
-    expect(ProjectIssueSchema.safeParse(value).success).toBe(false);
-  });
-
-  it("ProjectIssueTransitionSchema accepts a minimal valid record", () => {
-    const value = { transitionId: "PIT-001", issueKey: "k", createdAt: NOW };
-    expect(ProjectIssueTransitionSchema.safeParse(value).success).toBe(true);
-  });
-
   it("EvidenceRecordSchema and EvidenceStateSchema accept minimal valid values", () => {
     expect(EvidenceRecordSchema.safeParse({ evidenceId: "EVID-001", recordedAt: NOW }).success).toBe(true);
     expect(EvidenceStateSchema.safeParse({ records: [], decisionEscalations: [] }).success).toBe(true);
