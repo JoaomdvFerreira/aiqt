@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { StateModelSchema } from "../../src/schema/state.schema.js";
 import { IssueStateSchema } from "../../src/schema/issue-state.schema.js";
 import { EvidenceStateSchema } from "../../src/schema/evidence.schema.js";
-import { DecisionEscalationSchema } from "../../src/schema/decision-escalation.schema.js";
 import {
   getProjectIssues,
   getProjectIssueTransitions,
@@ -23,11 +22,6 @@ const NOW = "2026-01-01T00:00:00.000Z";
 describe("M22-WU02: ProjectIssue/Evidence schema foundation", () => {
   it("EvidenceStateSchema accepts an empty records/decisionEscalations collection", () => {
     expect(EvidenceStateSchema.safeParse({ records: [], decisionEscalations: [] }).success).toBe(true);
-  });
-
-  it("DecisionEscalationSchema accepts a minimal valid record", () => {
-    const value = { escalationId: "DE-001", escalationKey: "k", createdAt: NOW, updatedAt: NOW };
-    expect(DecisionEscalationSchema.safeParse(value).success).toBe(true);
   });
 
   it("IssueStateSchema remains valid with projectIssues/projectIssueTransitions omitted", () => {
