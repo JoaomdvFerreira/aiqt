@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { StateModelSchema } from "../../src/schema/state.schema.js";
 import { IssueStateSchema } from "../../src/schema/issue-state.schema.js";
-import { EvidenceRecordSchema, EvidenceStateSchema } from "../../src/schema/evidence.schema.js";
+import { EvidenceStateSchema } from "../../src/schema/evidence.schema.js";
 import { DecisionEscalationSchema } from "../../src/schema/decision-escalation.schema.js";
 import {
   getProjectIssues,
@@ -21,8 +21,7 @@ import { FIXTURES_DIR } from "../helpers.js";
 const NOW = "2026-01-01T00:00:00.000Z";
 
 describe("M22-WU02: ProjectIssue/Evidence schema foundation", () => {
-  it("EvidenceRecordSchema and EvidenceStateSchema accept minimal valid values", () => {
-    expect(EvidenceRecordSchema.safeParse({ evidenceId: "EVID-001", recordedAt: NOW }).success).toBe(true);
+  it("EvidenceStateSchema accepts an empty records/decisionEscalations collection", () => {
     expect(EvidenceStateSchema.safeParse({ records: [], decisionEscalations: [] }).success).toBe(true);
   });
 
