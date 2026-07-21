@@ -171,3 +171,10 @@ export interface RawGraphRepairOptions {
   /** M18 §11.2: atomically apply deterministic stale-readiness repairs (ready -> planned). */
   apply?: boolean;
 }
+
+export interface RawEvidenceImportOptions {
+  json?: boolean;
+  fromFile?: string;
+  stdin?: boolean;
+  preview?: boolean;
+}

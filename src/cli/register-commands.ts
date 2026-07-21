@@ -24,6 +24,7 @@ import {
   type RawDependencyUpdateOptions,
   type RawGraphValidateOptions,
   type RawGraphRepairOptions,
+  type RawEvidenceImportOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -60,6 +61,7 @@ import { runCheckpointAmend } from "./commands/checkpoint-amend.command.js";
 import { runDependencyUpdate } from "./commands/dependency-update.command.js";
 import { runGraphValidate } from "./commands/graph-validate.command.js";
 import { runGraphRepair } from "./commands/graph-repair.command.js";
+import { runEvidenceImport } from "./commands/evidence-import.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -641,6 +643,29 @@ export function buildProgram(): Command {
     .action((raw: RawGraphRepairOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runGraphRepair(ctx, { dryRun: Boolean(raw.dryRun), apply: Boolean(raw.apply) });
+      emit(result, ctx.json);
+    });
+
+  const evidenceCommand = program
+    .command("evidence")
+    .description("Import external evidence from a controlled static-format JSON boundary (M23)");
+
+  evidenceCommand
+    .command("import")
+    .description(
+      "Import one generic-evidence-json@1, generic-ci-json@1, or manual-evidence-json@1 payload from a file or stdin",
+    )
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "path to the external evidence JSON file")
+    .option("--stdin", "read the external evidence JSON from standard input", false)
+    .option("--preview", "validate and report the import plan without persisting", false)
+    .action(async (raw: RawEvidenceImportOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runEvidenceImport(ctx, {
+        fromFile: raw.fromFile,
+        stdin: Boolean(raw.stdin),
+        preview: Boolean(raw.preview),
+      });
       emit(result, ctx.json);
     });
 
