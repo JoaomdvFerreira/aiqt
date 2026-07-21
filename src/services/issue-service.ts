@@ -5,6 +5,7 @@ import type {
   IssueOverrideStatus,
   IssuePromotion,
 } from "../schema/issue-state.schema.js";
+import type { Checkpoint, CheckpointIssue } from "../schema/checkpoint.schema.js";
 import { classifyCheckpointIssue } from "../workflow/issue-classification.js";
 
 /** M11 §8.1: missing state.issues must be treated as empty override/promotion arrays. */
@@ -78,6 +79,37 @@ export function checkpointIssueKey(
 /** §9: review:<findingKey> pattern, reusing the M9/M10 stable finding key as-is. */
 export function reviewIssueKey(findingKey: string): string {
   return `review:${findingKey}`;
+}
+
+/**
+ * M23-WU06: standalone lookup for an existing open CheckpointIssue by its
+ * canonical `checkpointIssueKey`, exposed as a reusable owner rather than
+ * leaving `buildNormalizedIssues`' equivalent scan as an unexposed
+ * internal side effect. Recomputes each open issue's key with the exact
+ * same slug/occurrence-index scheme `buildNormalizedIssues` uses (scoped
+ * per `workUnitId`, in state.checkpoints order), so the result always
+ * agrees with what `aiqt issue list` would show. Checkpoints are
+ * immutable once created (see checkpoint-amendment-service.ts) -- this is
+ * a read-only lookup, never a mutation path.
+ */
+export function findCheckpointIssueByKey(
+  state: StateModel,
+  issueKey: string,
+): { checkpoint: Checkpoint; issue: CheckpointIssue } | undefined {
+  const slugOccurrences = new Map<string, number>();
+  for (const cp of state.checkpoints) {
+    for (const issue of cp.issues) {
+      if (issue.status !== "open") continue;
+      const slug = slugify(issue.title);
+      const occurrenceMapKey = `${cp.workUnitId}::${slug}`;
+      const occurrenceIndex = slugOccurrences.get(occurrenceMapKey) ?? 0;
+      slugOccurrences.set(occurrenceMapKey, occurrenceIndex + 1);
+      if (checkpointIssueKey(cp.workUnitId, issue.title, occurrenceIndex) === issueKey) {
+        return { checkpoint: cp, issue };
+      }
+    }
+  }
+  return undefined;
 }
 
 function extractWorkUnitId(relatedIds: readonly string[]): string | null {

@@ -1,6 +1,7 @@
 import { sha256Hex } from "../core/util/hash.js";
 import { slugify } from "../services/issue-service.js";
 import type { ScopeClaim } from "../schema/evidence.schema.js";
+import type { DecisionEscalationCategory } from "../schema/decision-escalation.schema.js";
 
 /**
  * M22 §6.1: deterministic text/related-ID normalization shared by both the
@@ -56,4 +57,24 @@ export function mintEvidenceIssueKey(scopeClaim: ScopeClaim, title: string, occu
   return occurrenceIndex === 0
     ? `evidence:${scopeClaim}:${slug}`
     : `evidence:${scopeClaim}:${slug}-${occurrenceIndex + 1}`;
+}
+
+/**
+ * M23-WU06: M22 defined `DecisionEscalation.escalationKey` (§5.7) but never
+ * instantiated a minting convention for it, since no M22-era command ever
+ * created one. Follows the exact same deterministic
+ * `<domain>:<category>:<slug>[-N]` convention as `mintEvidenceIssueKey`
+ * and `checkpointIssueKey`, reusing the same `slugify` helper -- so a
+ * repeated import of the same logical escalation (same category+question)
+ * always resolves to the same key and links rather than duplicating.
+ */
+export function mintDecisionEscalationKey(
+  category: DecisionEscalationCategory,
+  question: string,
+  occurrenceIndex: number,
+): string {
+  const slug = slugify(question);
+  return occurrenceIndex === 0
+    ? `escalation:${category}:${slug}`
+    : `escalation:${category}:${slug}-${occurrenceIndex + 1}`;
 }

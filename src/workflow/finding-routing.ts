@@ -157,6 +157,47 @@ export function applyCheckpointToProjectIssueTransition(
   return { changed: true, projectIssue, transition };
 }
 
+export interface ResolveOrCreateProjectIssueParams {
+  issueKey: string;
+  existingProjectIssues: readonly ProjectIssue[];
+  nextProjectIssueId: string;
+  timestamp: string;
+  projectIssueSeedFields: ProjectIssueSeedFields;
+}
+
+export interface ResolveOrCreateProjectIssueResult {
+  changed: boolean;
+  projectIssue: ProjectIssue;
+}
+
+/**
+ * M23-WU06: `applyCheckpointToProjectIssueTransition` always requires a
+ * `checkpointId`/`checkpointIssueRef` -- there was previously no path to
+ * create or link a standalone ProjectIssue with no originating checkpoint
+ * (e.g. a finding imported with no checkpoint binding at all, or an
+ * explicitly project-scoped finding). This is a legitimate additive
+ * extension of the same M22-owned routing module, not a duplicate
+ * algorithm: it reuses `findProjectIssueByKey` for the link case and only
+ * constructs a new record (with no transition, since there is nothing to
+ * transition from) when genuinely new.
+ */
+export function resolveOrCreateProjectIssue(
+  params: ResolveOrCreateProjectIssueParams,
+): ResolveOrCreateProjectIssueResult {
+  const existing = findProjectIssueByKey(params.issueKey, params.existingProjectIssues);
+  if (existing) {
+    return { changed: false, projectIssue: existing };
+  }
+  const projectIssue: ProjectIssue = {
+    projectIssueId: params.nextProjectIssueId,
+    issueKey: params.issueKey,
+    ...params.projectIssueSeedFields,
+    createdAt: params.timestamp,
+    updatedAt: params.timestamp,
+  };
+  return { changed: true, projectIssue };
+}
+
 function buildProjectIssue(params: ApplyTransitionParams, projectIssueId: string): ProjectIssue {
   return {
     projectIssueId,
