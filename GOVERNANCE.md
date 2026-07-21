@@ -193,3 +193,168 @@ m22_wu01_tag_waiver:
     "m22-wu01-gate-b-audit" exists or will be created; this waiver is the
     sole governance artifact for that Work Unit.
 ```
+
+## M23-WU07/WU08 combined-commit waiver
+
+```yaml
+m23_wu07_wu08_combined_commit_waiver:
+  status: waived_single_commit_single_tag
+  work_units: WU23-07 (aiqt evidence import command + preview), WU23-08
+    (atomic mutation, runlog, idempotency hardening)
+  commit: 5d8601f1b9b70ca3bba0ea35f2bc0c35c199c239
+  tag: m23-wu07-wu08-evidence-import-command (annotated)
+  why_combined: >
+    WU23-07's own acceptance criteria require the `aiqt evidence import`
+    command to exist and to support --preview; WU23-08's acceptance
+    criteria require the same command's non-preview path to atomically
+    persist via writeStateModel/appendRunlogEvent and to prove idempotent
+    replay. A WU23-07-only commit would have shipped a command whose
+    default (non-preview) invocation either did nothing or crashed --
+    not a working intermediate feature, and not something a real user or
+    agent could safely invoke between the two commits. Splitting them
+    would have produced a misleading "the command works" milestone marker
+    on a build that could not actually apply an import. Delivering both in
+    one commit, with one tag naming both Work Units explicitly, is the
+    accurate representation of what shipped together and why.
+  acceptance_criteria_split:
+    WU23-07: >
+      Public CLI contract (--from-file/--stdin/--preview/--json), exact
+      exit-code contract (0/3/10), payload parsing/validation/normalization
+      pipeline, --preview reporting the full plan with zero mutation.
+    WU23-08: >
+      Non-preview path's atomic writeStateModel -> appendRunlogEvent
+      persistence sequence, verified byte-for-byte idempotent replay,
+      verified byte-for-byte zero mutation on every rejection path.
+  what_was_not_done: >
+    No extra commit was manufactured to simulate one-commit-per-Work-Unit
+    compliance, and no duplicate tag was created on the same commit under
+    a second name. This waiver is the sole governance record explaining
+    the variance; the M23 final report's Work Unit table cites this
+    waiver directly rather than re-deriving the explanation.
+  approved_during: >
+    M23 Governance and Atomicity Micro-Closure (2026-07-21).
+```
+
+## M23-WU09 tag gap (closed)
+
+```yaml
+m23_wu09_tag_gap:
+  status: closed_missing_tag_created
+  finding: >
+    The M23 final report (end of the primary implementation session)
+    listed 9 Work Units, 8 commits (WU23-07/WU23-08 combined per the
+    waiver above), and only 7 Work-Unit-specific tags
+    (m23-wu01-import-envelope-registry through
+    m23-wu06-import-normalization-routing, plus the combined
+    m23-wu07-wu08-evidence-import-command) -- WU23-09 (version bump,
+    clean-clone validation, milestone closure; commit
+    e3962117f96d543891b1ff07a1f70fcd49d84569) had no Work-Unit-specific
+    tag of its own, only the milestone tag
+    (m23-external-evidence-import-normalization) and the release tag
+    (v0.10.0), both of which point to the same commit but name the
+    milestone/release, not the Work Unit.
+  resolution: >
+    Created m23-wu09-final-validation as a new annotated tag pointing at
+    the existing commit e3962117f96d543891b1ff07a1f70fcd49d84569 -- no
+    commit was created or altered, no existing tag was moved or rewritten.
+    This accurately represents history: that commit genuinely performed
+    WU23-09's work (version bump, clean-clone validation, execution-
+    boundary scan), so tagging it is not a misrepresentation the way a
+    retroactive WU22-01 tag would have been (see the M22-WU01 tag waiver
+    above, which is the counter-example: that case correctly declined to
+    tag an unrelated commit).
+  final_tag_accounting: >
+    9 Work Units, 8 commits, 8 Work-Unit-specific tags (WU01 through
+    WU06 individually, WU07/WU08 combined under one tag, WU09
+    individually) -- one tag per commit, fully reconciled.
+  closed_during: >
+    M23 Governance and Atomicity Micro-Closure (2026-07-21).
+```
+
+## M23 post-state-write runlog-append recovery model
+
+```yaml
+m23_runlog_append_recovery_model:
+  status: documented_and_test_covered
+  sequence: "writeStateModel(paths.stateFile, finalState) -> for each runlog event: appendRunlogEvent(paths.runlogFile, event)"
+  owners:
+    state_write: writeStateModel (src/state/workflow-state-store.ts) ->
+      writeJsonFile -> atomicWriteFileSync (src/core/filesystem/
+      atomic-write.ts): write to an exclusively-created temp file in the
+      same directory, fsync, then renameSync over the target. Genuinely
+      atomic on disk (rename is the atomicity boundary); on any failure
+      the temp file is removed and the target is left untouched.
+    runlog_append: appendRunlogEvent (src/state/runlog-store.ts) ->
+      appendJsonLine -> node:fs appendFileSync. A plain synchronous
+      append, not wrapped in the temp-file/rename pattern -- it can fail
+      (permissions, disk full, path replaced by a directory) after the
+      state write has already succeeded and committed.
+  failure_window: >
+    state write succeeds, then one appendRunlogEvent call in the same
+    command invocation throws. This is a real, previously-untested window
+    in aiqt evidence import's default (non-preview) path, and is
+    architecturally identical to every other pre-M23 command using the
+    same two-step sequence (e.g. graph-repair.command.ts --apply) -- not
+    unique to or newly introduced by M23.
+  recovery_model: authoritative_state_with_advisory_runlog_gap
+  recovery_model_definition: >
+    state.json remains the single canonical source of truth and is left
+    fully correct after the failure (the new EvidenceRecord/ProjectIssue/
+    DecisionEscalation genuinely exist, exactly as if the command had
+    succeeded). A retry of the identical command is a safe, true
+    idempotent no-op: M23's import-identity conflict resolution
+    (resolveImportConflict, src/evidence/import-orchestrator.ts) finds
+    the already-persisted EvidenceRecord by importIdentityKey+digest and
+    returns outcome "no_op" with zero new mutation -- no duplicate
+    EvidenceRecord, ProjectIssue, ProjectIssueTransition, or
+    DecisionEscalation is ever created, and the no_op path never calls
+    appendRunlogEvent, so no duplicate runlog event is possible either.
+    What is NOT true: the runlog event that was lost in the original
+    failed attempt is never reconstructed or backfilled on retry -- it is
+    permanently missing from runlog.jsonl's audit trail, even though
+    state.json is fully correct. This is consistent with the repository's
+    existing runlog-health model (inspectRunlogHealth/
+    runlogHealthWarning), which already treats runlog.jsonl as a
+    non-blocking, best-effort audit trail whose internal malformed-line
+    count is surfaced as an advisory warning, never as a blocking error or
+    an automatic repair target. No cross-referencing between state.json's
+    record counts and runlog.jsonl's event counts exists anywhere in the
+    repository (pre-M23 or M23), so this specific missing-event gap is
+    not detected by any existing command today.
+  why_not_a_recovery_defect: >
+    The required safety properties -- no duplication, no state
+    corruption, a well-defined exit code, and a safe retry -- all hold,
+    verified by a real failure-injection test (see below). Eliminating
+    the advisory-runlog-gap entirely would require a cross-file
+    atomicity or journaling mechanism (e.g. a write-ahead marker
+    reconciled on next read, or a single combined state+runlog
+    transaction log) that does not exist anywhere in this repository for
+    any command, pre-M23 or otherwise. Building one is a broad,
+    repository-wide architectural change explicitly out of scope for a
+    milestone micro-closure and is not undertaken here.
+  test: tests/integration/evidence-import-cli.test.ts > "a runlog-append
+    failure after a successful state write leaves state.json correct, and
+    a retry is a safe idempotent no-op with no duplication"
+  test_technique: >
+    runlog.jsonl is made read-only (chmod 0o444) after `aiqt init` creates
+    it as a normal, readable file -- so loadProject's inspectRunlogHealth
+    pre-flight check (which requires the file to exist and be readable)
+    still passes, and the failure is injected precisely at the intended
+    appendFileSync call site, not earlier. Write access is restored
+    (chmod 0o644) before retrying and in a `finally` block for cleanup.
+  test_verified_properties:
+    - "exact exit code: 3 (InvalidInput, errorToResult's generic-Error fallback) on the failed attempt; 0 on the retry"
+    - "resulting state.json: contains exactly 1 EvidenceRecord (EVID-001) with importProvenance set, immediately after the failed attempt -- proving the state write landed"
+    - "resulting runlog.jsonl: unchanged (byte-for-byte) after the failed attempt -- the append never landed"
+    - "retry outcome: \"no_op\", same evidenceId, same importIdentityKey as the failed attempt"
+    - "no duplicate EvidenceRecord after retry: state.json's evidence.records still has length 1"
+    - "no duplicate runlog event after retry: runlog.jsonl is byte-for-byte identical before and after the retry"
+  residual_risk_contribution: >
+    Feeds M23-R12 (input failure partially mutates state/runlog) in the
+    hazard closure below. Scored at its residual target (15/100), not
+    below, because the disclosed advisory-runlog-gap is a real, if
+    non-corrupting, limitation, and closing it further would require the
+    out-of-scope architectural work described above.
+  documented_during: >
+    M23 Governance and Atomicity Micro-Closure (2026-07-21).
+```

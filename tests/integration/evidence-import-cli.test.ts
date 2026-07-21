@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
-import { writeFileSync, readFileSync } from "node:fs";
+import { writeFileSync, readFileSync, chmodSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeTempDir, removeDir } from "../helpers.js";
@@ -219,5 +219,90 @@ describe("aiqt evidence import (M23-WU07/WU08)", () => {
     const res = runCli(["evidence", "import", "--from-file", payloadPath, "--json"], dir);
     expect(res.status).toBe(3);
     expect(readFileSync(statePath, "utf8")).toBe(before);
+  });
+
+  /**
+   * M23 governance/atomicity micro-closure, Part C: state.json is written
+   * via writeStateModel (atomic rename-over-temp-file) BEFORE
+   * appendRunlogEvent runs -- there is a real window where the state write
+   * succeeds and the runlog append then fails. This test injects that
+   * exact failure (making runlog.jsonl read-only after `loadProject`'s own
+   * pre-flight health check has already passed against the normal,
+   * readable file -- a read-only file still passes that read-only health
+   * check, but `appendFileSync` then throws EPERM) and proves the three
+   * safety properties that make this window non-corrupting: (1) state.json
+   * is left correct and authoritative even though the command reports
+   * failure, (2) a retry after the operator restores write access is a
+   * true idempotent no-op with zero duplicate EvidenceRecord/ProjectIssue/
+   * escalation, and (3) no duplicate runlog event is ever appended. The
+   * specific runlog event for the original attempt is NOT reconstructed on
+   * retry -- that is the disclosed, accepted
+   * "authoritative-state-with-advisory-runlog-gap" model recorded in
+   * GOVERNANCE.md, a pre-existing characteristic of every command using
+   * this same write-then-append sequence (e.g. graph-repair.command.ts
+   * --apply), not unique to or newly introduced by M23.
+   */
+  it("a runlog-append failure after a successful state write leaves state.json correct, and a retry is a safe idempotent no-op with no duplication", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    seedWorkUnit(dir);
+    const payloadPath = join(dir, "payload.json");
+    writeFileSync(payloadPath, JSON.stringify(manualPayload({ externalId: "ext-runlog-failure-1" })));
+
+    const statePath = join(dir, ".aiqt", "state.json");
+    const runlogPath = join(dir, ".aiqt", "runlog.jsonl");
+    const stateBefore = readFileSync(statePath, "utf8");
+    const runlogBefore = readFileSync(runlogPath, "utf8");
+
+    // Inject the failure: runlog.jsonl is a normal, readable file (so
+    // loadProject's inspectRunlogHealth pre-flight check still passes),
+    // but is not writable, so appendRunlogEvent's appendFileSync throws.
+    chmodSync(runlogPath, 0o444);
+    try {
+      const failedRun = runCli(["evidence", "import", "--from-file", payloadPath, "--json"], dir);
+      // errorToResult's generic-Error fallback -> ExitCode.InvalidInput (3).
+      expect(failedRun.status).toBe(3);
+      const failedResult = JSON.parse(failedRun.stderr);
+      expect(failedResult.status).toBe("failed");
+
+      // Property 1: state.json was already written and IS the new
+      // evidence, even though the command reported failure.
+      const stateAfterFailure = readFileSync(statePath, "utf8");
+      expect(stateAfterFailure).not.toBe(stateBefore);
+      const parsedState = JSON.parse(stateAfterFailure);
+      expect(parsedState.evidence.records).toHaveLength(1);
+      expect(parsedState.evidence.records[0].evidenceId).toBe("EVID-001");
+      const importedIdentityKey = parsedState.evidence.records[0].importProvenance.importIdentityKey;
+
+      // Resulting runlog: unchanged (the append never landed).
+      expect(readFileSync(runlogPath, "utf8")).toBe(runlogBefore);
+
+      // Operator restores write access and retries the identical command.
+      chmodSync(runlogPath, 0o644);
+
+      const retryRun = runCli(["evidence", "import", "--from-file", payloadPath, "--json"], dir);
+      expect(retryRun.status).toBe(0);
+      const retryResult = JSON.parse(retryRun.stdout);
+      expect(retryResult.data.outcome).toBe("no_op");
+      expect(retryResult.data.evidenceId).toBe("EVID-001");
+      expect(retryResult.data.importIdentityKey).toBe(importedIdentityKey);
+
+      // Property 2: retry is a true no-op -- state.json is byte-for-byte
+      // unchanged from right after the failed attempt (no duplicate
+      // EvidenceRecord/ProjectIssue/escalation was created).
+      expect(readFileSync(statePath, "utf8")).toBe(stateAfterFailure);
+      const finalState = JSON.parse(readFileSync(statePath, "utf8"));
+      expect(finalState.evidence.records).toHaveLength(1);
+
+      // Property 3: no duplicate runlog event was appended on retry -- the
+      // no_op path never calls appendRunlogEvent, so the runlog remains
+      // exactly as it was left after the failed attempt (unchanged). The
+      // original event is not reconstructed; this is the disclosed,
+      // accepted model, not a silent data-safety gap.
+      expect(readFileSync(runlogPath, "utf8")).toBe(runlogBefore);
+    } finally {
+      // Always restore write access so the temp dir can be cleaned up.
+      chmodSync(runlogPath, 0o644);
+    }
   });
 });
