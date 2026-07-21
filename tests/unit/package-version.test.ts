@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.9.0 (M22 Independent Review and Evidence Contracts)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.9.0");
+  it("is the current released version 0.10.0 (M23 External Evidence Import and Normalization)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.10.0");
   });
 });
