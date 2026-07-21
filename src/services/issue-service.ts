@@ -43,7 +43,12 @@ export function effectiveIssueStatus(
  * example verbatim -- only required to be deterministic and stable for the
  * same source text.
  */
-function slugify(text: string): string {
+/**
+ * M22-WU06: exported so finding-fingerprint.ts can reuse the exact same
+ * slug normalization for the new evidence:<scope>:<slug> issue-key
+ * convention, instead of reimplementing it.
+ */
+export function slugify(text: string): string {
   const slug = text
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
