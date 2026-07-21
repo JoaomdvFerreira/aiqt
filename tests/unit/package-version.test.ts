@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.10.0 (M23 External Evidence Import and Normalization)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.10.0");
+  it("is the current released version 0.11.0 (M24 Workspace Assignment and Parallel Eligibility Metadata)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.11.0");
   });
 });
