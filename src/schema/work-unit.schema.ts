@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ExecutionMetadataSchema } from "./execution-metadata.schema.js";
 
 export const WorkUnitStatusSchema = z.enum([
   "ready",
@@ -30,5 +31,7 @@ export const WorkUnitSchema = z.object({
   replanReason: z.string().optional(),
   /** M17 §8.4: additive, optional. IDs of the new work units that replace this placeholder. Absent means never replanned. */
   replacedByWorkUnitIds: z.array(z.string()).optional(),
+  /** M24 §2.1: additive, optional workspace-assignment/parallel-policy metadata. Missing entirely on every pre-M24 Work Unit; never materialized by a read-only command. */
+  executionMetadata: ExecutionMetadataSchema.optional(),
 });
 export type WorkUnit = z.infer<typeof WorkUnitSchema>;
