@@ -126,19 +126,100 @@ export const ResourceClaimSchema = z
     key: z.string().min(1).max(RESOURCE_CLAIM_KEY_MAX_CHARS),
     access: ResourceAccessSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const result = validateResourceClaimKey(value.domain, value.key);
+    if (!result.ok) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `resource claim key invalid for domain '${value.domain}': ${result.reason}`,
+        path: ["key"],
+      });
+    }
+  });
 export type ResourceClaim = z.infer<typeof ResourceClaimSchema>;
 
+export interface ResourceClaimKeyValidation {
+  ok: boolean;
+  reason?: string;
+  normalized?: string;
+}
+
 /**
- * M24 §6: a placeholder, domain-generic identity used only to reject
- * verbatim-duplicate claims at the schema layer. WU24-03 (resource claim
- * normalization and conflict engine) owns true domain-aware normalization
- * (path trailing-slash stripping, NFC-trim for text domains, etc.) and
- * reuses this exact call site rather than introducing a second dedup
- * mechanism.
+ * M24 §6.4: path keys are repository-relative POSIX paths. Backslashes in
+ * the ORIGINAL input are rejected outright (never silently converted); the
+ * "temporary slash-normalized copy" language in the spec refers only to
+ * internally checking for absolute/UNC/drive/traversal forms consistently,
+ * not to accepting backslash input. One optional trailing slash is
+ * stripped; case is preserved; segments are compared exactly.
+ */
+export function validatePathClaimKey(key: string): ResourceClaimKeyValidation {
+  if (key.length === 0) return { ok: false, reason: "must not be empty" };
+  if (key.includes("\\")) {
+    return { ok: false, reason: "must not contain backslashes; use forward-slash repository-relative paths" };
+  }
+  if (key.startsWith("/")) return { ok: false, reason: "must not be an absolute path" };
+  if (/^[A-Za-z]:/.test(key)) return { ok: false, reason: "must not be a drive-letter path" };
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(key) || key.includes("://")) {
+    return { ok: false, reason: "must not be a URL or scheme-prefixed value" };
+  }
+  const stripped = key.endsWith("/") && key.length > 1 ? key.slice(0, -1) : key;
+  const segments = stripped.split("/");
+  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+    return { ok: false, reason: "must not contain empty, '.', or '..' segments" };
+  }
+  return { ok: true, normalized: stripped };
+}
+
+function hasControlCharacters(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+}
+
+/** M24 §6.5: database/environment/external_system/custom domains: NFC-normalized, trimmed, 1..256 chars, no control characters or line breaks. */
+export function validateTextClaimKey(key: string): ResourceClaimKeyValidation {
+  const normalized = key.normalize("NFC").trim();
+  if (normalized.length < 1 || normalized.length > 256) {
+    return { ok: false, reason: "must be 1..256 characters after trim" };
+  }
+  if (hasControlCharacters(normalized)) {
+    return { ok: false, reason: "must not contain control characters or line breaks" };
+  }
+  return { ok: true, normalized };
+}
+
+/** M24 §6.3: only `project` is a valid repository-domain key. */
+export function validateRepositoryClaimKey(key: string): ResourceClaimKeyValidation {
+  return key === "project" ? { ok: true, normalized: "project" } : { ok: false, reason: "must be exactly 'project'" };
+}
+
+export function validateResourceClaimKey(domain: ResourceDomain, key: string): ResourceClaimKeyValidation {
+  switch (domain) {
+    case "repository":
+      return validateRepositoryClaimKey(key);
+    case "path":
+      return validatePathClaimKey(key);
+    case "database":
+    case "environment":
+    case "external_system":
+    case "custom":
+      return validateTextClaimKey(key);
+  }
+}
+
+/**
+ * M24 §6: the true domain-aware normalized identity, used both for
+ * in-Work-Unit duplicate-claim rejection here and reused verbatim by
+ * WU24-03's conflict engine (src/workflow/resource-claim.ts) for exact-key
+ * comparison -- one owner, never duplicated.
  */
 export function resourceClaimIdentity(claim: ResourceClaim): string {
-  return `${claim.domain}:${claim.key}`;
+  const validation = validateResourceClaimKey(claim.domain, claim.key);
+  const normalizedKey = validation.normalized ?? claim.key;
+  return `${claim.domain}:${normalizedKey}`;
 }
 
 export const ParallelPolicyMetadataSchema = z
