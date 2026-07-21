@@ -5,6 +5,7 @@ import { formatId, nextId, parseIdNumber } from "../state/ids.js";
 import { findCycle } from "../workflow/dependency-graph.js";
 import { recalculateReadinessAfterDependencyUpdate } from "../workflow/dependency-update-transition.js";
 import { recalculateMilestoneStatuses } from "../workflow/checkpoint-status-transitions.js";
+import { validateIsolatedAssignmentKeyUniqueness } from "../workflow/workspace-assignment.js";
 import { findDuplicate } from "./planning-service.js";
 import type { PlanExtensionInput, PlanAppendInput } from "../schema/plan-extension-input.schema.js";
 import type { StateModel } from "../schema/state.schema.js";
@@ -330,6 +331,7 @@ export function buildPlanAppend(params: {
     dependencies: incomingDependencyIdsByNewWorkUnitId.get(newWorkUnitIds[i]) ?? [],
     createdAt: timestamp,
     updatedAt: timestamp,
+    executionMetadata: wu.executionMetadata,
   }));
 
   // Existing work units are never re-planned or re-statused by append; only
@@ -363,6 +365,17 @@ export function buildPlanAppend(params: {
     const original = originalStatusById.get(wu.id)!;
     return wu.status === original.status ? wu : { ...original };
   });
+
+  // M24 §4.3/§19.10: isolated assignment-key uniqueness validated over the
+  // full candidate graph (existing + newly appended), before any mutation
+  // is returned to the caller.
+  const isolatedKeyCheck = validateIsolatedAssignmentKeyUniqueness(finalWorkUnits);
+  if (!isolatedKeyCheck.ok) {
+    throw extendInvalidError(
+      "PLAN-EXTEND-ISOLATED-ASSIGNMENT-KEY-REUSED",
+      `Isolated workspace assignmentKey(s) reused across non-terminal work units: ${isolatedKeyCheck.duplicateKeys.join(", ")}.`,
+    );
+  }
 
   const newMilestones: Milestone[] = input.milestones.map((m) => ({
     id: milestoneIdByClientKey.get(m.clientKey)!,
@@ -673,6 +686,7 @@ export function buildPlanRefinement(params: {
     dependencies: incomingDependencyIdsByNewWorkUnitId.get(newWorkUnitIds[i]) ?? [],
     createdAt: timestamp,
     updatedAt: timestamp,
+    executionMetadata: wu.executionMetadata,
   }));
 
   const addedOutgoingDependencyIdsByExistingWorkUnitId = new Map<string, string[]>();
@@ -710,6 +724,18 @@ export function buildPlanRefinement(params: {
     candidateDependencies,
     timestamp,
   );
+
+  // M24 §4.3/§19.10: isolated assignment-key uniqueness validated over the
+  // full candidate graph (existing + newly refined-in), before any mutation
+  // is returned to the caller. The replanned original is excluded
+  // automatically -- it is now a terminal ("replanned") status.
+  const isolatedKeyCheck = validateIsolatedAssignmentKeyUniqueness(readiness.workUnits);
+  if (!isolatedKeyCheck.ok) {
+    throw extendInvalidError(
+      "PLAN-REFINE-ISOLATED-ASSIGNMENT-KEY-REUSED",
+      `Isolated workspace assignmentKey(s) reused across non-terminal work units: ${isolatedKeyCheck.duplicateKeys.join(", ")}.`,
+    );
+  }
 
   const newMilestones: Milestone[] = input.milestones.map((m) => ({
     id: milestoneIdByClientKey.get(m.clientKey)!,

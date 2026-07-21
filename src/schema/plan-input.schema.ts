@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ExecutionMetadataSchema } from "./execution-metadata.schema.js";
 
 export const MilestonePlanInputSchema = z
   .object({
@@ -21,6 +22,8 @@ export const WorkUnitPlanInputSchema = z
     agentContextRefs: z.array(z.string()).default([]),
     suggestedFiles: z.array(z.string()).default([]),
     validationCommands: z.array(z.string().min(1)).min(1),
+    /** M24 §12: additive, optional. Threaded verbatim onto the constructed WorkUnit by every plan/import/extend/refine path that consumes this input schema. */
+    executionMetadata: ExecutionMetadataSchema.optional(),
   })
   .strict();
 export type WorkUnitPlanInput = z.infer<typeof WorkUnitPlanInputSchema>;
