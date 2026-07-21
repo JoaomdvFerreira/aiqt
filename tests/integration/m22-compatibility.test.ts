@@ -219,4 +219,33 @@ describe("M22-WU09: classification, promotion, and compatibility integration", (
     expect(resultA.projectIssue.severity).toBe("low");
     expect(resultB.projectIssue.severity).toBe("critical");
   });
+
+  it("M22 governance micro-closure: aiqt status never materializes M22 fields into state.json for a fixture that lacks them", async () => {
+    dir = makeTempDir();
+    await buildM11FixtureState(dir);
+    const statePath = join(dir, ".aiqt", "state.json");
+    const before = readFileSync(statePath, "utf8");
+
+    const result = runStatus(contextFor(dir, true));
+    expect(result.exitCode).toBe(ExitCode.Success);
+
+    const after = readFileSync(statePath, "utf8");
+    expect(after).toBe(before);
+    const parsedAfter = JSON.parse(after);
+    expect(parsedAfter.evidence).toBeUndefined();
+    expect(parsedAfter.issues?.projectIssues).toBeUndefined();
+  });
+
+  it("M22 governance micro-closure: aiqt manage never materializes M22 fields into state.json for a fixture that lacks them", async () => {
+    dir = makeTempDir();
+    await buildM11FixtureState(dir);
+    const statePath = join(dir, ".aiqt", "state.json");
+    const before = readFileSync(statePath, "utf8");
+
+    const result = runManage(contextFor(dir, true));
+    expect(result.exitCode).toBe(ExitCode.Success);
+
+    const after = readFileSync(statePath, "utf8");
+    expect(after).toBe(before);
+  });
 });

@@ -155,3 +155,41 @@ dependabot_pnpm_parsing_limitation:
     - "dependabot-core adds lockfileVersion 5.4 (or pnpm 7.x-lockfile) support, or"
     - "A separately reviewed and approved pnpm major-version migration changes the lockfile format to one dependabot-core supports."
 ```
+
+## M22-WU01 tag waiver
+
+```yaml
+m22_wu01_tag_waiver:
+  status: waived_no_retroactive_tag
+  work_unit: WU22-01 (Gate B Repository Audit, M22 Build Spec v0.2)
+  why_no_commit: >
+    WU22-01 was a read-only audit by design (git/version/schema/service
+    inspection only). It produced no repository mutation, so an empty
+    commit was correctly never created, consistent with this project's
+    standing rule against empty commits.
+  why_no_retroactive_tag: >
+    The commit that was actually HEAD when Gate B was audited is
+    db16b237fd896365cc54291dce55d27a7848e383 -- the merge commit for the
+    unrelated prior "vitest/vite/esbuild security upgrade" milestone
+    (already tagged v0.8.3). That commit's content and message describe a
+    dependency-security fix, not M22 work. Attaching a new
+    "m22-wu01-gate-b-audit" tag to it would misrepresent what the commit
+    did to anyone reading `git tag --points-at` or a tag list -- the tag
+    name would claim M22 audit work on a commit that has nothing to do
+    with M22. A tag recording "this was the baseline examined," not "this
+    commit performed WU22-01," is more honest recorded here instead.
+  commit_audited: db16b237fd896365cc54291dce55d27a7848e383
+  gate_b_result:
+    implementation_entry_risk: 25
+    outcome: passed
+    verified_baseline:
+      package_version: "0.8.3"
+      release_tag: v0.8.3
+      test_count: 1216
+      open_critical_high_dependency_alerts: 0
+  waiver_approved_by: >
+    Recorded during the M22 governance micro-closure (2026-07-21) as the
+    single, non-duplicated closure record for WU22-01 -- no tag
+    "m22-wu01-gate-b-audit" exists or will be created; this waiver is the
+    sole governance artifact for that Work Unit.
+```
