@@ -154,6 +154,24 @@ export const EvidenceContractVersionSchema = z
   .string()
   .regex(/^\d+\.\d+$/, "contractVersion must be a supported major.minor version string");
 
+/**
+ * M23-WU02 §16: additive, optional provenance of an EvidenceRecord created
+ * via `aiqt evidence import`. Absent entirely on every EvidenceRecord
+ * created through any pre-M23 path, and never materialized by a read-only
+ * command. Carries no raw payload, filename, stdin content, or absolute
+ * path -- only the identity facts M23 itself computed.
+ */
+export const ImportProvenanceSchema = z
+  .object({
+    adapterId: z.string().min(1),
+    sourcePayloadDigest: z.string().min(1),
+    externalEvidenceId: z.string().min(1).optional(),
+    importIdentityKey: z.string().min(1),
+    importedAt: z.string(),
+  })
+  .strict();
+export type ImportProvenance = z.infer<typeof ImportProvenanceSchema>;
+
 export const EvidenceRecordSchema = z
   .object({
     evidenceId: z.string().min(1),
@@ -191,6 +209,7 @@ export const EvidenceRecordSchema = z
     decisionEscalationIds: z.array(z.string()).max(EVIDENCE_MAX_DECISION_ESCALATION_REFS),
     artifactReferences: z.array(ArtifactReferenceSchema).max(EVIDENCE_MAX_ARTIFACT_REFERENCES),
     recordedAt: z.string(),
+    importProvenance: ImportProvenanceSchema.optional(),
   })
   .superRefine((value, ctx) => {
     if (JSON.stringify(value).length > EVIDENCE_MAX_SERIALIZED_BYTES) {
