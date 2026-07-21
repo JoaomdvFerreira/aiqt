@@ -756,6 +756,155 @@ export function inspectRunlogHealth(path: string): RunlogHealth {
   };
 }
 
+/**
+ * M22-WU08: evidence/ProjectIssue/decision-escalation event payloads
+ * contain IDs, counts, status, and digests only -- no source-finding text,
+ * logs, artifact bodies, or absolute secret-bearing paths (M22 §7.3).
+ */
+export interface EvidenceRecordedEventData {
+  evidenceId: string;
+  workUnitId: string;
+  providerType: string;
+  trustLevel: string;
+  sourceFindingCount: number;
+  artifactReferenceCount: number;
+}
+
+export function buildEvidenceRecordedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: EvidenceRecordedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence.recorded",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Recorded evidence ${input.data.evidenceId} for work unit ${input.data.workUnitId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface EvidenceLinkedEventData {
+  evidenceId: string;
+  workUnitId: string;
+}
+
+/** Idempotent-link acknowledgment -- appended only when a caller explicitly requests recording an already-known evidenceId, never for a silent no-op. */
+export function buildEvidenceLinkedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: EvidenceLinkedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence.linked",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Linked existing evidence ${input.data.evidenceId} for work unit ${input.data.workUnitId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ProjectIssueCreatedEventData {
+  projectIssueId: string;
+  issueKey: string;
+  severity: string;
+  sourceType: string;
+}
+
+export function buildProjectIssueCreatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ProjectIssueCreatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "project_issue.created",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Created project issue ${input.data.projectIssueId} (${input.data.issueKey})`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ProjectIssueTransitionedEventData {
+  transitionId: string;
+  issueKey: string;
+  projectIssueId: string;
+  checkpointId: string;
+  reason: string;
+}
+
+export function buildProjectIssueTransitionedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ProjectIssueTransitionedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "project_issue.transitioned",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Transitioned ${input.data.issueKey} from checkpoint ${input.data.checkpointId} to project issue ${input.data.projectIssueId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface DecisionEscalationCreatedEventData {
+  escalationId: string;
+  escalationKey: string;
+  category: string;
+}
+
+export function buildDecisionEscalationCreatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: DecisionEscalationCreatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "decision_escalation.created",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Created decision escalation ${input.data.escalationId} (${input.data.category})`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface DecisionEscalationResolvedEventData {
+  escalationId: string;
+  escalationKey: string;
+  status: string;
+}
+
+export function buildDecisionEscalationResolvedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: DecisionEscalationResolvedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "decision_escalation.resolved",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Resolved decision escalation ${input.data.escalationId} as ${input.data.status}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 /** Build the warning Issue for malformed runlog lines, or null if healthy. */
 export function runlogHealthWarning(health: RunlogHealth): Issue | null {
   if (health.malformedLines === 0) return null;
