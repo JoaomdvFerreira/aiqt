@@ -55,6 +55,7 @@ import { runIssueUpdate } from "./commands/issue-update.command.js";
 import { runIssuePromote } from "./commands/issue-promote.command.js";
 import { runRepairPlan } from "./commands/repair-plan.command.js";
 import { renderIssueListText, renderRepairPlanText } from "../services/issue-report-template.js";
+import { renderParallelStatusText, type ParallelStatusData } from "../services/parallel-status-template.js";
 import type { IssueListData } from "./commands/issue-list.command.js";
 import type { RepairPlanData } from "./commands/repair-plan.command.js";
 import { runCheckpointAmend } from "./commands/checkpoint-amend.command.js";
@@ -121,12 +122,23 @@ export function buildProgram(): Command {
   program
     .command("status")
     .description(
-      "Inspect current AIQT state without modifying files (M18: reports canonical ready, effectively ready, and stale-ready work unit counts)",
+      "Inspect current AIQT state without modifying files (M18: reports canonical ready, effectively ready, and stale-ready work unit counts; M24: --parallel reports a read-only advisory parallel-eligibility batch)",
     )
     .option("--json", "emit machine-readable JSON output", false)
-    .action((raw: { json?: boolean }) => {
+    .option("--parallel", "report a read-only advisory parallel-execution eligibility batch", false)
+    .action((raw: { json?: boolean; parallel?: boolean }) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
-      const result = runStatus(ctx);
+      const result = runStatus(ctx, { parallel: Boolean(raw.parallel) });
+
+      if (raw.parallel && !ctx.json && result.exitCode === ExitCode.Success) {
+        const data = result.data as { parallelStatus?: ParallelStatusData } | undefined;
+        if (data?.parallelStatus) {
+          process.stdout.write(renderParallelStatusText(data.parallelStatus) + "\n");
+          process.exitCode = result.exitCode;
+          return;
+        }
+      }
+
       emit(result, ctx.json);
     });
 

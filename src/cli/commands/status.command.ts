@@ -11,10 +11,118 @@ import { computeNextAction } from "../../workflow/next-action.js";
 import { workUnitCountsByStatus } from "../../workflow/statuses.js";
 import { resolveRoots } from "../../workflow/root-resolution.js";
 import { computeEffectiveReadinessForState } from "../../workflow/effective-readiness.js";
+import { deriveEffectiveExecutionMetadata } from "../../workflow/execution-metadata-defaults.js";
+import { buildParallelBatch } from "../../workflow/parallel-batch.js";
+import type { ParallelStatusData } from "../../services/parallel-status-template.js";
+import type { StateModel } from "../../schema/state.schema.js";
 
-export function runStatus(ctx: CommandContext): CommandResult {
+export interface RunStatusOptions {
+  /** M24 §11: read-only advisory eligibility/batch reporting -- never mutates state or runlog. */
+  parallel?: boolean;
+}
+
+/**
+ * M24 §11.3: structurally invalid execution metadata, a broken
+ * dependency reference, or an empty (0-count) graph edge case all remain
+ * read-only -- this function only ever inspects `state`, never writes.
+ */
+function buildParallelStatusResult(state: StateModel): CommandResult {
+  const workUnitIds = new Set(state.workGraph.workUnits.map((wu) => wu.id));
+  const brokenDependency = state.workGraph.dependencies.find(
+    (d) => !workUnitIds.has(d.fromId) || !workUnitIds.has(d.toId),
+  );
+  if (brokenDependency) {
+    const message = `Broken dependency reference: "${brokenDependency.id}" references a work unit that does not exist in the graph.`;
+    return makeResult({
+      status: "failed",
+      action: "status",
+      projectStatus: state.projectStatus,
+      currentMilestoneId: state.currentMilestoneId,
+      currentWorkUnitId: state.currentWorkUnitId,
+      summary: message,
+      exitCode: ExitCode.InvalidInput,
+      blockingIssues: [
+        {
+          id: "STATUS-PARALLEL-BROKEN-DEPENDENCY",
+          severity: "critical",
+          area: "graph",
+          message,
+          agentCanFix: false,
+        },
+      ],
+    });
+  }
+
+  let complete = 0;
+  let missing = 0;
+  let invalid = 0;
+  for (const workUnit of state.workGraph.workUnits) {
+    const effective = deriveEffectiveExecutionMetadata(workUnit);
+    if (effective.metadataStatus === "complete") complete += 1;
+    else if (effective.metadataStatus === "missing") missing += 1;
+    else invalid += 1;
+  }
+
+  if (invalid > 0) {
+    const message = `${invalid} work unit(s) have structurally invalid execution metadata in canonical state.`;
+    return makeResult({
+      status: "failed",
+      action: "status",
+      projectStatus: state.projectStatus,
+      currentMilestoneId: state.currentMilestoneId,
+      currentWorkUnitId: state.currentWorkUnitId,
+      summary: message,
+      exitCode: ExitCode.InvalidInput,
+      blockingIssues: [
+        {
+          id: "STATUS-PARALLEL-INVALID-METADATA",
+          severity: "critical",
+          area: "graph",
+          message,
+          agentCanFix: false,
+        },
+      ],
+    });
+  }
+
+  const readyWorkUnitIds = [...computeEffectiveReadinessForState(state).values()]
+    .filter((r) => r.effectivelyReady)
+    .map((r) => r.workUnitId)
+    .sort();
+  const batch = buildParallelBatch(state);
+
+  const parallelStatus: ParallelStatusData = {
+    advisory: true,
+    activeWorkUnitIds: batch.activeWorkUnitIds,
+    readyWorkUnitIds,
+    recommendedBatch: batch.selectedWorkUnitIds,
+    manualReviewWorkUnitIds: batch.manualReviewWorkUnitIds,
+    excluded: batch.excluded,
+    metadataCoverage: { complete, missing, invalid },
+  };
+
+  const summary = `Parallel execution advisory: ${batch.activeWorkUnitIds.length} active, ${readyWorkUnitIds.length} ready, ${batch.selectedWorkUnitIds.length} recommended, ${batch.manualReviewWorkUnitIds.length} needing manual review, ${batch.excluded.length} excluded. Advisory only -- no workspace was created and no Work Unit was started.`;
+
+  return makeResult({
+    status: "passed",
+    action: "status",
+    projectStatus: state.projectStatus,
+    currentMilestoneId: state.currentMilestoneId,
+    currentWorkUnitId: state.currentWorkUnitId,
+    summary,
+    nextRecommendedCommand: null,
+    exitCode: ExitCode.Success,
+    data: { parallelStatus },
+  });
+}
+
+export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): CommandResult {
   try {
     const { paths, project, state, runlogHealth, warnings } = loadProject(ctx);
+
+    if (options.parallel) {
+      return buildParallelStatusResult(state);
+    }
 
     const next = computeNextAction(project, state);
     const workUnitCounts = workUnitCountsByStatus(state);
