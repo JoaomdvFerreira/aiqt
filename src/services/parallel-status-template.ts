@@ -1,4 +1,5 @@
 import type { ExcludedWorkUnit } from "../workflow/parallel-batch.js";
+import type { WorkspaceReadinessSummary } from "../workflow/workspace-readiness-advisory.js";
 
 export interface ParallelStatusData {
   advisory: true;
@@ -8,6 +9,8 @@ export interface ParallelStatusData {
   manualReviewWorkUnitIds: string[];
   excluded: ExcludedWorkUnit[];
   metadataCoverage: { complete: number; missing: number; invalid: number };
+  /** M25 §19: bounded physical-workspace readiness facts, scoped to readyWorkUnitIds. Never changes M24 logical eligibility. */
+  workspaceReadiness: WorkspaceReadinessSummary;
 }
 
 function bulletList(items: readonly string[]): string {
@@ -48,6 +51,18 @@ export function renderParallelStatusText(data: ParallelStatusData): string {
       `complete: ${data.metadataCoverage.complete}`,
       `missing: ${data.metadataCoverage.missing}`,
       `invalid: ${data.metadataCoverage.invalid}`,
+    ]),
+    "",
+  );
+
+  lines.push("## Workspace readiness", "");
+  lines.push(
+    bulletList([
+      `prepared: ${data.workspaceReadiness.prepared}`,
+      `unprepared: ${data.workspaceReadiness.unprepared}`,
+      `recoveryRequired: ${data.workspaceReadiness.recoveryRequired}`,
+      `dirty: ${data.workspaceReadiness.dirty}`,
+      `drifted: ${data.workspaceReadiness.drifted}`,
     ]),
     "",
   );

@@ -29,6 +29,10 @@ import {
   buildExecutionMetadataAdvisory,
   renderExecutionMetadataAdvisorySection,
 } from "../workflow/execution-metadata-advisory.js";
+import {
+  buildManagedWorkspaceAdvisory,
+  renderManagedWorkspaceSection,
+} from "../workflow/managed-workspace-advisory.js";
 
 export interface PacketContext {
   projectId: string;
@@ -59,6 +63,8 @@ export interface PacketContext {
   implementationRoot: string;
   /** M24 §13: rendered Workspace and Parallel Execution Advisory section. Always present -- missing/serialized metadata still produces a short advisory noting that. */
   executionMetadataAdvisorySection: string;
+  /** M25 §18: rendered Managed Workspace section. Always present -- "none" mode and an unprepared workspace both produce a short, accurate statement instead of being omitted. */
+  managedWorkspaceSection: string;
 }
 
 export interface ResolvedContextRefs {
@@ -270,6 +276,10 @@ export function buildPacketContext(
     executionMetadataAdvisorySection: renderExecutionMetadataAdvisorySection(
       buildExecutionMetadataAdvisory(workUnit, state),
     ),
+    // M25 §18: bounded, read-only managed-workspace facts for the CURRENT
+    // work unit only. Never executes Git; never blocks packet creation
+    // solely because a workspace is unprepared.
+    managedWorkspaceSection: renderManagedWorkspaceSection(buildManagedWorkspaceAdvisory(workUnit, state)),
   };
 }
 

@@ -192,6 +192,11 @@ export function renderAgentPacket(context: PacketContext): string {
   lines.push(context.executionMetadataAdvisorySection);
   lines.push("");
 
+  // M25 §18: bounded Managed Workspace section, always rendered, right
+  // after the M24 advisory and before Required Agent Output.
+  lines.push(context.managedWorkspaceSection);
+  lines.push("");
+
   lines.push("## Required Agent Output");
   lines.push("");
   // M16 §13.3: changed-file paths must be reported relative to the resolved

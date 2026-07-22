@@ -13,6 +13,7 @@ import { resolveRoots } from "../../workflow/root-resolution.js";
 import { computeEffectiveReadinessForState } from "../../workflow/effective-readiness.js";
 import { deriveEffectiveExecutionMetadata } from "../../workflow/execution-metadata-defaults.js";
 import { buildParallelBatch } from "../../workflow/parallel-batch.js";
+import { computeWorkspaceReadiness } from "../../workflow/workspace-readiness-advisory.js";
 import type { ParallelStatusData } from "../../services/parallel-status-template.js";
 import type { StateModel } from "../../schema/state.schema.js";
 
@@ -26,7 +27,7 @@ export interface RunStatusOptions {
  * dependency reference, or an empty (0-count) graph edge case all remain
  * read-only -- this function only ever inspects `state`, never writes.
  */
-function buildParallelStatusResult(state: StateModel): CommandResult {
+function buildParallelStatusResult(state: StateModel, implementationRoot: string): CommandResult {
   const workUnitIds = new Set(state.workGraph.workUnits.map((wu) => wu.id));
   const brokenDependency = state.workGraph.dependencies.find(
     (d) => !workUnitIds.has(d.fromId) || !workUnitIds.has(d.toId),
@@ -90,6 +91,7 @@ function buildParallelStatusResult(state: StateModel): CommandResult {
     .map((r) => r.workUnitId)
     .sort();
   const batch = buildParallelBatch(state);
+  const workspaceReadiness = computeWorkspaceReadiness(state, readyWorkUnitIds, implementationRoot);
 
   const parallelStatus: ParallelStatusData = {
     advisory: true,
@@ -99,6 +101,7 @@ function buildParallelStatusResult(state: StateModel): CommandResult {
     manualReviewWorkUnitIds: batch.manualReviewWorkUnitIds,
     excluded: batch.excluded,
     metadataCoverage: { complete, missing, invalid },
+    workspaceReadiness,
   };
 
   const summary = `Parallel execution advisory: ${batch.activeWorkUnitIds.length} active, ${readyWorkUnitIds.length} ready, ${batch.selectedWorkUnitIds.length} recommended, ${batch.manualReviewWorkUnitIds.length} needing manual review, ${batch.excluded.length} excluded. Advisory only -- no workspace was created and no Work Unit was started.`;
@@ -121,7 +124,8 @@ export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): 
     const { paths, project, state, runlogHealth, warnings } = loadProject(ctx);
 
     if (options.parallel) {
-      return buildParallelStatusResult(state);
+      const roots = resolveRoots({ controlRoot: ctx.cwd, existingRepositoryPath: project.project.existingRepositoryPath });
+      return buildParallelStatusResult(state, roots.implementationRoot);
     }
 
     const next = computeNextAction(project, state);
