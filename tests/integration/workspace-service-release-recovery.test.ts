@@ -373,4 +373,49 @@ describe("releaseIsolatedWorkspace / recoverWorkspaceOperations (M25-WU05, real 
     expect(apply.items[0]!.applied).toBe(true);
     expect(readStateModel(paths.stateFile).workspace!.pendingWorkspaceOperations).toEqual([]);
   });
+
+  it("reprepare after release allocates a genuinely new generation, workspace id, path, and branch, leaving the prior release untouched", () => {
+    const first = prepare("WU001", "wu-1");
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    commitAiqtState("aiqt state after first prepare");
+
+    const paths = resolveAiqtPaths(implRoot);
+    const release = releaseIsolatedWorkspace({
+      paths,
+      state: readStateModel(paths.stateFile),
+      workUnitId: "WU001",
+      implementationRoot: implRoot,
+      timestamp: T2,
+    });
+    expect(release.ok).toBe(true);
+    commitAiqtState("aiqt state after release");
+
+    // A second work unit reprepares against the SAME assignment key/base
+    // commit -- same logical series, but the first generation is released,
+    // so this must allocate generation 2 with a distinct id/path/branch.
+    const second = prepare("WU002", "wu-1");
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+
+    expect(second.workspace!.id).not.toBe(first.workspace!.id);
+    expect(second.workspace!.workspacePath).not.toBe(first.workspace!.workspacePath);
+    expect(second.workspace!.branchName).not.toBe(first.workspace!.branchName);
+    expect(second.workspace!.generation).toBe(2);
+    expect(second.workspace!.workspaceSeriesKey).toBe(first.workspace!.workspaceSeriesKey);
+    expect(existsSync(second.workspace!.workspacePath)).toBe(true);
+
+    // The prior released record and its branch are completely untouched.
+    const finalState = readStateModel(paths.stateFile);
+    const priorRecord = finalState.workspace!.managedWorkspaces.find((w) => w.id === first.workspace!.id)!;
+    expect(priorRecord.lifecycleStatus).toBe("released");
+    expect(priorRecord.generation).toBe(1);
+    expect(priorRecord.workspacePath).toBe(first.workspace!.workspacePath);
+    expect(priorRecord.branchName).toBe(first.workspace!.branchName);
+    const priorBranches = execFileSync("git", ["branch", "--list", first.workspace!.branchName!], {
+      cwd: implRoot,
+      encoding: "utf8",
+    });
+    expect(priorBranches).toContain(first.workspace!.branchName!.split("/").pop());
+  });
 });
