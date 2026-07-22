@@ -11,6 +11,7 @@ import {
   findActiveBindingForWorkUnit,
   findPendingOperationForWorkUnit,
   findPendingPreparesForSeries,
+  findPendingOperationForWorkspace,
 } from "../services/workspace-state-service.js";
 import {
   deriveWorkspaceSeriesKey,
@@ -24,6 +25,8 @@ import { nextId } from "../state/ids.js";
 import {
   buildWorkspacePreparedEvent,
   buildWorkspaceBindingCreatedEvent,
+  buildWorkspaceBindingReleasedEvent,
+  buildWorkspaceReleasedEvent,
 } from "../state/runlog-store.js";
 
 const ISOLATED_PROVIDER_ID = "git-worktree@1" as const;
@@ -132,9 +135,16 @@ export interface BuildPendingPrepareParams {
   branchName: string;
   baseCommit: string;
   timestamp: string;
+  assignmentKey: string;
+  access: ManagedWorkspaceAccess;
 }
 
-/** M25 §14.1 step 4-5: the deterministic pending-prepare record, persisted BEFORE any Git side effect. */
+/**
+ * M25 §14.1 step 4-5: the deterministic pending-prepare record, persisted
+ * BEFORE any Git side effect. Carries assignmentKey/access so that
+ * `workspace recover` (§15.1) can finalize using only this pending
+ * operation record, without needing the original CLI invocation's params.
+ */
 export function buildPendingPrepareOperation(params: BuildPendingPrepareParams): PendingWorkspaceOperation {
   return {
     id: derivePendingOperationId({
@@ -153,14 +163,14 @@ export function buildPendingPrepareOperation(params: BuildPendingPrepareParams):
     expectedBranchName: params.branchName,
     baseCommit: params.baseCommit,
     createdAt: params.timestamp,
+    assignmentKey: params.assignmentKey,
+    access: params.access,
   };
 }
 
 export interface FinalizePrepareParams {
   state: StateModel;
   pending: PendingWorkspaceOperation;
-  assignmentKey: string;
-  access: ManagedWorkspaceAccess;
   implementationRoot: string;
   timestamp: string;
   nextEventId: () => string;
@@ -187,14 +197,20 @@ export function buildPrepareFinalizeCandidate(params: FinalizePrepareParams): Fi
   const existingBindings = getWorkspaceBindings(params.state);
   const existingPending = getPendingWorkspaceOperations(params.state);
 
+  if (!params.pending.assignmentKey || !params.pending.access) {
+    throw new Error(
+      `Pending prepare operation ${params.pending.id} is missing assignmentKey/access -- cannot finalize.`,
+    );
+  }
+
   const workspace: ManagedWorkspace = {
     id: params.pending.workspaceId,
     workspaceSeriesKey: params.pending.workspaceSeriesKey,
     generation: params.pending.generation,
     providerId: ISOLATED_PROVIDER_ID,
-    assignmentKey: params.assignmentKey,
+    assignmentKey: params.pending.assignmentKey,
     mode: "isolated",
-    access: params.access,
+    access: params.pending.access,
     implementationRoot: params.implementationRoot,
     workspacePath: params.pending.expectedWorkspacePath,
     branchName: params.pending.expectedBranchName,
@@ -239,5 +255,155 @@ export function buildPrepareFinalizeCandidate(params: FinalizePrepareParams): Fi
     runlogEvents,
     workspace,
     binding,
+  };
+}
+
+export interface GitWorktreeReleasePlanParams {
+  state: StateModel;
+  workUnitId: string;
+}
+
+export type GitWorktreeReleasePlanAction =
+  | { kind: "no_op" }
+  | { kind: "recover_pending"; pending: PendingWorkspaceOperation }
+  | { kind: "release"; workspace: ManagedWorkspace; binding: WorkspaceBinding };
+
+export type GitWorktreeReleasePlanResult =
+  | { ok: true; action: GitWorktreeReleasePlanAction }
+  | { ok: false; error: string };
+
+/**
+ * M25 §12.2/§14.2 steps 1: the pure release-planning step -- a work unit
+ * with no active binding is a no-op; an existing pending operation for
+ * the target workspace must be recovered first; otherwise the caller
+ * (workspace-service.ts) performs the inspection preconditions (clean,
+ * registered, branch match, no unresolved conflict) and the actual Git
+ * side effect.
+ */
+export function planGitWorktreeRelease(params: GitWorktreeReleasePlanParams): GitWorktreeReleasePlanResult {
+  const existingWorkspaces = getManagedWorkspaces(params.state);
+  const existingBindings = getWorkspaceBindings(params.state);
+  const existingPending = getPendingWorkspaceOperations(params.state);
+
+  const binding = findActiveBindingForWorkUnit(params.workUnitId, existingBindings);
+  if (!binding) {
+    return { ok: true, action: { kind: "no_op" } };
+  }
+
+  const workspace = existingWorkspaces.find((w) => w.id === binding.workspaceId);
+  if (!workspace || workspace.providerId !== ISOLATED_PROVIDER_ID) {
+    return {
+      ok: false,
+      error: `Binding for work unit ${params.workUnitId} does not reference a git-worktree@1 workspace.`,
+    };
+  }
+
+  const pendingForWorkspace = findPendingOperationForWorkspace(workspace.id, existingPending);
+  if (pendingForWorkspace) {
+    return { ok: true, action: { kind: "recover_pending", pending: pendingForWorkspace } };
+  }
+
+  return { ok: true, action: { kind: "release", workspace, binding } };
+}
+
+export interface BuildPendingReleaseParams {
+  workUnitId: string;
+  workspace: ManagedWorkspace;
+  timestamp: string;
+}
+
+/** M25 §14.2 step 2: the deterministic pending-release record, persisted BEFORE any Git side effect. */
+export function buildPendingReleaseOperation(params: BuildPendingReleaseParams): PendingWorkspaceOperation {
+  return {
+    id: derivePendingOperationId({
+      type: "release",
+      workUnitId: params.workUnitId,
+      workspaceSeriesKey: params.workspace.workspaceSeriesKey,
+      generation: params.workspace.generation,
+    }),
+    type: "release",
+    workUnitId: params.workUnitId,
+    workspaceId: params.workspace.id,
+    workspaceSeriesKey: params.workspace.workspaceSeriesKey,
+    generation: params.workspace.generation,
+    providerId: ISOLATED_PROVIDER_ID,
+    expectedWorkspacePath: params.workspace.workspacePath,
+    expectedBranchName: params.workspace.branchName,
+    baseCommit: params.workspace.baseCommit,
+    createdAt: params.timestamp,
+  };
+}
+
+export interface FinalizeReleaseParams {
+  state: StateModel;
+  pending: PendingWorkspaceOperation;
+  timestamp: string;
+  nextEventId: () => string;
+}
+
+export interface FinalizeReleaseResult {
+  managedWorkspaces: ManagedWorkspace[];
+  workspaceBindings: WorkspaceBinding[];
+  pendingWorkspaceOperations: PendingWorkspaceOperation[];
+  runlogEvents: RunlogEvent[];
+}
+
+/**
+ * M25 §14.2 steps 5: builds the final candidate state after the Git
+ * `worktree remove` side effect has been performed AND independently
+ * verified by the caller -- releases the exactly one active binding for
+ * this isolated workspace (§21 active_isolated_binding_per_workspace_max
+ * is 1, so release always finalizes the workspace itself) and removes
+ * the completed pending operation. Performs no I/O and no verification
+ * itself.
+ */
+export function buildReleaseFinalizeCandidate(params: FinalizeReleaseParams): FinalizeReleaseResult {
+  const existingWorkspaces = getManagedWorkspaces(params.state);
+  const existingBindings = getWorkspaceBindings(params.state);
+  const existingPending = getPendingWorkspaceOperations(params.state);
+
+  const workspace = existingWorkspaces.find((w) => w.id === params.pending.workspaceId);
+  const binding = existingBindings.find(
+    (b) => b.workspaceId === params.pending.workspaceId && b.workUnitId === params.pending.workUnitId && b.status === "active",
+  );
+
+  const managedWorkspaces = workspace
+    ? existingWorkspaces.map((w) =>
+        w.id === workspace.id ? { ...w, lifecycleStatus: "released" as const, releasedAt: params.timestamp } : w,
+      )
+    : existingWorkspaces;
+  const workspaceBindings = binding
+    ? existingBindings.map((b) =>
+        b.id === binding.id ? { ...b, status: "released" as const, releasedAt: params.timestamp } : b,
+      )
+    : existingBindings;
+
+  const runlogEvents: RunlogEvent[] = [];
+  if (binding) {
+    runlogEvents.push(
+      buildWorkspaceBindingReleasedEvent({
+        id: params.nextEventId(),
+        timestamp: params.timestamp,
+        relatedIds: [params.pending.workspaceId, params.pending.workUnitId],
+        data: { workspaceId: params.pending.workspaceId, workUnitId: params.pending.workUnitId, providerId: ISOLATED_PROVIDER_ID },
+      }),
+    );
+  }
+  if (workspace) {
+    runlogEvents.push(
+      buildWorkspaceReleasedEvent({
+        id: params.nextEventId(),
+        timestamp: params.timestamp,
+        relatedIds: [params.pending.workspaceId],
+        data: { workspaceId: params.pending.workspaceId, providerId: ISOLATED_PROVIDER_ID },
+      }),
+    );
+  }
+
+  return {
+    managedWorkspaces,
+    workspaceBindings,
+    pendingWorkspaceOperations: existingPending.filter((p) => p.id !== params.pending.id),
+    runlogEvents,
   };
 }

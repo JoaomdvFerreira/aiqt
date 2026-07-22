@@ -152,14 +152,14 @@ describe("buildPendingPrepareOperation / buildPrepareFinalizeCandidate", () => {
       branchName: "aiqt/p001/wu001-abc",
       baseCommit: SHA_A,
       timestamp: T1,
+      assignmentKey: "wu-1",
+      access: "read_write",
     });
     const state = stateWith([], [], [pending]);
     let n = 0;
     const finalized = buildPrepareFinalizeCandidate({
       state,
       pending,
-      assignmentKey: "wu-1",
-      access: "read_write",
       implementationRoot: "/repo",
       timestamp: T1,
       nextEventId: () => `EVT-${++n}`,

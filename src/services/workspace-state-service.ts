@@ -59,3 +59,10 @@ export function findPendingPreparesForSeries(
 ): PendingWorkspaceOperation[] {
   return pending.filter((p) => p.type === "prepare" && p.workspaceSeriesKey === workspaceSeriesKey);
 }
+
+export function findPendingOperationForWorkspace(
+  workspaceId: string,
+  pending: readonly PendingWorkspaceOperation[],
+): PendingWorkspaceOperation | undefined {
+  return pending.find((p) => p.workspaceId === workspaceId);
+}

@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { WorkspaceBindingSchema } from "./workspace-binding.schema.js";
 import { PendingWorkspaceOperationSchema } from "./pending-workspace-operation.schema.js";
+import { WorkspaceAccessSchema } from "./workspace-access.schema.js";
+export { WorkspaceAccessSchema } from "./workspace-access.schema.js";
+export type { ManagedWorkspaceAccess } from "./workspace-access.schema.js";
 
 /** M25 §21: state-growth limits, validated before mutation. Not increased without review. */
 export const MANAGED_WORKSPACES_MAX = 5000;
@@ -22,9 +25,6 @@ export type WorkspaceProviderId = z.infer<typeof WorkspaceProviderIdSchema>;
 
 export const WorkspaceModeSchema = z.enum(["shared", "isolated"]);
 export type ManagedWorkspaceMode = z.infer<typeof WorkspaceModeSchema>;
-
-export const WorkspaceAccessSchema = z.enum(["read_only", "read_write"]);
-export type ManagedWorkspaceAccess = z.infer<typeof WorkspaceAccessSchema>;
 
 export const ManagedWorkspaceLifecycleStatusSchema = z.enum(["ready", "released"]);
 export type ManagedWorkspaceLifecycleStatus = z.infer<typeof ManagedWorkspaceLifecycleStatusSchema>;

@@ -1004,6 +1004,90 @@ export function buildWorkspaceReleasedEvent(input: {
   };
 }
 
+export interface WorkspacePendingOperationEventData {
+  pendingOperationId: string;
+  workspaceId: string;
+  workUnitId: string;
+  providerId: string;
+  generation: number;
+}
+
+/** M25 §14.1 step 5 / §14.2 step 2: recorded once the pending operation is persisted, before the provider side effect runs. */
+export function buildWorkspacePreparePendingEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: WorkspacePendingOperationEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "workspace.prepare_pending",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Reserved pending prepare for workspace ${input.data.workspaceId} (work unit ${input.data.workUnitId})`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export function buildWorkspaceReleasePendingEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: WorkspacePendingOperationEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "workspace.release_pending",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Reserved pending release for workspace ${input.data.workspaceId} (work unit ${input.data.workUnitId})`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface WorkspaceRecoveryEventData {
+  pendingOperationId: string;
+  workspaceId: string;
+  operationType: "prepare" | "release";
+  action: string;
+}
+
+export function buildWorkspaceRecoveryCompletedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: WorkspaceRecoveryEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "workspace.recovery_completed",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Recovered pending ${input.data.operationType} for workspace ${input.data.workspaceId}: ${input.data.action}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export function buildWorkspaceRecoveryBlockedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: WorkspaceRecoveryEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "workspace.recovery_blocked",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Recovery blocked for pending ${input.data.operationType} on workspace ${input.data.workspaceId}: manual intervention required`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 /** Build the warning Issue for malformed runlog lines, or null if healthy. */
 export function runlogHealthWarning(health: RunlogHealth): Issue | null {
   if (health.malformedLines === 0) return null;
