@@ -29,7 +29,8 @@ export type WorkflowAction =
   | "repair"
   | "dependency"
   | "graph"
-  | "evidence";
+  | "evidence"
+  | "workspace";
 
 export interface CommandResult<TData = unknown> {
   status: CommandStatus;

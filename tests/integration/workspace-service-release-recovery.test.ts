@@ -121,7 +121,7 @@ describe("releaseIsolatedWorkspace / recoverWorkspaceOperations (M25-WU05, real 
     expect(result.outcome).toBe("no_op");
   });
 
-  it("blocks release (invalid) when the worktree is dirty, with zero side effect", () => {
+  it("blocks release (blocked, exit 2) when the worktree is dirty, with zero side effect", () => {
     const prepared = prepare("WU001", "wu-1");
     expect(prepared.ok).toBe(true);
     if (!prepared.ok) return;
@@ -142,7 +142,7 @@ describe("releaseIsolatedWorkspace / recoverWorkspaceOperations (M25-WU05, real 
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.category).toBe("invalid");
+    expect(result.category).toBe("blocked");
     expect(existsSync(workspacePath)).toBe(true);
 
     const finalState = readStateModel(paths.stateFile);

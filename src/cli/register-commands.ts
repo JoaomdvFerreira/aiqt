@@ -25,6 +25,10 @@ import {
   type RawGraphValidateOptions,
   type RawGraphRepairOptions,
   type RawEvidenceImportOptions,
+  type RawWorkspacePrepareOptions,
+  type RawWorkspaceStatusOptions,
+  type RawWorkspaceReleaseOptions,
+  type RawWorkspaceRecoverOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -63,6 +67,12 @@ import { runDependencyUpdate } from "./commands/dependency-update.command.js";
 import { runGraphValidate } from "./commands/graph-validate.command.js";
 import { runGraphRepair } from "./commands/graph-repair.command.js";
 import { runEvidenceImport } from "./commands/evidence-import.command.js";
+import {
+  runWorkspacePrepare,
+  runWorkspaceStatus,
+  runWorkspaceRelease,
+  runWorkspaceRecover,
+} from "./commands/workspace.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -678,6 +688,54 @@ export function buildProgram(): Command {
         stdin: Boolean(raw.stdin),
         preview: Boolean(raw.preview),
       });
+      emit(result, ctx.json);
+    });
+
+  const workspaceCommand = program
+    .command("workspace")
+    .description("Managed workspace provider adapters (M25): prepare/status/release/recover local Git workspaces");
+
+  workspaceCommand
+    .command("prepare <workUnitId>")
+    .description("Prepare the managed workspace for a Work Unit (shared-repository@1 or git-worktree@1); does not start the Work Unit")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--preview", "validate and report the prepare plan without any mutation or side effect", false)
+    .action((workUnitId: string, raw: RawWorkspacePrepareOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runWorkspacePrepare(ctx, { workUnitId, preview: Boolean(raw.preview) });
+      emit(result, ctx.json);
+    });
+
+  workspaceCommand
+    .command("status")
+    .description("Read-only inspection of all managed workspaces, or one Work Unit's binding with --work-unit")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--work-unit <id>", "report only this Work Unit's managed workspace binding")
+    .action((raw: RawWorkspaceStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runWorkspaceStatus(ctx, { workUnitId: raw.workUnit });
+      emit(result, ctx.json);
+    });
+
+  workspaceCommand
+    .command("release <workUnitId>")
+    .description("Release a Work Unit's managed workspace binding; never force, never deletes a branch")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--preview", "validate and report the release plan without any mutation or side effect", false)
+    .action((workUnitId: string, raw: RawWorkspaceReleaseOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runWorkspaceRelease(ctx, { workUnitId, preview: Boolean(raw.preview) });
+      emit(result, ctx.json);
+    });
+
+  workspaceCommand
+    .command("recover")
+    .description("Inspect and (with --apply) resolve pending workspace operations left by an interrupted prepare/release")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--apply", "perform the deterministic recovery action instead of only previewing it", false)
+    .action((raw: RawWorkspaceRecoverOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runWorkspaceRecover(ctx, { apply: Boolean(raw.apply) });
       emit(result, ctx.json);
     });
 

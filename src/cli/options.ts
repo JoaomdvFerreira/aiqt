@@ -178,3 +178,23 @@ export interface RawEvidenceImportOptions {
   stdin?: boolean;
   preview?: boolean;
 }
+
+export interface RawWorkspacePrepareOptions {
+  json?: boolean;
+  preview?: boolean;
+}
+
+export interface RawWorkspaceStatusOptions {
+  json?: boolean;
+  workUnit?: string;
+}
+
+export interface RawWorkspaceReleaseOptions {
+  json?: boolean;
+  preview?: boolean;
+}
+
+export interface RawWorkspaceRecoverOptions {
+  json?: boolean;
+  apply?: boolean;
+}

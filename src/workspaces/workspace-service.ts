@@ -32,7 +32,7 @@ import {
  * repository working tree is clean" precondition (§10.1) while a
  * workspace operation holds it.
  */
-function untrackedPathsExcludingOperationLock(untracked: readonly string[]): string[] {
+export function untrackedPathsExcludingOperationLock(untracked: readonly string[]): string[] {
   const lockRelativePath = `.aiqt/${WORKSPACE_OPERATION_LOCK_FILE_NAME}`;
   return untracked.filter((path) => path !== lockRelativePath);
 }
@@ -105,7 +105,10 @@ export function prepareIsolatedWorkspace(params: PrepareIsolatedWorkspaceParams)
   const warnings: string[] = [];
 
   if (!gitIsInsideWorkTree(params.implementationRoot)) {
-    return { ok: false, category: "invalid", error: "Implementation root is not a valid Git repository." };
+    // §16.5: "unavailable Git environment" is exit 2 (blocked), not exit 3
+    // (invalid) -- the implementation root itself may be fine, just not a
+    // Git repository right now (e.g. not yet initialized).
+    return { ok: false, category: "blocked", error: "Implementation root is not a valid Git repository." };
   }
   const rootValidation = validateWorkspaceRoot(params.workspaceRoot, params.implementationRoot);
   if (!rootValidation.ok) {
@@ -153,9 +156,10 @@ export function prepareIsolatedWorkspace(params: PrepareIsolatedWorkspaceParams)
     const isClean = gitDiffQuietIsClean(params.implementationRoot);
     const untracked = untrackedPathsExcludingOperationLock(gitLsFilesOthersExcludeStandard(params.implementationRoot));
     if (!isClean || untracked.length > 0) {
+      // §16.5: "dirty workspace" is exit 2 (blocked), not exit 3 (invalid).
       return {
         ok: false,
-        category: "invalid",
+        category: "blocked",
         error: "Implementation repository working tree is not clean (tracked or untracked changes present).",
       };
     }
@@ -213,7 +217,9 @@ export function prepareIsolatedWorkspace(params: PrepareIsolatedWorkspaceParams)
       };
       writeStateModel(params.paths.stateFile, cleanupState);
       const message = err instanceof GitRunnerError ? err.message : "Git worktree creation failed.";
-      return { ok: false, category: "invalid", error: `Failed to create isolated worktree: ${message}` };
+      // §14.3/§16.5: a provider-side-effect failure is an environment/
+      // provider blockage (exit 2), not an invalid canonical state (exit 3).
+      return { ok: false, category: "blocked", error: `Failed to create isolated worktree: ${message}` };
     }
 
     const inspection = inspectIsolatedWorkspace({
@@ -290,6 +296,10 @@ export type ReleaseIsolatedWorkspaceResult = ReleaseIsolatedWorkspaceSuccess | R
  * Verification and mutation run under the workspace-operation lock.
  */
 export function releaseIsolatedWorkspace(params: ReleaseIsolatedWorkspaceParams): ReleaseIsolatedWorkspaceResult {
+  if (!gitIsInsideWorkTree(params.implementationRoot)) {
+    return { ok: false, category: "blocked", error: "Implementation root is not a valid Git repository." };
+  }
+
   let lock;
   try {
     lock = acquireWorkspaceOperationLock(params.paths.aiqtDir, `release:${params.workUnitId}:${randomUUID()}`);
@@ -326,11 +336,14 @@ export function releaseIsolatedWorkspace(params: ReleaseIsolatedWorkspaceParams)
       expectedBranch: workspace.branchName,
     });
     if (preInspection.exists && preInspection.registered) {
+      // §12.2/§16.5: drift and dirtiness are both exit 2 (blocked), not
+      // exit 3 -- the canonical record itself is not invalid, the
+      // physical workspace just isn't in a releasable state right now.
       if (!preInspection.branchMatches) {
-        return { ok: false, category: "invalid", error: `Workspace ${workspace.id} has drifted from its recorded branch.` };
+        return { ok: false, category: "blocked", error: `Workspace ${workspace.id} has drifted from its recorded branch.` };
       }
       if (!preInspection.clean || preInspection.hasUnresolvedConflict) {
-        return { ok: false, category: "invalid", error: `Workspace ${workspace.id} is not clean; release requires a clean worktree.` };
+        return { ok: false, category: "blocked", error: `Workspace ${workspace.id} is not clean; release requires a clean worktree.` };
       }
     }
 
@@ -368,7 +381,7 @@ export function releaseIsolatedWorkspace(params: ReleaseIsolatedWorkspaceParams)
         };
         writeStateModel(params.paths.stateFile, cleanupState);
         const message = err instanceof GitRunnerError ? err.message : "Git worktree removal failed.";
-        return { ok: false, category: "invalid", error: `Failed to remove isolated worktree: ${message}` };
+        return { ok: false, category: "blocked", error: `Failed to remove isolated worktree: ${message}` };
       }
     }
 

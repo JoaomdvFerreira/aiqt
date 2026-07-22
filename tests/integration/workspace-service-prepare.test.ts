@@ -121,7 +121,7 @@ describe("prepareIsolatedWorkspace (M25-WU04, real disposable repository)", () =
     expect(readStateModel(paths.stateFile)).toEqual(before);
   });
 
-  it("blocks a new prepare with exit-3-shaped invalid category when the repository is dirty", () => {
+  it("blocks a new prepare with exit-2-shaped blocked category when the repository is dirty", () => {
     const paths = resolveAiqtPaths(implRoot);
     const state = readStateModel(paths.stateFile);
     const workspaceRoot = deriveDefaultWorkspaceRoot(implRoot);
@@ -141,7 +141,7 @@ describe("prepareIsolatedWorkspace (M25-WU04, real disposable repository)", () =
       });
       expect(result.ok).toBe(false);
       if (result.ok) return;
-      expect(result.category).toBe("invalid");
+      expect(result.category).toBe("blocked");
     } finally {
       execFileSync("git", ["checkout", "--quiet", "--", "README.md"], { cwd: implRoot });
     }
