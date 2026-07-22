@@ -905,6 +905,105 @@ export function buildDecisionEscalationResolvedEvent(input: {
   };
 }
 
+/**
+ * M25 §17: bounded workspace event payloads. Never raw Git output,
+ * command arguments, environment, remote, credentials, or full physical
+ * path -- only IDs, provider/lifecycle facts, and a bounded outcome.
+ */
+export interface WorkspacePreparedEventData {
+  workspaceId: string;
+  providerId: string;
+  workspaceSeriesKey: string;
+  generation: number;
+  lifecycleStatus: string;
+  outcome: "created" | "linked";
+}
+
+export function buildWorkspacePreparedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: WorkspacePreparedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "workspace.prepared",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Prepared workspace ${input.data.workspaceId} (${input.data.providerId}, generation ${input.data.generation}, ${input.data.outcome})`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface WorkspaceBindingCreatedEventData {
+  workspaceId: string;
+  workUnitId: string;
+  providerId: string;
+}
+
+export function buildWorkspaceBindingCreatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: WorkspaceBindingCreatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "workspace.binding_created",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Bound work unit ${input.data.workUnitId} to workspace ${input.data.workspaceId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface WorkspaceBindingReleasedEventData {
+  workspaceId: string;
+  workUnitId: string;
+  providerId: string;
+}
+
+export function buildWorkspaceBindingReleasedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: WorkspaceBindingReleasedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "workspace.binding_released",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Released work unit ${input.data.workUnitId}'s binding to workspace ${input.data.workspaceId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface WorkspaceReleasedEventData {
+  workspaceId: string;
+  providerId: string;
+}
+
+export function buildWorkspaceReleasedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: WorkspaceReleasedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "workspace.released",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Released workspace ${input.data.workspaceId} (${input.data.providerId})`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 /** Build the warning Issue for malformed runlog lines, or null if healthy. */
 export function runlogHealthWarning(health: RunlogHealth): Issue | null {
   if (health.malformedLines === 0) return null;
