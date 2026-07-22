@@ -6,6 +6,7 @@ import { ReviewAcknowledgmentStateSchema } from "./review-acknowledgment.schema.
 import { IssueStateSchema } from "./issue-state.schema.js";
 import { CheckpointAmendmentSchema } from "./checkpoint-amendment.schema.js";
 import { EvidenceStateSchema } from "./evidence.schema.js";
+import { WorkspaceStateSchema } from "./managed-workspace.schema.js";
 
 export const ProjectStatusSchema = z.enum([
   "draft",
@@ -35,5 +36,7 @@ export const StateModelSchema = z.object({
   checkpointAmendments: z.array(CheckpointAmendmentSchema).optional(),
   /** M22-WU02: optional, additive. Missing entirely on pre-M22 state files. */
   evidence: EvidenceStateSchema.optional(),
+  /** M25 §5: optional, additive. Missing entirely on pre-M25 state files. */
+  workspace: WorkspaceStateSchema.optional(),
 });
 export type StateModel = z.infer<typeof StateModelSchema>;
