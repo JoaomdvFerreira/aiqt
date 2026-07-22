@@ -21,7 +21,12 @@ function sanitizeToken(raw: string): string {
 export function deriveBranchName(projectId: string, workUnitId: string, workspaceInstanceIdentity: string): string {
   const projectToken = sanitizeToken(projectId);
   const workUnitToken = sanitizeToken(workUnitId);
-  const hash = workspaceInstanceIdentity.slice(0, 12);
+  // `workspaceInstanceIdentity` comes from `sha256Hex` (shared hash.ts),
+  // which prefixes every digest with "sha256:" for the packet contract --
+  // strip it here so the branch suffix is pure hex, never a colon Git's
+  // ref-format would reject.
+  const hexDigest = workspaceInstanceIdentity.replace(/^sha256:/, "");
+  const hash = hexDigest.slice(0, 12);
   const prefix = "aiqt/";
 
   let branch = `${prefix}${projectToken}/${workUnitToken}-${hash}`;

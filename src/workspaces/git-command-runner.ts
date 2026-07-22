@@ -105,6 +105,27 @@ export function gitWorktreeListPorcelain(cwd: string): string {
   return execGit(["worktree", "list", "--porcelain"], { cwd }).stdout;
 }
 
+export interface GitWorktreeListEntry {
+  path: string;
+  branch: string | null;
+}
+
+/** Parses `git worktree list --porcelain` output into structured entries (one per blank-line-delimited block). */
+export function parseGitWorktreeListPorcelain(output: string): GitWorktreeListEntry[] {
+  const entries: GitWorktreeListEntry[] = [];
+  let current: GitWorktreeListEntry | null = null;
+  for (const line of output.split("\n")) {
+    if (line.startsWith("worktree ")) {
+      if (current) entries.push(current);
+      current = { path: line.slice("worktree ".length).trim(), branch: null };
+    } else if (line.startsWith("branch ") && current) {
+      current.branch = line.slice("branch ".length).trim().replace(/^refs\/heads\//, "");
+    }
+  }
+  if (current) entries.push(current);
+  return entries;
+}
+
 export function gitCurrentBranch(cwd: string): string {
   return execGit(["branch", "--show-current"], { cwd }).stdout.trim();
 }
