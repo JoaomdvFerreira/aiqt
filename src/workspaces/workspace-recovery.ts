@@ -8,6 +8,7 @@ import { getPendingWorkspaceOperations } from "../services/workspace-state-servi
 import { inspectIsolatedWorkspace, type IsolatedWorkspaceInspection } from "./workspace-inspection.js";
 import { acquireWorkspaceOperationLock, WorkspaceOperationLockError } from "./workspace-operation-lock.js";
 import { buildPrepareFinalizeCandidate, buildReleaseFinalizeCandidate } from "./git-worktree-provider.js";
+import { gitWorktreeRemove, GitRunnerError } from "./git-command-runner.js";
 import {
   buildWorkspaceRecoveryCompletedEvent,
   buildWorkspaceRecoveryBlockedEvent,
@@ -306,11 +307,63 @@ function recoverOnePendingOperation(input: {
   }
 
   if (decision.kind === "retry_release_only_with_apply") {
-    // Retrying the actual `git worktree remove` belongs to
-    // releaseIsolatedWorkspace (workspace-service.ts); recovery only
-    // reports that a clean, exactly-managed retry is safe -- it does not
-    // duplicate the removal side effect here.
-    return { report };
+    // The workspace is confirmed present, registered, branch-matched,
+    // clean, and conflict-free -- safe to retry the exact same
+    // `worktree remove` the interrupted release was attempting.
+    try {
+      gitWorktreeRemove(input.implementationRoot, pending.expectedWorkspacePath);
+    } catch (err) {
+      const message = err instanceof GitRunnerError ? err.message : "Git worktree removal failed.";
+      const blockedReport: RecoveryItemReport = { ...report, reason: `Retry failed: ${message}` };
+      appendRunlogEvent(
+        input.paths.runlogFile,
+        buildWorkspaceRecoveryBlockedEvent({
+          id: input.nextEventId(),
+          timestamp: input.timestamp,
+          relatedIds: [pending.workspaceId],
+          data: { pendingOperationId: pending.id, workspaceId: pending.workspaceId, operationType: "release", action: "blocked_manual_recovery" },
+        }),
+      );
+      return { report: blockedReport };
+    }
+
+    const postRetryInspection = inspectIsolatedWorkspace({
+      implementationRoot: input.implementationRoot,
+      workspacePath: pending.expectedWorkspacePath,
+      expectedBranch: expectedBranch,
+    });
+    if (postRetryInspection.exists || postRetryInspection.registered) {
+      // §14.3: still cannot be verified as removed -- preserve the
+      // pending operation, do not guess.
+      return { report };
+    }
+
+    const finalized = buildReleaseFinalizeCandidate({
+      state: input.state,
+      pending,
+      timestamp: input.timestamp,
+      nextEventId: input.nextEventId,
+    });
+    const nextState: StateModel = {
+      ...input.state,
+      workspace: {
+        managedWorkspaces: finalized.managedWorkspaces,
+        workspaceBindings: finalized.workspaceBindings,
+        pendingWorkspaceOperations: finalized.pendingWorkspaceOperations,
+      },
+    };
+    writeStateModel(input.paths.stateFile, nextState);
+    for (const event of finalized.runlogEvents) appendRunlogEvent(input.paths.runlogFile, event);
+    appendRunlogEvent(
+      input.paths.runlogFile,
+      buildWorkspaceRecoveryCompletedEvent({
+        id: input.nextEventId(),
+        timestamp: input.timestamp,
+        relatedIds: [pending.workspaceId],
+        data: { pendingOperationId: pending.id, workspaceId: pending.workspaceId, operationType: "release", action: decision.kind },
+      }),
+    );
+    return { report: { ...report, applied: true }, nextState };
   }
 
   appendRunlogEvent(

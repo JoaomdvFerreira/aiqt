@@ -178,6 +178,81 @@ describe("releaseIsolatedWorkspace / recoverWorkspaceOperations (M25-WU05, real 
     expect(second.outcome).toBe("no_op");
   });
 
+  it("recovers an interrupted release (pending survives, worktree still clean and present) via --apply, actually retrying the removal", () => {
+    const prepared = prepare("WU001", "wu-1");
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    commitAiqtState("aiqt state after prepare");
+
+    const workspacePath = prepared.workspace!.workspacePath;
+    const branchName = prepared.workspace!.branchName!;
+    expect(existsSync(workspacePath)).toBe(true);
+
+    // Simulate an interruption between §14.2 step 2 (pending release
+    // persisted) and step 3 (the `git worktree remove` side effect) --
+    // the worktree is still fully intact, clean, and exactly managed.
+    const paths = resolveAiqtPaths(implRoot);
+    const stateBeforePending = readStateModel(paths.stateFile);
+    const interruptedReleasePending = {
+      id: "pending-release-interrupted-1",
+      type: "release" as const,
+      workUnitId: "WU001",
+      workspaceId: prepared.workspace!.id,
+      workspaceSeriesKey: prepared.workspace!.workspaceSeriesKey,
+      generation: prepared.workspace!.generation,
+      providerId: "git-worktree@1" as const,
+      expectedWorkspacePath: workspacePath,
+      expectedBranchName: branchName,
+      baseCommit: prepared.workspace!.baseCommit,
+      createdAt: T2,
+    };
+    const stateWithPending = {
+      ...stateBeforePending,
+      workspace: {
+        managedWorkspaces: stateBeforePending.workspace!.managedWorkspaces,
+        workspaceBindings: stateBeforePending.workspace!.workspaceBindings,
+        pendingWorkspaceOperations: [interruptedReleasePending],
+      },
+    };
+    writeStateModel(paths.stateFile, stateWithPending);
+
+    const preview = recoverWorkspaceOperations({
+      paths,
+      state: readStateModel(paths.stateFile),
+      implementationRoot: implRoot,
+      timestamp: T2,
+      apply: false,
+    });
+    expect(preview.ok).toBe(true);
+    if (!preview.ok) return;
+    expect(preview.items[0]!.action).toBe("retry_release_only_with_apply");
+    expect(preview.items[0]!.applied).toBe(false);
+    // Preview must not mutate -- the worktree still exists.
+    expect(existsSync(workspacePath)).toBe(true);
+
+    const apply = recoverWorkspaceOperations({
+      paths,
+      state: readStateModel(paths.stateFile),
+      implementationRoot: implRoot,
+      timestamp: T2,
+      apply: true,
+    });
+    expect(apply.ok).toBe(true);
+    if (!apply.ok) return;
+    expect(apply.items[0]!.action).toBe("retry_release_only_with_apply");
+    expect(apply.items[0]!.applied).toBe(true);
+    expect(existsSync(workspacePath)).toBe(false);
+
+    const finalState = readStateModel(paths.stateFile);
+    expect(finalState.workspace!.pendingWorkspaceOperations).toEqual([]);
+    const releasedWorkspace = finalState.workspace!.managedWorkspaces.find((w) => w.id === prepared.workspace!.id)!;
+    expect(releasedWorkspace.lifecycleStatus).toBe("released");
+
+    // Branch survives the recovered release.
+    const branches = execFileSync("git", ["branch", "--list", branchName], { cwd: implRoot, encoding: "utf8" });
+    expect(branches).toContain(branchName.split("/").pop());
+  });
+
   it("recovers an interrupted prepare (pending survives, worktree exists) via --apply, finalizing the workspace", () => {
     const prepared = prepare("WU001", "wu-1");
     expect(prepared.ok).toBe(true);
