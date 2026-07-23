@@ -30,7 +30,8 @@ export type WorkflowAction =
   | "dependency"
   | "graph"
   | "evidence"
-  | "workspace";
+  | "workspace"
+  | "execution";
 
 export interface CommandResult<TData = unknown> {
   status: CommandStatus;

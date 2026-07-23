@@ -17,8 +17,12 @@ export const MAX_STATUS_TRANSITIONS_PER_SESSION = 100;
 export const MAX_EVENT_RECEIPTS_PER_SESSION = 500;
 export const MAX_SERIALIZED_SESSION_BYTES = 262144;
 export const MAX_EVENTS_PER_ENVELOPE = 100;
-export const MAX_INPUT_BYTES = 1048576;
-export const MAX_INPUT_JSON_DEPTH = 20;
+/**
+ * M26 §7's input.max_bytes/max_json_depth are numerically identical to
+ * M23's existing EXTERNAL_INPUT_MAX_PAYLOAD_BYTES/
+ * EXTERNAL_INPUT_MAX_JSON_NESTING_DEPTH (schema/external-evidence/limits.ts)
+ * -- reused directly at the CLI input boundary rather than redefined here.
+ */
 
 export const MAX_BOUNDED_KEY_CHARS = 200;
 export const MAX_BOUNDED_TEXT_CHARS = 2000;

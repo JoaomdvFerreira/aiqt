@@ -1088,6 +1088,239 @@ export function buildWorkspaceRecoveryBlockedEvent(input: {
   };
 }
 
+/**
+ * M26 §17/§4.3: bounded execution-session event payloads. Never raw
+ * provider payload, prompts, transcripts, logs, diffs, or source -- only
+ * IDs, provider identity, and bounded facts already present on the
+ * canonical ExecutionSession record.
+ */
+export interface ExecutionSessionOpenedEventData {
+  sessionId: string;
+  providerId: string;
+  workUnitId: string;
+  packetId: string;
+  outcome: "created" | "no_op";
+}
+
+export function buildExecutionSessionOpenedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExecutionSessionOpenedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "execution.session_opened",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Opened execution session ${input.data.sessionId} (${input.data.providerId}) for work unit ${input.data.workUnitId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExecutionSessionStatusChangedEventData {
+  sessionId: string;
+  fromStatus: string;
+  toStatus: string;
+  reason: string;
+}
+
+export function buildExecutionSessionStatusChangedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExecutionSessionStatusChangedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "execution.session_status_changed",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Execution session ${input.data.sessionId}: ${input.data.fromStatus} -> ${input.data.toStatus}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExecutionSessionBudgetUpdatedEventData {
+  sessionId: string;
+  budgetState: string;
+}
+
+export function buildExecutionSessionBudgetUpdatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExecutionSessionBudgetUpdatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "execution.session_budget_updated",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Execution session ${input.data.sessionId} budgets updated (state: ${input.data.budgetState})`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExecutionIterationStartedEventData {
+  sessionId: string;
+  iterationId: string;
+  sequence: number;
+}
+
+export function buildExecutionIterationStartedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExecutionIterationStartedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "execution.iteration_started",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Iteration ${input.data.iterationId} (#${input.data.sequence}) started for session ${input.data.sessionId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExecutionIterationFinishedEventData {
+  sessionId: string;
+  iterationId: string;
+  status: string;
+}
+
+export function buildExecutionIterationFinishedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExecutionIterationFinishedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "execution.iteration_finished",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Iteration ${input.data.iterationId} finished (${input.data.status}) for session ${input.data.sessionId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExecutionDecisionRequestedEventData {
+  sessionId: string;
+  decisionId: string;
+}
+
+export function buildExecutionDecisionRequestedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExecutionDecisionRequestedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "execution.decision_requested",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Decision ${input.data.decisionId} requested for session ${input.data.sessionId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExecutionDecisionResolvedEventData {
+  sessionId: string;
+  decisionId: string;
+}
+
+export function buildExecutionDecisionResolvedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExecutionDecisionResolvedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "execution.decision_resolved",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Decision ${input.data.decisionId} resolved for session ${input.data.sessionId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExecutionRollbackReportedEventData {
+  sessionId: string;
+  rollbackId: string;
+}
+
+export function buildExecutionRollbackReportedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExecutionRollbackReportedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "execution.rollback_reported",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Unverified rollback ${input.data.rollbackId} reported for session ${input.data.sessionId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExecutionSessionSummaryUpdatedEventData {
+  sessionId: string;
+}
+
+export function buildExecutionSessionSummaryUpdatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExecutionSessionSummaryUpdatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "execution.session_summary_updated",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Learning summary updated for session ${input.data.sessionId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExecutionSessionReferencesAddedEventData {
+  sessionId: string;
+  commitRefCount: number;
+  evidenceRefCount: number;
+}
+
+export function buildExecutionSessionReferencesAddedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExecutionSessionReferencesAddedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "execution.session_references_added",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Added ${input.data.commitRefCount} commit ref(s) and ${input.data.evidenceRefCount} evidence ref(s) to session ${input.data.sessionId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 /** Build the warning Issue for malformed runlog lines, or null if healthy. */
 export function runlogHealthWarning(health: RunlogHealth): Issue | null {
   if (health.malformedLines === 0) return null;

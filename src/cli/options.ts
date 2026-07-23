@@ -198,3 +198,12 @@ export interface RawWorkspaceRecoverOptions {
   json?: boolean;
   apply?: boolean;
 }
+
+export interface RawExecutionImportOptions {
+  json?: boolean;
+  fromFile?: string;
+  stdin?: boolean;
+  preview?: boolean;
+  asOf?: string;
+  example?: boolean;
+}

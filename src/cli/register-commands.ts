@@ -29,6 +29,7 @@ import {
   type RawWorkspaceStatusOptions,
   type RawWorkspaceReleaseOptions,
   type RawWorkspaceRecoverOptions,
+  type RawExecutionImportOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -73,6 +74,8 @@ import {
   runWorkspaceRelease,
   runWorkspaceRecover,
 } from "./commands/workspace.command.js";
+import { runExecutionImport } from "./commands/execution-import.command.js";
+import { EXAMPLE_EXECUTION_ENVELOPE } from "./commands/execution-import-example.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -736,6 +739,35 @@ export function buildProgram(): Command {
     .action((raw: RawWorkspaceRecoverOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runWorkspaceRecover(ctx, { apply: Boolean(raw.apply) });
+      emit(result, ctx.json);
+    });
+
+  const executionCommand = program
+    .command("execution")
+    .description("Long-running execution session protocol (M26): import provider-reported events, inspect status");
+
+  executionCommand
+    .command("import")
+    .description("Import a bounded execution-protocol event envelope from a file or stdin")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "path to the execution-protocol envelope JSON file")
+    .option("--stdin", "read the execution-protocol envelope JSON from standard input", false)
+    .option("--preview", "validate and report the import plan without persisting", false)
+    .option("--as-of <timestamp>", "ISO timestamp used as the effective current time for all time-dependent validation")
+    .option("--example", "print a sample execution-protocol envelope JSON and exit", false)
+    .action(async (raw: RawExecutionImportOptions) => {
+      if (raw.example) {
+        process.stdout.write(JSON.stringify(EXAMPLE_EXECUTION_ENVELOPE, null, 2) + "\n");
+        process.exitCode = ExitCode.Success;
+        return;
+      }
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runExecutionImport(ctx, {
+        fromFile: raw.fromFile,
+        stdin: Boolean(raw.stdin),
+        preview: Boolean(raw.preview),
+        asOf: raw.asOf,
+      });
       emit(result, ctx.json);
     });
 
