@@ -70,24 +70,37 @@ export function runExecutionStale(ctx: CommandContext, options: RunExecutionStal
   const finalState: StateModel = { ...state, executionSessions: updatedSessions };
   writeStateModel(paths.stateFile, finalState);
 
-  const existingIds = readRunlogEventIds(paths.runlogFile);
-  const allocated = [...existingIds];
-  const nextEventId = () => {
-    const id = nextId("EVT", allocated);
-    allocated.push(id);
-    return id;
-  };
-  for (const sessionId of transitionedSessionIds) {
-    const session = updatedSessions.find((s) => s.id === sessionId)!;
-    const lastTransition = session.statusTransitions[session.statusTransitions.length - 1]!;
-    appendRunlogEvent(
-      paths.runlogFile,
-      buildExecutionSessionStatusChangedEvent({
-        id: nextEventId(),
-        timestamp: effectiveNow,
-        relatedIds: [sessionId, session.workUnitId],
-        data: { sessionId, fromStatus: lastTransition.fromStatus, toStatus: "stale", reason: "stale_timeout" },
-      }),
+  // M26-R12: state is already authoritative at this point -- a failure
+  // appending the runlog must not be allowed to crash uncaught (which
+  // would skip clean CommandResult output); it returns exit 3 with state
+  // remaining authoritative, and a retry is idempotent (findStaleEligibleSessions
+  // will find nothing left eligible once these sessions are already stale).
+  try {
+    const existingIds = readRunlogEventIds(paths.runlogFile);
+    const allocated = [...existingIds];
+    const nextEventId = () => {
+      const id = nextId("EVT", allocated);
+      allocated.push(id);
+      return id;
+    };
+    for (const sessionId of transitionedSessionIds) {
+      const session = updatedSessions.find((s) => s.id === sessionId)!;
+      const lastTransition = session.statusTransitions[session.statusTransitions.length - 1]!;
+      appendRunlogEvent(
+        paths.runlogFile,
+        buildExecutionSessionStatusChangedEvent({
+          id: nextEventId(),
+          timestamp: effectiveNow,
+          relatedIds: [sessionId, session.workUnitId],
+          data: { sessionId, fromStatus: lastTransition.fromStatus, toStatus: "stale", reason: "stale_timeout" },
+        }),
+      );
+    }
+  } catch (err) {
+    return failure(
+      `State was written successfully but the runlog append failed: ${(err as Error).message}. State remains authoritative; retrying is safe.`,
+      ExitCode.InvalidInput,
+      "EXECUTION-STALE-RUNLOG-APPEND-FAILED",
     );
   }
 
