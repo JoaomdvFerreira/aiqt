@@ -30,6 +30,7 @@ import {
   type RawWorkspaceReleaseOptions,
   type RawWorkspaceRecoverOptions,
   type RawExecutionImportOptions,
+  type RawExecutionStaleOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -76,6 +77,7 @@ import {
 } from "./commands/workspace.command.js";
 import { runExecutionImport } from "./commands/execution-import.command.js";
 import { EXAMPLE_EXECUTION_ENVELOPE } from "./commands/execution-import-example.js";
+import { runExecutionStale } from "./commands/execution-stale.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -768,6 +770,19 @@ export function buildProgram(): Command {
         preview: Boolean(raw.preview),
         asOf: raw.asOf,
       });
+      emit(result, ctx.json);
+    });
+
+  executionCommand
+    .command("stale")
+    .description("Preview or apply stale-session detection (default: preview; --apply transitions eligible sessions to stale)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--preview", "explicitly request preview mode (the default)", false)
+    .option("--apply", "transition every currently stale-eligible session", false)
+    .option("--as-of <timestamp>", "ISO timestamp used as the effective current time for stale-eligibility evaluation")
+    .action((raw: RawExecutionStaleOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runExecutionStale(ctx, { apply: Boolean(raw.apply), asOf: raw.asOf });
       emit(result, ctx.json);
     });
 

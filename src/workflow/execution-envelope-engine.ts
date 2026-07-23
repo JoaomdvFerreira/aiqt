@@ -186,9 +186,23 @@ function buildNewSession(event: Extract<ExecutionProtocolEvent, { type: "session
   return { ok: true, session, changed: true, focusId: session.id };
 }
 
+/**
+ * M26 §3.4/§3.5: a bounded, derived description of what is currently
+ * blocking new iteration starts (and, transitively, checkpoint via
+ * WU26-04's integration) -- recomputed from canonical decisions/budget
+ * state on every mutation, never stored as independent truth.
+ */
+function recomputeStopCondition(session: ExecutionSession): string | undefined {
+  if (session.decisions.some((d) => d.status === "open")) return "open_decision";
+  if (session.budgetState === "exceeded") return "budget_exceeded";
+  if (session.budgetState === "reached") return "budget_reached";
+  return undefined;
+}
+
 function withReceipt(session: ExecutionSession, event: ExecutionProtocolEvent, effectiveNow: string): ExecutionSession {
   return {
     ...session,
+    stopCondition: recomputeStopCondition(session),
     eventReceipts: [...session.eventReceipts, { eventId: event.eventId, digest: computeEventDigest(event), appliedAt: effectiveNow }],
     updatedAt: effectiveNow,
     lastActivityAt: effectiveNow,
@@ -245,8 +259,19 @@ function applyEventToExistingSession(
       return { ok: true, session: withReceipt(updated, event, ctx.effectiveNow), changed: true };
     }
     case "iteration.started": {
+      // M26 §3.4/§3.5/§6: these are all "valid but currently blocked"
+      // conditions (exit 2), not structural invalidity -- once the
+      // running iteration finishes, the decision resolves, or the
+      // budget is revised, a new iteration.started becomes acceptable
+      // again.
       if (session.iterations.some((i) => i.status === "running")) {
-        return { ok: false, category: "invalid", error: "At most one iteration may be running per session." };
+        return { ok: false, category: "blocked", error: "At most one iteration may be running per session." };
+      }
+      if (session.decisions.some((d) => d.status === "open")) {
+        return { ok: false, category: "blocked", error: "An open decision blocks new iterations." };
+      }
+      if (session.budgetState === "reached" || session.budgetState === "exceeded") {
+        return { ok: false, category: "blocked", error: `Budget stop condition (${session.budgetState}) blocks new iterations.` };
       }
       const iteration: ExecutionIteration = {
         id: ctx.allocateIterationId(),
@@ -306,7 +331,21 @@ function applyEventToExistingSession(
         options: event.options ?? [],
         requestedAt: event.at,
       };
-      const updated: ExecutionSession = { ...session, decisions: [...session.decisions, decision] };
+      // M26 §3.4: an open decision places a non-terminal session in
+      // blocked -- only when that transition is actually reachable from
+      // the current status (running/paused/stale -> blocked are all
+      // allowed; "planned" has no path to blocked in the §4.1 table, so
+      // the decision is still recorded but the status is left alone;
+      // resolving a decision never auto-resumes the session).
+      const canAutoBlock = session.status !== "blocked" && isValidSessionStatusTransition(session.status, "blocked");
+      const updated: ExecutionSession = {
+        ...session,
+        decisions: [...session.decisions, decision],
+        status: canAutoBlock ? "blocked" : session.status,
+        statusTransitions: canAutoBlock
+          ? [...session.statusTransitions, { fromStatus: session.status, toStatus: "blocked" as const, reason: "open decision requested", at: ctx.effectiveNow }]
+          : session.statusTransitions,
+      };
       return { ok: true, session: withReceipt(updated, event, ctx.effectiveNow), changed: true, focusId: decision.id };
     }
     case "decision.resolved": {

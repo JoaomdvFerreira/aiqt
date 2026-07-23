@@ -207,6 +207,56 @@ describe("applyExecutionProtocolEnvelope: iterations and decisions (M26 §3.4)",
     const result = applyExecutionProtocolEnvelope({ sessions, envelope: env, effectiveNow: T1, openContext: openContext(), evidenceExists: noEvidence });
     expect(result.ok).toBe(false);
   });
+
+  it("an open decision auto-transitions a running session to blocked, sets stopCondition, and blocks new iterations (exit-2-shaped)", () => {
+    const sessions = openedSessions();
+    const running = applyExecutionProtocolEnvelope({
+      sessions,
+      envelope: envelope([{ type: "session.status_changed", eventId: "E2", at: T1, toStatus: "running", reason: "start" }]),
+      effectiveNow: T1,
+      openContext: openContext(),
+      evidenceExists: noEvidence,
+    });
+    if (!running.ok) throw new Error("expected ok");
+    const requested = applyExecutionProtocolEnvelope({
+      sessions: running.sessions,
+      envelope: envelope([{ type: "decision.requested", eventId: "E3", at: T1, providerDecisionKey: "dec-1", title: "t", question: "q" }]),
+      effectiveNow: T1,
+      openContext: openContext(),
+      evidenceExists: noEvidence,
+    });
+    if (!requested.ok) throw new Error("expected ok");
+    expect(requested.sessions[0]!.status).toBe("blocked");
+    expect(requested.sessions[0]!.stopCondition).toBe("open_decision");
+
+    const blockedStart = applyExecutionProtocolEnvelope({
+      sessions: requested.sessions,
+      envelope: envelope([{ type: "iteration.started", eventId: "E4", at: T1, providerIterationKey: "iter-1" }]),
+      effectiveNow: T1,
+      openContext: openContext(),
+      evidenceExists: noEvidence,
+    });
+    expect(blockedStart.ok).toBe(false);
+    if (blockedStart.ok) return;
+    expect(blockedStart.category).toBe("blocked");
+  });
+
+  it("resolving a decision does not auto-resume the session", () => {
+    const sessions = openedSessions();
+    const running = applyExecutionProtocolEnvelope({
+      sessions,
+      envelope: envelope([
+        { type: "session.status_changed", eventId: "E2", at: T1, toStatus: "running", reason: "start" },
+        { type: "decision.requested", eventId: "E3", at: T1, providerDecisionKey: "dec-1", title: "t", question: "q" },
+        { type: "decision.resolved", eventId: "E4", at: T1, providerDecisionKey: "dec-1" },
+      ]),
+      effectiveNow: T1,
+      openContext: openContext(),
+      evidenceExists: noEvidence,
+    });
+    if (!running.ok) throw new Error("expected ok");
+    expect(running.sessions[0]!.status).toBe("blocked");
+  });
 });
 
 describe("applyExecutionProtocolEnvelope: status transitions, completion gate (M26 §4.1)", () => {
@@ -247,7 +297,7 @@ describe("applyExecutionProtocolEnvelope: status transitions, completion gate (M
     expect(result.ok).toBe(false);
   });
 
-  it("allows completed once the running iteration is finished and decision resolved", () => {
+  it("allows completed once the running iteration is finished and decision resolved (after an explicit resume -- resolving a decision never auto-resumes the session)", () => {
     const sessions = openedSessions();
     const env = envelope([
       { type: "session.status_changed", eventId: "E2", at: T1, toStatus: "running", reason: "start" },
@@ -255,7 +305,12 @@ describe("applyExecutionProtocolEnvelope: status transitions, completion gate (M
       { type: "decision.requested", eventId: "E4", at: T1, providerDecisionKey: "dec-1", title: "t", question: "q" },
       { type: "iteration.finished", eventId: "E5", at: T1, providerIterationKey: "iter-1", status: "completed" },
       { type: "decision.resolved", eventId: "E6", at: T1, providerDecisionKey: "dec-1" },
-      { type: "session.status_changed", eventId: "E7", at: T1, toStatus: "completed", reason: "done" },
+      // decision.requested auto-blocked the session; resolving it does not
+      // auto-resume, so an explicit status_changed back to running is
+      // required before completed becomes reachable (blocked -> completed
+      // is not in the §4.1 table).
+      { type: "session.status_changed", eventId: "E7", at: T1, toStatus: "running", reason: "resume" },
+      { type: "session.status_changed", eventId: "E8", at: T1, toStatus: "completed", reason: "done" },
     ]);
     const result = applyExecutionProtocolEnvelope({ sessions, envelope: env, effectiveNow: T1, openContext: openContext(), evidenceExists: noEvidence });
     expect(result.ok).toBe(true);
@@ -340,7 +395,7 @@ describe("applyExecutionProtocolEnvelope: budgets (M26 §3.5)", () => {
     expect(opened.sessions[0]!.budgetState).toBe("within");
   });
 
-  it("recomputes budgetState to 'exceeded' once iterations exceed maxIterations", () => {
+  it("recomputes budgetState to 'reached' at exactly maxIterations, then blocks a further iteration.started (exit-2-shaped)", () => {
     const opened = applyExecutionProtocolEnvelope({
       sessions: [],
       envelope: envelope([{ type: "session.opened", eventId: "E1", at: T1, budgets: { maxIterations: 1 } }]),
@@ -360,18 +415,47 @@ describe("applyExecutionProtocolEnvelope: budgets (M26 §3.5)", () => {
       evidenceExists: noEvidence,
     });
     if (!run1.ok) throw new Error("expected ok");
+    expect(run1.sessions[0]!.budgetState).toBe("reached");
+    expect(run1.sessions[0]!.stopCondition).toBe("budget_reached");
+
+    // A budget-count-based ratio can reach exactly 1.0 but never exceed it
+    // one iteration at a time, since the very next start is blocked --
+    // this is exactly what §3.5's "reaching or exceeding a budget blocks
+    // further iteration starts" means in practice.
     const run2 = applyExecutionProtocolEnvelope({
       sessions: run1.sessions,
+      envelope: envelope([{ type: "iteration.started", eventId: "E4", at: T1, providerIterationKey: "iter-2" }]),
+      effectiveNow: T1,
+      openContext: openContext(),
+      evidenceExists: noEvidence,
+    });
+    expect(run2.ok).toBe(false);
+    if (run2.ok) return;
+    expect(run2.category).toBe("blocked");
+  });
+
+  it("recomputes budgetState to 'exceeded' when a single iteration's reported tokens exceed maxTokens", () => {
+    const opened = applyExecutionProtocolEnvelope({
+      sessions: [],
+      envelope: envelope([{ type: "session.opened", eventId: "E1", at: T1, budgets: { maxTokens: 100 } }]),
+      effectiveNow: T1,
+      openContext: openContext(),
+      evidenceExists: noEvidence,
+    });
+    if (!opened.ok) throw new Error("expected ok");
+    const run1 = applyExecutionProtocolEnvelope({
+      sessions: opened.sessions,
       envelope: envelope([
-        { type: "iteration.started", eventId: "E4", at: T1, providerIterationKey: "iter-2" },
-        { type: "iteration.finished", eventId: "E5", at: T1, providerIterationKey: "iter-2", status: "completed" },
+        { type: "iteration.started", eventId: "E2", at: T1, providerIterationKey: "iter-1" },
+        { type: "iteration.finished", eventId: "E3", at: T1, providerIterationKey: "iter-1", status: "completed", reportedTokens: 150 },
       ]),
       effectiveNow: T1,
       openContext: openContext(),
       evidenceExists: noEvidence,
     });
-    if (!run2.ok) throw new Error("expected ok");
-    expect(run2.sessions[0]!.budgetState).toBe("exceeded");
+    if (!run1.ok) throw new Error("expected ok");
+    expect(run1.sessions[0]!.budgetState).toBe("exceeded");
+    expect(run1.sessions[0]!.stopCondition).toBe("budget_exceeded");
   });
 
   it("reports 'not_configured' when no budgets are set", () => {

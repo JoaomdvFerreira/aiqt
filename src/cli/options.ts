@@ -207,3 +207,10 @@ export interface RawExecutionImportOptions {
   asOf?: string;
   example?: boolean;
 }
+
+export interface RawExecutionStaleOptions {
+  json?: boolean;
+  preview?: boolean;
+  apply?: boolean;
+  asOf?: string;
+}
