@@ -7,6 +7,7 @@ import { IssueStateSchema } from "./issue-state.schema.js";
 import { CheckpointAmendmentSchema } from "./checkpoint-amendment.schema.js";
 import { EvidenceStateSchema } from "./evidence.schema.js";
 import { WorkspaceStateSchema } from "./managed-workspace.schema.js";
+import { ExecutionSessionSchema, MAX_SESSIONS } from "./execution-session.schema.js";
 
 export const ProjectStatusSchema = z.enum([
   "draft",
@@ -38,5 +39,7 @@ export const StateModelSchema = z.object({
   evidence: EvidenceStateSchema.optional(),
   /** M25 §5: optional, additive. Missing entirely on pre-M25 state files. */
   workspace: WorkspaceStateSchema.optional(),
+  /** M26 §3: optional, additive. Missing entirely on pre-M26 state files; never materialized by a read-only command. */
+  executionSessions: z.array(ExecutionSessionSchema).max(MAX_SESSIONS).optional(),
 });
 export type StateModel = z.infer<typeof StateModelSchema>;
