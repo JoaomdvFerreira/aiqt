@@ -9,6 +9,7 @@ import { writeStateModel } from "../state/workflow-state-store.js";
 import { appendRunlogEvent, readRunlogEventIds } from "../state/runlog-store.js";
 import { nextId } from "../state/ids.js";
 import { getManagedWorkspaces, getWorkspaceBindings, getPendingWorkspaceOperations } from "../services/workspace-state-service.js";
+import { getExecutionSessions, findNonTerminalSessionReferencingWorkspace } from "../services/execution-session-service.js";
 import {
   gitIsInsideWorkTree,
   gitDiffQuietIsClean,
@@ -328,6 +329,17 @@ export function releaseIsolatedWorkspace(params: ReleaseIsolatedWorkspaceParams)
     const { workspace } = plan.action;
     if (!workspace.branchName) {
       return { ok: false, category: "invalid", error: `Workspace ${workspace.id} has no recorded branch name.` };
+    }
+
+    // M26 §5.2: a non-terminal execution session referencing this
+    // managed workspace blocks release; terminal sessions do not.
+    const blockingSession = findNonTerminalSessionReferencingWorkspace(workspace.id, getExecutionSessions(params.state));
+    if (blockingSession) {
+      return {
+        ok: false,
+        category: "blocked",
+        error: `Execution session ${blockingSession.id} (status "${blockingSession.status}") still references workspace ${workspace.id}.`,
+      };
     }
 
     const preInspection = inspectIsolatedWorkspace({

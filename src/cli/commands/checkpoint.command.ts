@@ -29,6 +29,8 @@ import { applyCheckpoint } from "../../services/checkpoint-service.js";
 import { isPlanningContextReady } from "../../workflow/planning-readiness.js";
 import type { StateModel } from "../../schema/state.schema.js";
 import type { WorkUnit } from "../../schema/work-unit.schema.js";
+import { getExecutionSessions, findSessionsForPacket } from "../../services/execution-session-service.js";
+import { isTerminalSessionStatus } from "../../schema/execution-session.schema.js";
 
 function blockedOnState(
   state: StateModel,
@@ -215,6 +217,25 @@ export function runCheckpoint(
       );
     }
 
+    // M26 §5.1: a non-terminal execution session, an open decision, or a
+    // running iteration for the current packet all block checkpoint.
+    // Checkpoint may proceed once every session for the packet is
+    // terminal with no open decision (a running iteration is impossible
+    // on a terminal session, so checking terminality + open decisions
+    // covers both).
+    const packetSessions = findSessionsForPacket(state.lastAgentPacket.id, getExecutionSessions(state));
+    const blockingSession = packetSessions.find(
+      (s) => !isTerminalSessionStatus(s.status) || s.decisions.some((d) => d.status === "open"),
+    );
+    if (blockingSession) {
+      return blockedOnState(
+        state,
+        `Execution session ${blockingSession.id} for the current packet is not eligible for checkpoint (status "${blockingSession.status}", ${blockingSession.decisions.filter((d) => d.status === "open").length} open decision(s)).`,
+        "aiqt execution status",
+        "CHECKPOINT-EXECUTION-SESSION-BLOCKING",
+      );
+    }
+
     if (!options.fromFile && options.input === undefined) {
       return makeResult({
         status: "needs_input",
@@ -242,7 +263,14 @@ export function runCheckpoint(
       const timestamp = new Date().toISOString();
       const checkpointId = nextId("C", state.checkpoints.map((c) => c.id), "");
       result = {
-        applied: applyCheckpoint({ state, workUnit, input, checkpointId, timestamp }),
+        applied: applyCheckpoint({
+          state,
+          workUnit,
+          input,
+          checkpointId,
+          timestamp,
+          executionSessionIds: packetSessions.map((s) => s.id),
+        }),
         timestamp,
       };
     } catch (err) {

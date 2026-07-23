@@ -9,6 +9,8 @@ export const ReviewFindingCategorySchema = z.enum([
   "checkpoint",
   "quality",
   "export",
+  /** M26 §5.4: execution-session findings (broken references, stale/blocked sessions, budget stops, terminal-awaiting-checkpoint, unverified rollback advisories). */
+  "execution",
 ]);
 export type ReviewFindingCategory = z.infer<typeof ReviewFindingCategorySchema>;
 

@@ -40,6 +40,7 @@ import {
   buildSharedWorkspaceReleaseCandidate,
 } from "../../workspaces/shared-repository-provider.js";
 import { recoverWorkspaceOperations } from "../../workspaces/workspace-recovery.js";
+import { getExecutionSessions, findNonTerminalSessionReferencingWorkspace } from "../../services/execution-session-service.js";
 import type { ManagedWorkspace } from "../../schema/managed-workspace.schema.js";
 
 const PREPARE_PROHIBITED_STATUSES = new Set(["planned", "done", "replanned", "cancelled"]);
@@ -507,6 +508,19 @@ export function runWorkspaceRelease(ctx: CommandContext, options: RunWorkspaceRe
   const roots = resolveRoots({ controlRoot: ctx.cwd, existingRepositoryPath: project.project.existingRepositoryPath });
   const implementationRoot = roots.implementationRoot;
   const timestamp = new Date().toISOString();
+
+  // M26 §5.2: a non-terminal execution session referencing this managed
+  // workspace blocks release for either provider; terminal sessions do
+  // not. Checked once here so both the shared and isolated dispatch
+  // branches below are covered without preview/apply divergence.
+  const blockingSession = findNonTerminalSessionReferencingWorkspace(workspace.id, getExecutionSessions(state));
+  if (blockingSession && !options.preview) {
+    return failure(
+      `Execution session ${blockingSession.id} (status "${blockingSession.status}") still references workspace ${workspace.id}.`,
+      ExitCode.WorkflowBlocked,
+      "WORKSPACE-RELEASE-EXECUTION-SESSION-BLOCKING",
+    );
+  }
 
   if (workspace.providerId === "shared-repository@1") {
     const nextEventId = options.preview ? (() => "EVT-PREVIEW") : nextEventIdFactory(paths.runlogFile);

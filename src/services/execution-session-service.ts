@@ -42,3 +42,13 @@ export function findAnySessionForPacket(
 ): ExecutionSession[] {
   return sessions.filter((s) => s.packetId === packetId);
 }
+
+/** M26 §5.2: the exact query workspace release uses -- a non-terminal session referencing this managed workspace blocks release; terminal sessions do not. */
+export function findNonTerminalSessionReferencingWorkspace(
+  workspaceId: string,
+  sessions: readonly ExecutionSession[],
+): ExecutionSession | undefined {
+  return sessions.find(
+    (s) => s.workspaceRef.mode === "managed" && s.workspaceRef.workspaceId === workspaceId && !isTerminalSessionStatus(s.status),
+  );
+}

@@ -31,6 +31,7 @@ import {
   type RawWorkspaceRecoverOptions,
   type RawExecutionImportOptions,
   type RawExecutionStaleOptions,
+  type RawExecutionStatusOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -78,6 +79,7 @@ import {
 import { runExecutionImport } from "./commands/execution-import.command.js";
 import { EXAMPLE_EXECUTION_ENVELOPE } from "./commands/execution-import-example.js";
 import { runExecutionStale } from "./commands/execution-stale.command.js";
+import { runExecutionStatus } from "./commands/execution-status.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -783,6 +785,18 @@ export function buildProgram(): Command {
     .action((raw: RawExecutionStaleOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runExecutionStale(ctx, { apply: Boolean(raw.apply), asOf: raw.asOf });
+      emit(result, ctx.json);
+    });
+
+  executionCommand
+    .command("status")
+    .description("Read-only inspection of execution sessions, or one session/work-unit with --session/--work-unit")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--session <id>", "report only this execution session's full detail")
+    .option("--work-unit <id>", "report only this Work Unit's execution sessions")
+    .action((raw: RawExecutionStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runExecutionStatus(ctx, { sessionId: raw.session, workUnitId: raw.workUnit });
       emit(result, ctx.json);
     });
 

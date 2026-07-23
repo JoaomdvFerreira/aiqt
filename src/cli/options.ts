@@ -214,3 +214,9 @@ export interface RawExecutionStaleOptions {
   apply?: boolean;
   asOf?: string;
 }
+
+export interface RawExecutionStatusOptions {
+  json?: boolean;
+  session?: string;
+  workUnit?: string;
+}

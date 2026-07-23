@@ -21,6 +21,7 @@ import { applyWorkUnitCancelTransition } from "../../workflow/work-unit-cancel-t
 import { selectNextReadyWorkUnit } from "../../workflow/next-work-unit-selector.js";
 import type { StateModel, ProjectStatus } from "../../schema/state.schema.js";
 import type { WorkUnit } from "../../schema/work-unit.schema.js";
+import { getExecutionSessions, findAnySessionForPacket } from "../../services/execution-session-service.js";
 
 /**
  * Recompute projectStatus after cancelling the only in_progress work unit
@@ -146,6 +147,19 @@ export function runNextCancel(ctx: CommandContext): CommandResult {
         "A checkpoint already exists for the current packet. Cancellation is no longer safe.",
         "aiqt review",
         "NEXT-CANCEL-CHECKPOINT-EXISTS",
+      );
+    }
+
+    // M26 §5.3: any execution session for the current packet -- including
+    // fully terminal history -- blocks packet cancellation. Durable
+    // execution history must not be invalidated by cancelling the packet.
+    const packetSessions = findAnySessionForPacket(currentPacket.id, getExecutionSessions(state));
+    if (packetSessions.length > 0) {
+      return blocked(
+        state,
+        `${packetSessions.length} execution session(s) exist for the current packet. Cancellation would invalidate durable execution history.`,
+        "aiqt execution status",
+        "NEXT-CANCEL-EXECUTION-SESSION-EXISTS",
       );
     }
 

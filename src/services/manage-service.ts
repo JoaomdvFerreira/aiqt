@@ -11,6 +11,7 @@ import {
   reviewIssueKey,
 } from "./issue-service.js";
 import type { IssueOverrideStatus } from "../schema/issue-state.schema.js";
+import { buildExecutionManageSummary, type ExecutionManageSummary } from "../workflow/execution-manage-summary.js";
 
 /** M9 §7.1: missing state.review must be treated as an empty acknowledgment list. */
 export function getAcknowledgedFindings(state: StateModel): AcknowledgedFinding[] {
@@ -244,6 +245,8 @@ export interface ManageReport {
   userActionRequiredCount: number;
   externalVerificationGapCount: number;
   agentFixableIssueCount: number;
+  /** M26 §5.4: bounded execution-session facts, present only when sessions exist. */
+  execution: ExecutionManageSummary;
 }
 
 /**
@@ -327,5 +330,6 @@ export function buildManageReport(
     userActionRequiredCount: classification.userActionRequired.length,
     externalVerificationGapCount: classification.externalVerificationGaps.length,
     agentFixableIssueCount: classification.agentFixableIssues.length,
+    execution: buildExecutionManageSummary(state),
   };
 }

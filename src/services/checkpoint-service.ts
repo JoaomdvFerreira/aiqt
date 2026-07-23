@@ -36,8 +36,10 @@ export function applyCheckpoint(params: {
   input: CheckpointInput;
   checkpointId: string;
   timestamp: string;
+  /** M26 §5.1: advisory-only reference to this packet's (already-terminal, by precondition) execution sessions. Never rewrites session history. */
+  executionSessionIds?: string[];
 }): ApplyCheckpointResult {
-  const { state, workUnit, input, checkpointId, timestamp } = params;
+  const { state, workUnit, input, checkpointId, timestamp, executionSessionIds } = params;
 
   const finalStatus = deriveFinalWorkUnitStatus(input);
 
@@ -111,6 +113,7 @@ export function applyCheckpoint(params: {
     finalWorkUnitStatus: finalStatus,
     nextRecommendation: nextRecommendedCommand,
     createdAt: timestamp,
+    ...(executionSessionIds && executionSessionIds.length > 0 ? { executionSessionIds } : {}),
   };
 
   return {

@@ -82,5 +82,7 @@ export const CheckpointSchema = z.object({
   finalWorkUnitStatus: FinalWorkUnitStatusSchema,
   nextRecommendation: z.string(),
   createdAt: z.string(),
+  /** M26 §5.1: optional, additive. Advisory-only historical reference to this packet's execution sessions; checkpoint never rewrites session history. */
+  executionSessionIds: z.array(z.string()).optional(),
 });
 export type Checkpoint = z.infer<typeof CheckpointSchema>;
