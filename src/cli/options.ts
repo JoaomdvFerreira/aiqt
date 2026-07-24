@@ -220,3 +220,12 @@ export interface RawExecutionStatusOptions {
   session?: string;
   workUnit?: string;
 }
+
+export interface RawExecutionAdapterClaudeCodeRequestOptions {
+  json?: boolean;
+  resumeSession?: string;
+  preview?: boolean;
+  output?: string;
+  asOf?: string;
+  example?: boolean;
+}

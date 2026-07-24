@@ -32,6 +32,7 @@ import {
   type RawExecutionImportOptions,
   type RawExecutionStaleOptions,
   type RawExecutionStatusOptions,
+  type RawExecutionAdapterClaudeCodeRequestOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -80,6 +81,8 @@ import { runExecutionImport } from "./commands/execution-import.command.js";
 import { EXAMPLE_EXECUTION_ENVELOPE } from "./commands/execution-import-example.js";
 import { runExecutionStale } from "./commands/execution-stale.command.js";
 import { runExecutionStatus } from "./commands/execution-status.command.js";
+import { runExecutionAdapterClaudeCodeRequest } from "./commands/execution-adapter-claude-code-request.command.js";
+import { EXAMPLE_CLAUDE_CODE_REQUEST } from "./commands/execution-adapter-claude-code-example.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -798,6 +801,44 @@ export function buildProgram(): Command {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runExecutionStatus(ctx, { sessionId: raw.session, workUnitId: raw.workUnit });
       emit(result, ctx.json);
+    });
+
+  const adapterCommand = executionCommand
+    .command("adapter")
+    .description("Optional, data-only execution provider adapters (M27)");
+
+  const claudeCodeCommand = adapterCommand
+    .command("claude-code")
+    .description("Claude Code non-interactive stream-json adapter (claude-code-stream-json@1). AIQT never installs, authenticates, or executes Claude Code.");
+
+  claudeCodeCommand
+    .command("request")
+    .description("Generate a non-executed Claude Code request package for the current work unit's packet, or --resume-session an existing execution session")
+    .argument("<work-unit-id>", "the current work unit ID")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--resume-session <session-id>", "resume an existing non-terminal execution session instead of starting a new one")
+    .option("--preview", "validate and report the request plan without persisting", false)
+    .option("--output <path>", "also write the generated request package to this file")
+    .option("--as-of <timestamp>", "ISO timestamp used as the effective current time for all time-dependent validation")
+    .action(async (workUnitId: string, raw: RawExecutionAdapterClaudeCodeRequestOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runExecutionAdapterClaudeCodeRequest(ctx, {
+        workUnitId,
+        resumeSessionId: raw.resumeSession,
+        preview: Boolean(raw.preview),
+        output: raw.output,
+        asOf: raw.asOf,
+      });
+      emit(result, ctx.json);
+    });
+
+  claudeCodeCommand
+    .command("example")
+    .description("Print a sample Claude Code request package and exit")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action(() => {
+      process.stdout.write(JSON.stringify(EXAMPLE_CLAUDE_CODE_REQUEST, null, 2) + "\n");
+      process.exitCode = ExitCode.Success;
     });
 
   return program;

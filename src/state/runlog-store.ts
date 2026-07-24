@@ -1321,6 +1321,56 @@ export function buildExecutionSessionReferencesAddedEvent(input: {
   };
 }
 
+export interface ExecutionAdapterRequestCreatedEventData {
+  requestId: string;
+  executionSessionId: string;
+  workUnitId: string;
+  mode: string;
+  requestSequence: number;
+}
+
+/** M27 §3.1/§5.1: records creation of a Claude Code adapter request (start or resume). Never contains prompt/provider content. */
+export function buildExecutionAdapterRequestCreatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExecutionAdapterRequestCreatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "execution.adapter_request_created",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Created Claude Code adapter request ${input.data.requestId} (${input.data.mode}, sequence ${input.data.requestSequence}) for execution session ${input.data.executionSessionId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExecutionAdapterRequestImportedEventData {
+  requestId: string;
+  executionSessionId: string;
+  resultClass: string;
+}
+
+/** M27 §5.1: records a successful, atomic import of provider stream-json output for one adapter request. Never contains raw provider content. */
+export function buildExecutionAdapterRequestImportedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExecutionAdapterRequestImportedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "execution.adapter_request_imported",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Imported Claude Code adapter request ${input.data.requestId} for execution session ${input.data.executionSessionId} (result: ${input.data.resultClass})`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 /** Build the warning Issue for malformed runlog lines, or null if healthy. */
 export function runlogHealthWarning(health: RunlogHealth): Issue | null {
   if (health.malformedLines === 0) return null;

@@ -23,16 +23,15 @@ import { readStdinText, isStdinInteractiveTty, type StdinLike } from "../../core
 import { readExternalEvidenceFile } from "../../evidence/external-evidence-file-input.js";
 import { parseAndValidateExternalJson } from "../../schema/external-evidence/limits.js";
 import { ExecutionProtocolEnvelopeSchema, type ExecutionProtocolEvent } from "../../schema/execution-protocol-envelope.schema.js";
-import { deriveEffectiveExecutionMetadata } from "../../workflow/execution-metadata-defaults.js";
 import {
   getExecutionSessions,
   findNonTerminalSessionForPacket,
   findSessionsForWorkUnit,
 } from "../../services/execution-session-service.js";
-import { findActiveBindingForWorkUnit, findManagedWorkspaceById } from "../../services/workspace-state-service.js";
 import { findEvidenceRecordById, getEvidenceRecords } from "../../services/evidence-service.js";
 import { applyExecutionProtocolEnvelope, type SessionOpenContext, type AppliedEventRecord } from "../../workflow/execution-envelope-engine.js";
-import type { ExecutionWorkspaceRef, ExecutionSession } from "../../schema/execution-session.schema.js";
+import { resolveWorkspaceRef } from "../../workflow/execution-workspace-ref-resolver.js";
+import type { ExecutionSession } from "../../schema/execution-session.schema.js";
 import type { StateModel } from "../../schema/state.schema.js";
 import type { RunlogEvent } from "../../schema/runlog-event.schema.js";
 
@@ -60,36 +59,6 @@ function failure(summary: string, exitCode: number, issueId: string): CommandRes
 function isValidIsoTimestamp(value: string): boolean {
   const parsed = Date.parse(value);
   return !Number.isNaN(parsed) && new Date(parsed).toISOString() === value;
-}
-
-function resolveWorkspaceRef(state: StateModel, workUnitId: string | null): { ok: true; ref: ExecutionWorkspaceRef } | { ok: false; error: string } {
-  if (workUnitId === null) {
-    return { ok: false, error: "No current work unit." };
-  }
-  const workUnit = state.workGraph.workUnits.find((wu) => wu.id === workUnitId);
-  if (!workUnit) {
-    return { ok: false, error: `Work unit ${workUnitId} does not exist.` };
-  }
-  const effective = deriveEffectiveExecutionMetadata(workUnit);
-  const mode = effective.workspaceAssignment.mode;
-  if (mode === "none") {
-    return { ok: true, ref: { mode: "none" } };
-  }
-  if (mode === "unknown") {
-    return { ok: false, error: "Work unit has no resolved workspace-assignment mode (M24 execution metadata missing or invalid)." };
-  }
-  const binding = findActiveBindingForWorkUnit(workUnitId, state.workspace?.workspaceBindings ?? []);
-  if (!binding) {
-    return { ok: false, error: `No active managed workspace binding for work unit ${workUnitId}.` };
-  }
-  const workspace = findManagedWorkspaceById(binding.workspaceId, state.workspace?.managedWorkspaces ?? []);
-  if (!workspace || workspace.lifecycleStatus !== "ready") {
-    return { ok: false, error: `Managed workspace for work unit ${workUnitId} is not ready.` };
-  }
-  return {
-    ok: true,
-    ref: { mode: "managed", workspaceId: workspace.id, workspaceBindingId: binding.id, workspaceGeneration: workspace.generation },
-  };
 }
 
 function nextEventIdFactory(runlogFile: string): () => string {
