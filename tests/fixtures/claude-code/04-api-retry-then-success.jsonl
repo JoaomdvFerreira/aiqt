@@ -1,0 +1,5 @@
+{"type":"system","subtype":"init","session_id":"44444444-4444-4444-8444-444444444444","claude_code_version":"1.0.0","model":"claude-example-model","cwd":"/workspace/example"}
+{"type":"system","subtype":"api_retry","session_id":"44444444-4444-4444-8444-444444444444","category":"rate_limit"}
+{"type":"system","subtype":"api_retry","session_id":"44444444-4444-4444-8444-444444444444","category":"rate_limit"}
+{"type":"assistant","session_id":"44444444-4444-4444-8444-444444444444","message":{"role":"assistant","content":[{"type":"text","text":"Synthetic text after retry."}]}}
+{"type":"result","subtype":"success","session_id":"44444444-4444-4444-8444-444444444444","is_error":false,"duration_ms":30000,"num_turns":1,"usage":{"input_tokens":400,"output_tokens":250}}

@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","session_id":"77777777-7777-4777-8777-777777777777","claude_code_version":"1.0.0","model":"claude-example-model","cwd":"/workspace/example"}
+{"type":"assistant","session_id":"77777777-7777-4777-8777-777777777777","message":{"role":"assistant","content":[{"type":"text","text":"Synthetic text before truncation."}]}}

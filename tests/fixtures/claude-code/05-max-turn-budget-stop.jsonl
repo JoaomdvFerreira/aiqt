@@ -1,0 +1,3 @@
+{"type":"system","subtype":"init","session_id":"55555555-5555-4555-8555-555555555555","claude_code_version":"1.0.0","model":"claude-example-model","cwd":"/workspace/example"}
+{"type":"assistant","session_id":"55555555-5555-4555-8555-555555555555","message":{"role":"assistant","content":[{"type":"text","text":"Synthetic text near turn limit."}]}}
+{"type":"result","subtype":"error_max_turns","session_id":"55555555-5555-4555-8555-555555555555","is_error":true,"duration_ms":60000,"num_turns":50,"usage":{"input_tokens":9000,"output_tokens":6000}}

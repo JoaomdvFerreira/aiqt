@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","session_id":"66666666-6666-4666-8666-666666666666","claude_code_version":"1.0.0","model":"claude-example-model","cwd":"/workspace/example"}
+{"type":"result","subtype":"error_during_execution","session_id":"66666666-6666-4666-8666-666666666666","is_error":true,"error_category":"authentication","duration_ms":500,"num_turns":0}

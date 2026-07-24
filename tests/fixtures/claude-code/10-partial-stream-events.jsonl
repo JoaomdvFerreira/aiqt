@@ -1,0 +1,5 @@
+{"type":"system","subtype":"init","session_id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","claude_code_version":"1.0.0","model":"claude-example-model","cwd":"/workspace/example"}
+{"type":"stream_event","session_id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","event":{"type":"content_block_delta","index":0}}
+{"type":"stream_event","session_id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","event":{"type":"content_block_delta","index":0}}
+{"type":"assistant","session_id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","message":{"role":"assistant","content":[{"type":"text","text":"Synthetic text assembled from stream deltas."}]}}
+{"type":"result","subtype":"success","session_id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","is_error":false,"duration_ms":9000,"num_turns":1,"usage":{"input_tokens":300,"output_tokens":200}}

@@ -1,0 +1,4 @@
+{"type":"system","subtype":"init","session_id":"88888888-8888-4888-8888-888888888888","claude_code_version":"1.0.0","model":"claude-example-model","cwd":"/workspace/example"}
+{"type":"assistant","session_id":"88888888-8888-4888-8888-888888888888","message":{"role":"assistant","content":[{"type":"text","text":"Synthetic text, session A."}]}}
+{"type":"assistant","session_id":"99999999-9999-4999-8999-999999999999","message":{"role":"assistant","content":[{"type":"text","text":"Synthetic text, unexpected session B."}]}}
+{"type":"result","subtype":"success","session_id":"88888888-8888-4888-8888-888888888888","is_error":false,"duration_ms":5000,"num_turns":1,"usage":{"input_tokens":100,"output_tokens":80}}
