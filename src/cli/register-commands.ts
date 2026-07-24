@@ -33,6 +33,8 @@ import {
   type RawExecutionStaleOptions,
   type RawExecutionStatusOptions,
   type RawExecutionAdapterClaudeCodeRequestOptions,
+  type RawExecutionAdapterClaudeCodeImportOptions,
+  type RawExecutionAdapterClaudeCodeStatusOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -82,6 +84,8 @@ import { EXAMPLE_EXECUTION_ENVELOPE } from "./commands/execution-import-example.
 import { runExecutionStale } from "./commands/execution-stale.command.js";
 import { runExecutionStatus } from "./commands/execution-status.command.js";
 import { runExecutionAdapterClaudeCodeRequest } from "./commands/execution-adapter-claude-code-request.command.js";
+import { runExecutionAdapterClaudeCodeImport } from "./commands/execution-adapter-claude-code-import.command.js";
+import { runExecutionAdapterClaudeCodeStatus } from "./commands/execution-adapter-claude-code-status.command.js";
 import { EXAMPLE_CLAUDE_CODE_REQUEST } from "./commands/execution-adapter-claude-code-example.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
@@ -829,6 +833,38 @@ export function buildProgram(): Command {
         output: raw.output,
         asOf: raw.asOf,
       });
+      emit(result, ctx.json);
+    });
+
+  claudeCodeCommand
+    .command("import")
+    .description("Import bounded Claude Code stream-json output for a previously generated request, from a file or stdin")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--request <request-id>", "the adapter request ID this output belongs to")
+    .option("--from-file <path>", "path to the captured stream-json output file")
+    .option("--stdin", "read the stream-json output from standard input", false)
+    .option("--preview", "validate and report the import plan without persisting", false)
+    .option("--as-of <timestamp>", "ISO timestamp used as the effective current time for all time-dependent validation")
+    .action(async (raw: RawExecutionAdapterClaudeCodeImportOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runExecutionAdapterClaudeCodeImport(ctx, {
+        requestId: raw.request,
+        fromFile: raw.fromFile,
+        stdin: Boolean(raw.stdin),
+        preview: Boolean(raw.preview),
+        asOf: raw.asOf,
+      });
+      emit(result, ctx.json);
+    });
+
+  claudeCodeCommand
+    .command("status")
+    .description("Read-only inspection of Claude Code adapter requests, or one execution session's requests with --session")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--session <session-id>", "report only this execution session's adapter requests")
+    .action((raw: RawExecutionAdapterClaudeCodeStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runExecutionAdapterClaudeCodeStatus(ctx, { sessionId: raw.session });
       emit(result, ctx.json);
     });
 

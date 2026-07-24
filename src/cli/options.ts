@@ -229,3 +229,17 @@ export interface RawExecutionAdapterClaudeCodeRequestOptions {
   asOf?: string;
   example?: boolean;
 }
+
+export interface RawExecutionAdapterClaudeCodeImportOptions {
+  json?: boolean;
+  request?: string;
+  fromFile?: string;
+  stdin?: boolean;
+  preview?: boolean;
+  asOf?: string;
+}
+
+export interface RawExecutionAdapterClaudeCodeStatusOptions {
+  json?: boolean;
+  session?: string;
+}

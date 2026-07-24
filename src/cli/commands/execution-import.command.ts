@@ -4,36 +4,21 @@ import type { Issue } from "../../core/output/issue.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
 import { aiqtDirExists, loadProject } from "./load-project.js";
 import { writeStateModel } from "../../state/workflow-state-store.js";
-import {
-  appendRunlogEvent,
-  readRunlogEventIds,
-  buildExecutionSessionOpenedEvent,
-  buildExecutionSessionStatusChangedEvent,
-  buildExecutionSessionBudgetUpdatedEvent,
-  buildExecutionIterationStartedEvent,
-  buildExecutionIterationFinishedEvent,
-  buildExecutionDecisionRequestedEvent,
-  buildExecutionDecisionResolvedEvent,
-  buildExecutionRollbackReportedEvent,
-  buildExecutionSessionSummaryUpdatedEvent,
-  buildExecutionSessionReferencesAddedEvent,
-} from "../../state/runlog-store.js";
-import { nextId } from "../../state/ids.js";
+import { appendRunlogEvent } from "../../state/runlog-store.js";
 import { readStdinText, isStdinInteractiveTty, type StdinLike } from "../../core/filesystem/stdin.js";
 import { readExternalEvidenceFile } from "../../evidence/external-evidence-file-input.js";
 import { parseAndValidateExternalJson } from "../../schema/external-evidence/limits.js";
-import { ExecutionProtocolEnvelopeSchema, type ExecutionProtocolEvent } from "../../schema/execution-protocol-envelope.schema.js";
+import { ExecutionProtocolEnvelopeSchema } from "../../schema/execution-protocol-envelope.schema.js";
 import {
   getExecutionSessions,
   findNonTerminalSessionForPacket,
   findSessionsForWorkUnit,
 } from "../../services/execution-session-service.js";
 import { findEvidenceRecordById, getEvidenceRecords } from "../../services/evidence-service.js";
-import { applyExecutionProtocolEnvelope, type SessionOpenContext, type AppliedEventRecord } from "../../workflow/execution-envelope-engine.js";
+import { applyExecutionProtocolEnvelope, type SessionOpenContext } from "../../workflow/execution-envelope-engine.js";
 import { resolveWorkspaceRef } from "../../workflow/execution-workspace-ref-resolver.js";
-import type { ExecutionSession } from "../../schema/execution-session.schema.js";
+import { nextEventIdFactory, buildRunlogEventForApplied } from "../../workflow/execution-runlog-event-builder.js";
 import type { StateModel } from "../../schema/state.schema.js";
-import type { RunlogEvent } from "../../schema/runlog-event.schema.js";
 
 export interface RunExecutionImportOptions {
   fromFile?: string;
@@ -59,109 +44,6 @@ function failure(summary: string, exitCode: number, issueId: string): CommandRes
 function isValidIsoTimestamp(value: string): boolean {
   const parsed = Date.parse(value);
   return !Number.isNaN(parsed) && new Date(parsed).toISOString() === value;
-}
-
-function nextEventIdFactory(runlogFile: string): () => string {
-  const existingIds = readRunlogEventIds(runlogFile);
-  const allocated: string[] = [...existingIds];
-  return () => {
-    const id = nextId("EVT", allocated);
-    allocated.push(id);
-    return id;
-  };
-}
-
-function buildRunlogEventForApplied(
-  applied: AppliedEventRecord,
-  finalSession: ExecutionSession,
-  workUnitId: string,
-  nextEventId: () => string,
-  timestamp: string,
-): RunlogEvent | null {
-  const sessionId = finalSession.id;
-  const relatedIds = [sessionId, workUnitId];
-  const event = applied.event as ExecutionProtocolEvent;
-  switch (event.type) {
-    case "session.opened":
-      return buildExecutionSessionOpenedEvent({
-        id: nextEventId(),
-        timestamp,
-        relatedIds,
-        data: { sessionId, providerId: finalSession.provider.providerId, workUnitId, packetId: finalSession.packetId, outcome: "created" },
-      });
-    case "session.status_changed": {
-      const transition = [...finalSession.statusTransitions].reverse().find((t) => t.toStatus === event.toStatus && t.reason === event.reason);
-      return buildExecutionSessionStatusChangedEvent({
-        id: nextEventId(),
-        timestamp,
-        relatedIds,
-        data: { sessionId, fromStatus: transition?.fromStatus ?? "unknown", toStatus: event.toStatus, reason: event.reason },
-      });
-    }
-    case "session.budget_updated":
-      return buildExecutionSessionBudgetUpdatedEvent({
-        id: nextEventId(),
-        timestamp,
-        relatedIds,
-        data: { sessionId, budgetState: finalSession.budgetState },
-      });
-    case "iteration.started": {
-      const iteration = finalSession.iterations.find((i) => i.id === applied.focusId);
-      return buildExecutionIterationStartedEvent({
-        id: nextEventId(),
-        timestamp,
-        relatedIds,
-        data: { sessionId, iterationId: applied.focusId ?? "", sequence: iteration?.sequence ?? 0 },
-      });
-    }
-    case "iteration.finished":
-      return buildExecutionIterationFinishedEvent({
-        id: nextEventId(),
-        timestamp,
-        relatedIds,
-        data: { sessionId, iterationId: applied.focusId ?? "", status: event.status },
-      });
-    case "decision.requested":
-      return buildExecutionDecisionRequestedEvent({
-        id: nextEventId(),
-        timestamp,
-        relatedIds,
-        data: { sessionId, decisionId: applied.focusId ?? "" },
-      });
-    case "decision.resolved":
-      return buildExecutionDecisionResolvedEvent({
-        id: nextEventId(),
-        timestamp,
-        relatedIds,
-        data: { sessionId, decisionId: applied.focusId ?? "" },
-      });
-    case "rollback.reported":
-      return buildExecutionRollbackReportedEvent({
-        id: nextEventId(),
-        timestamp,
-        relatedIds,
-        data: { sessionId, rollbackId: applied.focusId ?? "" },
-      });
-    case "session.summary_updated":
-      return buildExecutionSessionSummaryUpdatedEvent({
-        id: nextEventId(),
-        timestamp,
-        relatedIds,
-        data: { sessionId },
-      });
-    case "session.references_added":
-      return buildExecutionSessionReferencesAddedEvent({
-        id: nextEventId(),
-        timestamp,
-        relatedIds,
-        data: {
-          sessionId,
-          commitRefCount: event.commitRefs?.length ?? 0,
-          evidenceRefCount: event.evidenceRefs?.length ?? 0,
-        },
-      });
-  }
-  return null;
 }
 
 /**

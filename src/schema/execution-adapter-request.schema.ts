@@ -57,6 +57,8 @@ export const ExecutionAdapterRequestSchema = z
     createdAt: z.string(),
     expiresAt: z.string(),
     importedAt: z.string().optional(),
+    /** M27 §5.5: set once, at import time. Never raw provider content -- bounded counts/enums only. */
+    invocationSummary: z.lazy(() => ClaudeProviderInvocationSummarySchema).optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
