@@ -100,7 +100,7 @@ describe("M26-WU04: checkpoint/workspace-release/packet-cancel safeguards, execu
     dir = null;
   });
 
-  it("a non-terminal execution session blocks checkpoint, next cancel, and workspace release; all become unblocked once the session is terminal", () => {
+  it("a non-terminal execution session blocks checkpoint, next cancel, and workspace release; checkpoint and workspace release unblock once terminal, but next cancel remains blocked by any session history", () => {
     dir = makeTempDir();
     initGitRepo(dir);
     expect(runCli(["init", "--json"], dir).status).toBe(0);

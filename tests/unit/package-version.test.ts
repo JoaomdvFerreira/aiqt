@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.13.0 (M26 Long-Running Execution Protocol)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.13.0");
+  it("is the current released version 0.13.1 (M26 post-closure correction)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.13.1");
   });
 });
