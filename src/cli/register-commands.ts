@@ -35,6 +35,7 @@ import {
   type RawExecutionAdapterClaudeCodeRequestOptions,
   type RawExecutionAdapterClaudeCodeImportOptions,
   type RawExecutionAdapterClaudeCodeStatusOptions,
+  type RawExecutionExternalRequestOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -87,6 +88,8 @@ import { runExecutionAdapterClaudeCodeRequest } from "./commands/execution-adapt
 import { runExecutionAdapterClaudeCodeImport } from "./commands/execution-adapter-claude-code-import.command.js";
 import { runExecutionAdapterClaudeCodeStatus } from "./commands/execution-adapter-claude-code-status.command.js";
 import { EXAMPLE_CLAUDE_CODE_REQUEST } from "./commands/execution-adapter-claude-code-example.js";
+import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
+import { EXAMPLE_EXTERNAL_REQUEST } from "./commands/execution-external-example.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman } from "../core/output/human-output.js";
@@ -805,6 +808,40 @@ export function buildProgram(): Command {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runExecutionStatus(ctx, { sessionId: raw.session, workUnitId: raw.workUnit });
       emit(result, ctx.json);
+    });
+
+  const externalCommand = executionCommand
+    .command("external")
+    .description("Agent-agnostic generic execution request/result contract (M27R). The recommended default -- works with any external coding agent, no native adapter required.");
+
+  externalCommand
+    .command("request")
+    .description("Generate a vendor-neutral generic execution request bundle for the current work unit's packet, or --resume-session an existing execution session")
+    .argument("<work-unit-id>", "the current work unit ID")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--resume-session <session-id>", "resume an existing non-terminal execution session instead of starting a new one")
+    .option("--preview", "validate and report the request plan without persisting", false)
+    .option("--output <dir>", "also write the generated request bundle (request.json, instructions.md, result.example.json, result.schema.json) to this directory")
+    .option("--as-of <timestamp>", "ISO timestamp used as the effective current time for all time-dependent validation")
+    .action(async (workUnitId: string, raw: RawExecutionExternalRequestOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runExecutionExternalRequest(ctx, {
+        workUnitId,
+        resumeSessionId: raw.resumeSession,
+        preview: Boolean(raw.preview),
+        output: raw.output,
+        asOf: raw.asOf,
+      });
+      emit(result, ctx.json);
+    });
+
+  externalCommand
+    .command("example")
+    .description("Print a sample generic execution request and exit")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action(() => {
+      process.stdout.write(JSON.stringify(EXAMPLE_EXTERNAL_REQUEST, null, 2) + "\n");
+      process.exitCode = ExitCode.Success;
     });
 
   const adapterCommand = executionCommand

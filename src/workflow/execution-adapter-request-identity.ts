@@ -33,9 +33,12 @@ export interface AdapterRequestDigestInput {
   workUnitId: string;
   packetId: string;
   requestSequence: number;
-  externalSessionId: string;
   mode: "start" | "resume";
-  providerVersionConstraint: string;
+  /** Claude-adapter-only fields; absent for generic-json@1 requests. */
+  externalSessionId?: string;
+  providerVersionConstraint?: string;
+  /** M27R: AIQT-owned generic session identity, present for generic-json@1 requests. */
+  sessionClientKey?: string;
 }
 
 export function computeAdapterRequestDigest(input: AdapterRequestDigestInput): string {

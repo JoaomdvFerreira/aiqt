@@ -221,6 +221,15 @@ export interface RawExecutionStatusOptions {
   workUnit?: string;
 }
 
+export interface RawExecutionExternalRequestOptions {
+  json?: boolean;
+  resumeSession?: string;
+  preview?: boolean;
+  output?: string;
+  asOf?: string;
+  example?: boolean;
+}
+
 export interface RawExecutionAdapterClaudeCodeRequestOptions {
   json?: boolean;
   resumeSession?: string;
