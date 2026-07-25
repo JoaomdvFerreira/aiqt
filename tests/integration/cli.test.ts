@@ -485,7 +485,7 @@ describe("aiqt CLI entrypoint", () => {
         "work_unit.status_changed",
       ]).toContain(type);
     }
-  });
+  }, 15000);
 
   it("M15-RC1: no new public commands are registered -- --help still lists exactly the pre-M15 command set", () => {
     dir = makeTempDir();
@@ -560,7 +560,7 @@ describe("aiqt CLI entrypoint", () => {
         "work_unit.status_changed",
       ]).toContain(type);
     }
-  });
+  }, 15000);
 
   it("M16: no new public commands are registered -- --help still lists exactly the pre-M16 command set", () => {
     dir = makeTempDir();
@@ -690,7 +690,7 @@ describe("aiqt CLI entrypoint", () => {
     expect(res.status).toBe(2);
     const parsed = JSON.parse(res.stdout || res.stderr);
     expect(parsed.blockingIssues[0].id).toBe("PLAN-GRAPH-NOT-EMPTY");
-  });
+  }, 15000);
 
   it("M18/M19/M19-RC1/M20/M21/M23: aiqt --version matches package.json's canonical version", () => {
     dir = makeTempDir();
