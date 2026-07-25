@@ -36,6 +36,8 @@ import {
   type RawExecutionAdapterClaudeCodeImportOptions,
   type RawExecutionAdapterClaudeCodeStatusOptions,
   type RawExecutionExternalRequestOptions,
+  type RawExecutionExternalImportOptions,
+  type RawExecutionExternalStatusOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -89,6 +91,8 @@ import { runExecutionAdapterClaudeCodeImport } from "./commands/execution-adapte
 import { runExecutionAdapterClaudeCodeStatus } from "./commands/execution-adapter-claude-code-status.command.js";
 import { EXAMPLE_CLAUDE_CODE_REQUEST } from "./commands/execution-adapter-claude-code-example.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
+import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
+import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
 import { EXAMPLE_EXTERNAL_REQUEST } from "./commands/execution-external-example.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
@@ -832,6 +836,39 @@ export function buildProgram(): Command {
         output: raw.output,
         asOf: raw.asOf,
       });
+      emit(result, ctx.json);
+    });
+
+  externalCommand
+    .command("import")
+    .description("Import a generic aiqt-external-execution-result@1 document for a previously generated request, from a file or stdin")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--request <request-id>", "the adapter request ID this result belongs to")
+    .option("--from-file <path>", "path to the captured generic result file")
+    .option("--stdin", "read the generic result JSON from standard input", false)
+    .option("--preview", "validate and report the import plan without persisting", false)
+    .option("--as-of <timestamp>", "ISO timestamp used as the effective current time for all time-dependent validation")
+    .action(async (raw: RawExecutionExternalImportOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runExecutionExternalImport(ctx, {
+        requestId: raw.request,
+        fromFile: raw.fromFile,
+        stdin: Boolean(raw.stdin),
+        preview: Boolean(raw.preview),
+        asOf: raw.asOf,
+      });
+      emit(result, ctx.json);
+    });
+
+  externalCommand
+    .command("status")
+    .description("Read-only inspection of generic-path adapter requests, or one session/request with --session/--request")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--session <session-id>", "report only this execution session's adapter requests")
+    .option("--request <request-id>", "report only this adapter request")
+    .action((raw: RawExecutionExternalStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runExecutionExternalStatus(ctx, { sessionId: raw.session, requestId: raw.request });
       emit(result, ctx.json);
     });
 

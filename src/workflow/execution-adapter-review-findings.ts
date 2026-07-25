@@ -126,6 +126,24 @@ export function collectExecutionAdapterFindings(state: StateModel): ReviewFindin
       });
     }
 
+    if (request.adapterId !== "claude-code-stream-json@1" && request.importedIterationId) {
+      const iteration = session.iterations.find((i) => i.id === request.importedIterationId);
+      if (iteration && iteration.status === "failed") {
+        findings.push({
+          ruleKey: `execution-adapter.generic-result-failed.${request.id}`,
+          findingKey: `execution-adapter:${request.id}:generic-result-failed`,
+          category: "execution",
+          severity: "medium",
+          blocking: false,
+          title: "Generic-path result reported a failed iteration",
+          message: `Adapter request "${request.id}" (agent: ${request.importedAgent?.providerId ?? "unknown"}) imported a result whose iteration is "failed".`,
+          relatedIds: [request.id, session.id],
+          suggestedAction: "Investigate externally before requesting again.",
+          nextRecommendedCommand: "aiqt execution external status",
+        });
+      }
+    }
+
     if ((request.invocationSummary?.apiRetryCount ?? 0) >= HIGH_API_RETRY_THRESHOLD) {
       findings.push({
         ruleKey: `execution-adapter.high-retry.${request.id}`,

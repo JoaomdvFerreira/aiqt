@@ -230,6 +230,21 @@ export interface RawExecutionExternalRequestOptions {
   example?: boolean;
 }
 
+export interface RawExecutionExternalImportOptions {
+  json?: boolean;
+  request?: string;
+  fromFile?: string;
+  stdin?: boolean;
+  preview?: boolean;
+  asOf?: string;
+}
+
+export interface RawExecutionExternalStatusOptions {
+  json?: boolean;
+  session?: string;
+  request?: string;
+}
+
 export interface RawExecutionAdapterClaudeCodeRequestOptions {
   json?: boolean;
   resumeSession?: string;
