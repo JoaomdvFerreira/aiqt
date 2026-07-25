@@ -166,8 +166,8 @@ describe("M27-WU06: disposable-project Claude Code adapter lifecycle (real M25 w
       completeEnvelopePath,
       JSON.stringify({
         protocolVersion: "long-running-execution-protocol@1",
-        providerId: "anthropic/claude-code",
-        sessionClientKey: `claude-code-stream-json@1:WU001:PKT-001`,
+        providerId: state.executionSessions[0].provider.providerId,
+        sessionClientKey: state.executionSessions[0].sessionClientKey,
         events: [
           { type: "session.status_changed", eventId: "COMPLETE-RESUME", at: T3, toStatus: "running", reason: "resume before explicit completion" },
           { type: "session.status_changed", eventId: "COMPLETE-1", at: T3, toStatus: "completed", reason: "all iterations finished" },

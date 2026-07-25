@@ -4,28 +4,21 @@ import { makeResult, type CommandResult } from "../../core/output/result.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
 import { aiqtDirExists, loadProject } from "./load-project.js";
 import { writeStateModel } from "../../state/workflow-state-store.js";
-import { appendRunlogEvent, readRunlogEventIds, buildExecutionSessionOpenedEvent, buildExecutionAdapterRequestCreatedEvent } from "../../state/runlog-store.js";
-import { nextId } from "../../state/ids.js";
+import { appendRunlogEvent, buildExecutionSessionOpenedEvent, buildExecutionAdapterRequestCreatedEvent } from "../../state/runlog-store.js";
+import { nextEventIdFactory } from "../../workflow/execution-runlog-event-builder.js";
 import { writeTextFile } from "../../core/filesystem/safe-writer.js";
-import {
-  getExecutionSessions,
-  findSessionsForWorkUnit,
-  findNonTerminalSessionForPacket,
-  findExecutionSessionById,
-} from "../../services/execution-session-service.js";
-import {
-  getExecutionAdapterRequests,
-  findActiveAdapterRequestForSession,
-  maxRequestSequenceForSession,
-} from "../../services/execution-adapter-request-service.js";
+import { getExecutionSessions, findSessionsForWorkUnit } from "../../services/execution-session-service.js";
+import { getExecutionAdapterRequests, maxRequestSequenceForSession } from "../../services/execution-adapter-request-service.js";
 import { applyExecutionProtocolEnvelope, type SessionOpenContext } from "../../workflow/execution-envelope-engine.js";
 import { resolveWorkspaceRef } from "../../workflow/execution-workspace-ref-resolver.js";
+import { resolveGenericRequest } from "../../workflow/generic-request-resolution.js";
+import { generateGenericSessionClientKey, GENERIC_PROVIDER_ID } from "../../workflow/generic-session-identity.js";
 import { findManagedWorkspaceById } from "../../services/workspace-state-service.js";
 import { deriveAdapterRequestIdentity, computeAdapterRequestDigest } from "../../workflow/execution-adapter-request-identity.js";
 import { buildClaudeCodeCommandArguments } from "../../schema/claude-code-request-package.schema.js";
 import type { ClaudeCodeExecutionRequest } from "../../schema/claude-code-request-package.schema.js";
-import { ADAPTER_ID, MAX_ADAPTER_REQUESTS, MAX_ADAPTER_REQUESTS_PER_SESSION } from "../../schema/execution-adapter-request.schema.js";
-import { isTerminalSessionStatus } from "../../schema/execution-session.schema.js";
+import { CLAUDE_ADAPTER_ID } from "../../schema/adapter-registry.js";
+import { MAX_ADAPTER_REQUESTS, MAX_ADAPTER_REQUESTS_PER_SESSION } from "../../schema/execution-adapter-request.schema.js";
 import type { ExecutionAdapterRequest } from "../../schema/execution-adapter-request.schema.js";
 import type { StateModel } from "../../schema/state.schema.js";
 
@@ -58,11 +51,11 @@ function isValidIsoTimestamp(value: string): boolean {
   return !Number.isNaN(parsed) && new Date(parsed).toISOString() === value;
 }
 
-function userActionChecklist(mode: "start" | "resume"): string[] {
+function userActionChecklist(claudeNativeMode: "start" | "resume"): string[] {
   return [
     "Install and authenticate the Claude Code CLI yourself; AIQT never installs, logs in, or manages credentials.",
     "Do not add any permission-bypass flag; the generated command template is fixed and reviewed.",
-    mode === "start"
+    claudeNativeMode === "start"
       ? "Run the generated command, piping the current agent packet's prompt text to stdin, and capture stream-json output to a file or pipe."
       : "Run the generated command with --resume and the existing external session UUID, capturing stream-json output the same way.",
     "Import the captured output with: aiqt execution adapter claude-code import --request <request-id> --from-file <path> (or --stdin).",
@@ -72,6 +65,7 @@ function userActionChecklist(mode: "start" | "resume"): string[] {
 function buildRequestPackage(
   request: ExecutionAdapterRequest,
   workspacePath: string | null,
+  claudeNativeMode: "start" | "resume",
 ): ClaudeCodeExecutionRequest {
   return {
     contractVersion: "claude-code-stream-json-request@1",
@@ -82,28 +76,32 @@ function buildRequestPackage(
     packetId: request.packetId,
     workspacePath,
     externalSessionId: request.externalSessionId!,
-    mode: request.mode,
+    mode: claudeNativeMode,
     prompt: { boundedText: true, source: "current_agent_packet" },
-    commandTemplate: { executable: "claude", arguments: buildClaudeCodeCommandArguments(request.mode, request.externalSessionId!) },
+    commandTemplate: { executable: "claude", arguments: buildClaudeCodeCommandArguments(claudeNativeMode, request.externalSessionId!) },
     outputInstructions: { format: "stream-json", capture: "file_or_pipe_to_import" },
     createdAt: request.createdAt,
     expiresAt: request.expiresAt,
-    userActionRequired: userActionChecklist(request.mode),
+    userActionRequired: userActionChecklist(claudeNativeMode),
   };
 }
 
 /**
  * aiqt execution adapter claude-code request <work-unit-id> [--resume-session
- * <id>] [--preview] [--output <path>] [--json] (M27 §3.2/§3.3/§4.1): the
- * sole boundary for generating a Claude Code request package. Never
- * executes, spawns, or contacts anything -- only reads/validates M26/M25
- * state, allocates (or reuses) an external session UUID, and writes a
- * bounded ExecutionAdapterRequest metadata record plus the non-canonical
- * request package. For a new session this reuses the exact same
- * candidate-state/envelope engine as `aiqt execution import`'s
- * session.opened path; for a resume it validates but does not mutate the
- * M26 session (the actual resume transition happens at import time, per
- * §5.3).
+ * <id>] [--preview] [--output <path>] [--json] (M27 §3.2/§3.3/§4.1, M27R
+ * §7.1): the sole boundary for generating a Claude Code request package.
+ * Never executes, spawns, or contacts anything. Since M27R, every new
+ * Claude adapter session uses providerId `external/agent` and an
+ * AIQT-generated `external/<uuid>` sessionClientKey -- it participates in
+ * the same generic identity space as `execution external request` and
+ * any future adapter, and shares that exact session/request resolution
+ * algorithm (resolveGenericRequest) with it. Claude's OWN native
+ * provider session UUID (`externalSessionId`) is separate adapter
+ * metadata used only to build the `--session-id`/`--resume` command
+ * flag -- it is generated fresh whenever Claude has no prior native
+ * transcript for this AIQT session (including when Claude is joining an
+ * existing generic session for the first time), and reused only when
+ * Claude itself previously operated this exact session.
  */
 export async function runExecutionAdapterClaudeCodeRequest(
   ctx: CommandContext,
@@ -141,80 +139,85 @@ export async function runExecutionAdapterClaudeCodeRequest(
 
     const sessions = getExecutionSessions(state);
     const adapterRequests = getExecutionAdapterRequests(state);
+    const packetHasCheckpoint = state.checkpoints.some((cp) => cp.packetId === currentPacketId);
 
     if (adapterRequests.length >= MAX_ADAPTER_REQUESTS) {
       return failure(`State/request cap reached (max_adapter_requests=${MAX_ADAPTER_REQUESTS}).`, ExitCode.WorkflowBlocked, "ADAPTER-REQUEST-CAP-REACHED");
     }
 
-    const session = options.resumeSessionId ? findExecutionSessionById(options.resumeSessionId, sessions) : undefined;
+    const resolution = resolveGenericRequest({
+      resumeSessionId: options.resumeSessionId,
+      workUnitId: options.workUnitId,
+      currentPacketId,
+      packetHasCheckpoint,
+      sessions,
+      adapterRequests,
+      effectiveNow,
+      // M27R §7.1/§7.2: the Claude adapter may target either a new
+      // external/agent session or an eligible legacy provider-specific
+      // (anthropic/claude-code) session -- unlike the generic path, it
+      // is never restricted to external/agent only.
+      requireGenericProvider: false,
+    });
 
-    if (options.resumeSessionId) {
-      // -- Resume request: reuse an existing, non-terminal M26 session. --
-      if (!session) {
-        return failure(`No execution session "${options.resumeSessionId}" exists.`, ExitCode.InvalidInput, "ADAPTER-REQUEST-UNKNOWN-SESSION");
-      }
-      if (session.workUnitId !== options.workUnitId || session.packetId !== currentPacketId) {
-        return failure(
-          `Execution session "${session.id}" does not belong to the current work unit/packet.`,
-          ExitCode.InvalidInput,
-          "ADAPTER-REQUEST-SESSION-MISMATCH",
-        );
-      }
-      if (isTerminalSessionStatus(session.status)) {
-        return failure(`Execution session "${session.id}" is terminal (${session.status}) and cannot be resumed.`, ExitCode.WorkflowBlocked, "ADAPTER-REQUEST-SESSION-TERMINAL");
-      }
-      if (session.decisions.some((d) => d.status === "open")) {
-        return failure(`Execution session "${session.id}" has an open decision; resolve it before requesting a resume.`, ExitCode.WorkflowBlocked, "ADAPTER-REQUEST-OPEN-DECISION");
-      }
-      if (session.iterations.some((i) => i.status === "running")) {
-        return failure(`Execution session "${session.id}" already has a running iteration.`, ExitCode.WorkflowBlocked, "ADAPTER-REQUEST-ITERATION-RUNNING");
-      }
-      if (session.budgetState === "reached" || session.budgetState === "exceeded") {
-        return failure(`Execution session "${session.id}" budget state (${session.budgetState}) blocks a new iteration.`, ExitCode.WorkflowBlocked, "ADAPTER-REQUEST-BUDGET-STOP");
-      }
-      const activeRequest = findActiveAdapterRequestForSession(session.id, adapterRequests, effectiveNow);
-      if (activeRequest) {
-        return failure(`An active adapter request (${activeRequest.id}) already exists for session "${session.id}".`, ExitCode.WorkflowBlocked, "ADAPTER-REQUEST-ACTIVE-EXISTS");
-      }
-      if (!session.provider.externalSessionId) {
-        return failure(`Execution session "${session.id}" has no external session UUID recorded.`, ExitCode.InvalidInput, "ADAPTER-REQUEST-MISSING-EXTERNAL-SESSION-ID");
-      }
-      const sessionRequestCount = adapterRequests.filter((r) => r.executionSessionId === session!.id).length;
-      if (sessionRequestCount >= MAX_ADAPTER_REQUESTS_PER_SESSION) {
-        return failure(`State/request cap reached (max_adapter_requests_per_session=${MAX_ADAPTER_REQUESTS_PER_SESSION}).`, ExitCode.WorkflowBlocked, "ADAPTER-REQUEST-SESSION-CAP-REACHED");
-      }
-    } else {
-      // -- New (start) request: at most one non-terminal session per packet, per M26. --
-      const existingNonTerminal = findNonTerminalSessionForPacket(currentPacketId, sessions);
-      if (existingNonTerminal) {
-        return failure(
-          `A non-terminal execution session (${existingNonTerminal.id}) already exists for this packet; resume it instead of starting a new one.`,
-          ExitCode.WorkflowBlocked,
-          "ADAPTER-REQUEST-NON-TERMINAL-SESSION-EXISTS",
-        );
-      }
-      const packetHasCheckpoint = state.checkpoints.some((cp) => cp.packetId === currentPacketId);
-      if (packetHasCheckpoint) {
-        return failure("A checkpoint already exists for this packet.", ExitCode.WorkflowBlocked, "ADAPTER-REQUEST-CHECKPOINT-EXISTS");
-      }
-    }
+    if (resolution.kind === "blocked") return failure(resolution.error, ExitCode.WorkflowBlocked, resolution.issueId);
+    if (resolution.kind === "invalid") return failure(resolution.error, ExitCode.InvalidInput, resolution.issueId);
 
     const workspaceRefResolution = resolveWorkspaceRef(state, options.workUnitId);
     if (!workspaceRefResolution.ok) {
       return failure(workspaceRefResolution.error, ExitCode.InvalidInput, "ADAPTER-REQUEST-WORKSPACE-REF-INVALID");
     }
+    const workspacePath =
+      workspaceRefResolution.ref.mode === "managed"
+        ? (findManagedWorkspaceById(workspaceRefResolution.ref.workspaceId!, state.workspace?.managedWorkspaces ?? [])?.workspacePath ?? null)
+        : null;
 
-    const mode: "start" | "resume" = session ? "resume" : "start";
-    const externalSessionId = session?.provider.externalSessionId ?? randomUUID();
-    const sessionClientKey = `${ADAPTER_ID}:${options.workUnitId}:${currentPacketId}`;
+    if (resolution.kind === "retry") {
+      // A retry regenerates the bundle for the exact same still-open
+      // request; the Claude-native start/resume flag mirrors the M26-level
+      // mode recorded when this request was first created (disclosed
+      // simplification: only imperfect in the rare case where a foreign
+      // adapter's session is retried by Claude before ever being imported).
+      const claudeNativeMode: "start" | "resume" = resolution.existingRequest.mode;
+      const requestPackage = buildRequestPackage(resolution.existingRequest, workspacePath, claudeNativeMode);
+      if (options.output && !options.preview) {
+        try {
+          writeTextFile(options.output, JSON.stringify(requestPackage, null, 2) + "\n");
+        } catch (err) {
+          return failure(`Writing --output failed: ${(err as Error).message}.`, ExitCode.InvalidInput, "ADAPTER-REQUEST-OUTPUT-WRITE-FAILED");
+        }
+      }
+      return makeResult({
+        status: "passed",
+        action: "execution",
+        projectStatus: state.projectStatus,
+        currentMilestoneId: state.currentMilestoneId,
+        currentWorkUnitId: state.currentWorkUnitId,
+        summary: `Reused active request ${resolution.existingRequest.id} for execution session ${resolution.session.id} (retry of the same canonical operation); no new state written.`,
+        exitCode: ExitCode.Success,
+        data: { request: resolution.existingRequest, requestPackage, outcome: "retry" },
+      });
+    }
+
+    const mode: "start" | "resume" = resolution.kind === "resume" ? "resume" : "start";
+    // M27R §7.1: Claude's own native transcript continuity is independent
+    // of the M26-level start/resume distinction -- reuse Claude's prior
+    // externalSessionId only when Claude itself already operated this
+    // session; otherwise Claude has nothing native to resume.
+    const priorClaudeExternalSessionId = resolution.kind === "resume" ? resolution.session.provider.externalSessionId : undefined;
+    const claudeNativeMode: "start" | "resume" = priorClaudeExternalSessionId ? "resume" : "start";
+    const externalSessionId = priorClaudeExternalSessionId ?? randomUUID();
 
     let candidateSessions = sessions;
     let targetSessionId: string;
+    let sessionClientKey: string;
     let sessionOpenedRunlogNeeded = false;
 
-    if (session) {
-      targetSessionId = session.id;
+    if (resolution.kind === "resume") {
+      targetSessionId = resolution.session.id;
+      sessionClientKey = resolution.session.sessionClientKey;
     } else {
+      sessionClientKey = generateGenericSessionClientKey();
       const openContext: SessionOpenContext = {
         projectId: project.project.id,
         currentWorkUnitId: options.workUnitId,
@@ -230,7 +233,7 @@ export async function runExecutionAdapterClaudeCodeRequest(
         sessions,
         envelope: {
           protocolVersion: "long-running-execution-protocol@1",
-          providerId: "anthropic/claude-code",
+          providerId: GENERIC_PROVIDER_ID,
           sessionClientKey,
           events: [{ type: "session.opened", eventId: "ADAPTER-OPEN", at: effectiveNow, externalSessionId }],
         },
@@ -247,10 +250,15 @@ export async function runExecutionAdapterClaudeCodeRequest(
       sessionOpenedRunlogNeeded = true;
     }
 
+    const sessionRequestCount = adapterRequests.filter((r) => r.executionSessionId === targetSessionId).length;
+    if (sessionRequestCount >= MAX_ADAPTER_REQUESTS_PER_SESSION) {
+      return failure(`State/request cap reached (max_adapter_requests_per_session=${MAX_ADAPTER_REQUESTS_PER_SESSION}).`, ExitCode.WorkflowBlocked, "ADAPTER-REQUEST-SESSION-CAP-REACHED");
+    }
+
     const requestSequence = maxRequestSequenceForSession(targetSessionId, adapterRequests) + 1;
-    const requestId = deriveAdapterRequestIdentity({ adapterId: ADAPTER_ID, executionSessionId: targetSessionId, requestSequence });
+    const requestId = deriveAdapterRequestIdentity({ adapterId: CLAUDE_ADAPTER_ID, executionSessionId: targetSessionId, requestSequence });
     const requestDigest = computeAdapterRequestDigest({
-      adapterId: ADAPTER_ID,
+      adapterId: CLAUDE_ADAPTER_ID,
       executionSessionId: targetSessionId,
       workUnitId: options.workUnitId,
       packetId: currentPacketId,
@@ -258,13 +266,15 @@ export async function runExecutionAdapterClaudeCodeRequest(
       externalSessionId,
       mode,
       providerVersionConstraint: ADAPTER_PROVIDER_VERSION_CONSTRAINT,
+      sessionClientKey,
     });
     const expiresAt = new Date(Date.parse(effectiveNow) + ADAPTER_REQUEST_EXPIRY_SECONDS * 1000).toISOString();
 
     const newRequest: ExecutionAdapterRequest = {
       id: requestId,
-      adapterId: ADAPTER_ID,
+      adapterId: CLAUDE_ADAPTER_ID,
       executionSessionId: targetSessionId,
+      sessionClientKey,
       workUnitId: options.workUnitId,
       packetId: currentPacketId,
       workspaceRef: workspaceRefResolution.ref,
@@ -278,11 +288,7 @@ export async function runExecutionAdapterClaudeCodeRequest(
       expiresAt,
     };
 
-    const workspacePath =
-      workspaceRefResolution.ref.mode === "managed"
-        ? (findManagedWorkspaceById(workspaceRefResolution.ref.workspaceId!, state.workspace?.managedWorkspaces ?? [])?.workspacePath ?? null)
-        : null;
-    const requestPackage = buildRequestPackage(newRequest, workspacePath);
+    const requestPackage = buildRequestPackage(newRequest, workspacePath, claudeNativeMode);
 
     if (options.preview) {
       return makeResult({
@@ -293,7 +299,7 @@ export async function runExecutionAdapterClaudeCodeRequest(
         currentWorkUnitId: state.currentWorkUnitId,
         summary: `Preview: would generate a "${mode}" request for execution session ${targetSessionId} (request ${requestId}); no state written.`,
         exitCode: ExitCode.Success,
-        data: { request: newRequest, requestPackage },
+        data: { request: newRequest, requestPackage, outcome: mode },
       });
     }
 
@@ -313,13 +319,7 @@ export async function runExecutionAdapterClaudeCodeRequest(
     }
 
     try {
-      const existingIds = readRunlogEventIds(paths.runlogFile);
-      const allocated = [...existingIds];
-      const nextEventId = () => {
-        const id = nextId("EVT", allocated);
-        allocated.push(id);
-        return id;
-      };
+      const nextEventId = nextEventIdFactory(paths.runlogFile);
       const relatedIds = [newRequest.id, targetSessionId, options.workUnitId];
       if (sessionOpenedRunlogNeeded) {
         appendRunlogEvent(
@@ -328,7 +328,7 @@ export async function runExecutionAdapterClaudeCodeRequest(
             id: nextEventId(),
             timestamp: effectiveNow,
             relatedIds,
-            data: { sessionId: targetSessionId, providerId: "anthropic/claude-code", workUnitId: options.workUnitId, packetId: currentPacketId, outcome: "created" },
+            data: { sessionId: targetSessionId, providerId: GENERIC_PROVIDER_ID, workUnitId: options.workUnitId, packetId: currentPacketId, outcome: "created" },
           }),
         );
       }
@@ -362,7 +362,7 @@ export async function runExecutionAdapterClaudeCodeRequest(
       changedFiles: options.output ? [paths.stateFile, paths.runlogFile, options.output] : [paths.stateFile, paths.runlogFile],
       affectedItems: [newRequest.id, targetSessionId],
       exitCode: ExitCode.Success,
-      data: { request: newRequest, requestPackage },
+      data: { request: newRequest, requestPackage, outcome: mode },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

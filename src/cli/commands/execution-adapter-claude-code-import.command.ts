@@ -11,16 +11,12 @@ import { sha256Hex } from "../../core/util/hash.js";
 import { parseClaudeCodeStreamJson } from "../../workflow/claude-code-stream-json-parser.js";
 import { classifyClaudeCodeResult, buildClaudeProviderInvocationSummary } from "../../workflow/claude-code-result-normalizer.js";
 import { STREAM_JSON_MAX_TOTAL_BYTES } from "../../schema/claude-code-stream-json.schema.js";
+import { CLAUDE_ADAPTER_ID } from "../../schema/adapter-registry.js";
 import { getExecutionSessions, findExecutionSessionById } from "../../services/execution-session-service.js";
 import { getExecutionAdapterRequests, findAdapterRequestById, isAdapterRequestExpired } from "../../services/execution-adapter-request-service.js";
-import { applyExecutionProtocolEnvelope, type SessionOpenContext } from "../../workflow/execution-envelope-engine.js";
-import type { ExecutionProtocolEnvelope } from "../../schema/execution-protocol-envelope.schema.js";
-import type { ExecutionSessionStatus } from "../../schema/execution-session.schema.js";
-import type { IterationFinishedEventSchema } from "../../schema/execution-protocol-envelope.schema.js";
-import type { z } from "zod";
-
-type FinishedIterationStatus = z.infer<typeof IterationFinishedEventSchema>["status"];
-import type { ClaudeProviderResultClass } from "../../schema/execution-adapter-request.schema.js";
+import { applyNormalizedExecutionResult } from "../../workflow/generic-result-application-service.js";
+import { findEvidenceRecordById, getEvidenceRecords } from "../../services/evidence-service.js";
+import type { NormalizedExternalExecutionResult } from "../../schema/normalized-execution-result.schema.js";
 import type { StateModel } from "../../schema/state.schema.js";
 
 export interface RunExecutionAdapterClaudeCodeImportOptions {
@@ -50,24 +46,16 @@ function isValidIsoTimestamp(value: string): boolean {
   return !Number.isNaN(parsed) && new Date(parsed).toISOString() === value;
 }
 
-/** M27 §5.2/§5.3/§5.4.1: the fixed, mutually exclusive mapping from a normalized result class to iteration/session outcome. Never inferred from free text. */
-const RESULT_CLASS_TO_OUTCOME: Record<ClaudeProviderResultClass, { iteration: FinishedIterationStatus; session: ExecutionSessionStatus }> = {
-  success: { iteration: "completed", session: "paused" },
-  limited: { iteration: "blocked", session: "blocked" },
-  unavailable: { iteration: "failed", session: "blocked" },
-  failed: { iteration: "failed", session: "failed" },
-};
-
 /**
  * aiqt execution adapter claude-code import --request <id> --from-file
- * <path> | --stdin [--preview] [--as-of <ts>] [--json] (M27 §4/§5): the
- * sole boundary for importing bounded Claude Code stream-json output.
- * Reads exactly one bounded transcript, hashes the exact raw bytes,
- * parses/validates it (WU27-03's pure parser), classifies the terminal
- * result, synthesizes exactly one M26 iteration's worth of protocol
- * events, and applies them through the SAME candidate-state envelope
- * engine `aiqt execution import` uses -- never a parallel session-
- * mutation path. Any failure before state write produces zero mutation.
+ * <path> | --stdin [--preview] [--as-of <ts>] [--json] (M27 §4/§5, M27R
+ * §7): the sole boundary for importing bounded Claude Code stream-json
+ * output. Reads exactly one bounded transcript, hashes the exact raw
+ * bytes, parses/validates it (the Claude-specific parser/classifier),
+ * translates it into a NormalizedExternalExecutionResult, and applies it
+ * through the SAME shared generic-result-application-service the
+ * `execution external import` path uses -- never a parallel M26-mapping
+ * implementation. Any failure before state write produces zero mutation.
  * Never executes a shell command, spawns a process, or performs network
  * I/O.
  */
@@ -166,60 +154,44 @@ export async function runExecutionAdapterClaudeCodeImport(
     }
 
     const resultClass = classifyClaudeCodeResult(summary);
-    const outcome = RESULT_CLASS_TO_OUTCOME[resultClass];
     const invocationSummary = buildClaudeProviderInvocationSummary(request.id, summary);
 
-    const envelope: ExecutionProtocolEnvelope = {
-      protocolVersion: "long-running-execution-protocol@1",
-      providerId: session.provider.providerId,
-      sessionClientKey: session.sessionClientKey,
-      events: [
-        { type: "session.status_changed", eventId: `${request.id}:running`, at: effectiveNow, toStatus: "running", reason: `adapter ${request.mode} invocation begins` },
-        { type: "iteration.started", eventId: `${request.id}:iter-start`, at: effectiveNow, providerIterationKey: request.id, objectiveSummary: `Claude Code ${request.mode} invocation (request ${request.id})` },
-        {
-          type: "iteration.finished",
-          eventId: `${request.id}:iter-finish`,
-          at: effectiveNow,
-          providerIterationKey: request.id,
-          status: outcome.iteration,
-          resultSummary: invocationSummary.resultSummary,
-          reportedTokens: invocationSummary.reportedTokens,
-          reportedDurationSeconds: invocationSummary.reportedDurationSeconds,
-        },
-        { type: "session.status_changed", eventId: `${request.id}:final-status`, at: effectiveNow, toStatus: outcome.session, reason: `provider result: ${resultClass}` },
-      ],
+    const normalized: NormalizedExternalExecutionResult = {
+      protocolVersion: "aiqt-normalized-execution-result@1",
+      adapterId: CLAUDE_ADAPTER_ID,
+      requestId: request.id,
+      executionSessionId: session.id,
+      agent: { providerId: "anthropic/claude-code", version: summary.providerVersion },
+      resultClass,
+      summary: invocationSummary.resultSummary,
+      continuation: { recommended: false },
+      validationClaims: [],
+      commitRefs: [],
+      evidenceRefs: [],
+      reportedUsage: { reportedTokens: invocationSummary.reportedTokens, reportedDurationSeconds: invocationSummary.reportedDurationSeconds },
+      sourceDigest,
     };
 
-    const openContext: SessionOpenContext = {
-      projectId: "",
-      currentWorkUnitId: session.workUnitId,
-      currentWorkUnitInProgress: true,
-      currentPacketId: session.packetId,
-      packetHasCheckpoint: false,
-      workspaceRef: session.workspaceRef,
-      sessionsForWorkUnitCount: 0,
-      totalSessionsCount: sessions.length,
-      nonTerminalSessionExistsForPacket: false,
-    };
-
-    const envelopeResult = applyExecutionProtocolEnvelope({
+    const evidenceRecords = getEvidenceRecords(state);
+    const applyResult = applyNormalizedExecutionResult({
       sessions,
-      envelope,
+      session,
+      request,
+      normalized,
       effectiveNow,
-      openContext,
-      evidenceExists: () => false,
+      evidenceExists: (evidenceId) => findEvidenceRecordById(evidenceId, evidenceRecords) !== undefined,
     });
-    if (!envelopeResult.ok) {
-      const exitCode = envelopeResult.category === "blocked" ? ExitCode.WorkflowBlocked : ExitCode.InvalidInput;
-      return failure(envelopeResult.error, exitCode, "ADAPTER-IMPORT-ENVELOPE-REJECTED");
+    if (!applyResult.ok) {
+      const exitCode = applyResult.category === "blocked" ? ExitCode.WorkflowBlocked : ExitCode.InvalidInput;
+      return failure(applyResult.error, exitCode, "ADAPTER-IMPORT-APPLY-REJECTED");
     }
 
     const planData = {
       requestId: request.id,
       resultClass,
-      outcome: envelopeResult.outcome,
-      targetSessionId: envelopeResult.targetSessionId,
-      wouldChangeState: envelopeResult.changed,
+      outcome: applyResult.outcome,
+      targetSessionId: applyResult.targetSessionId,
+      wouldChangeState: applyResult.changed,
     };
 
     if (options.preview) {
@@ -229,13 +201,13 @@ export async function runExecutionAdapterClaudeCodeImport(
         projectStatus: state.projectStatus,
         currentMilestoneId: state.currentMilestoneId,
         currentWorkUnitId: state.currentWorkUnitId,
-        summary: `Preview: importing this Claude Code output would classify as "${resultClass}" and update session ${envelopeResult.targetSessionId}; no state written.`,
+        summary: `Preview: importing this Claude Code output would classify as "${resultClass}" and update session ${applyResult.targetSessionId}; no state written.`,
         exitCode: ExitCode.Success,
         data: planData,
       });
     }
 
-    if (!envelopeResult.changed) {
+    if (!applyResult.changed) {
       return makeResult({
         status: "passed",
         action: "execution",
@@ -250,17 +222,25 @@ export async function runExecutionAdapterClaudeCodeImport(
 
     const updatedRequests = adapterRequests.map((r) =>
       r.id === request.id
-        ? { ...r, status: "imported" as const, importedSourceDigest: sourceDigest, importedAt: effectiveNow, invocationSummary }
+        ? {
+            ...r,
+            status: "imported" as const,
+            importedSourceDigest: sourceDigest,
+            importedAt: effectiveNow,
+            importedIterationId: applyResult.iterationId ?? undefined,
+            importedAgent: normalized.agent,
+            invocationSummary,
+          }
         : r,
     );
-    const finalState: StateModel = { ...state, executionSessions: envelopeResult.sessions, executionAdapterRequests: updatedRequests };
+    const finalState: StateModel = { ...state, executionSessions: applyResult.sessions, executionAdapterRequests: updatedRequests };
     writeStateModel(paths.stateFile, finalState);
 
     try {
-      const finalSession = envelopeResult.sessions.find((s) => s.id === envelopeResult.targetSessionId)!;
+      const finalSession = applyResult.sessions.find((s) => s.id === applyResult.targetSessionId)!;
       const nextEventId = nextEventIdFactory(paths.runlogFile);
       const relatedIds = [request.id, finalSession.id, request.workUnitId];
-      for (const applied of envelopeResult.appliedEvents) {
+      for (const applied of applyResult.appliedEvents) {
         const runlogEvent = buildRunlogEventForApplied(applied, finalSession, request.workUnitId, nextEventId, effectiveNow);
         if (runlogEvent) appendRunlogEvent(paths.runlogFile, runlogEvent);
       }
@@ -287,10 +267,10 @@ export async function runExecutionAdapterClaudeCodeImport(
       projectStatus: finalState.projectStatus,
       currentMilestoneId: finalState.currentMilestoneId,
       currentWorkUnitId: finalState.currentWorkUnitId,
-      summary: `Imported Claude Code output for request ${request.id}: classified as "${resultClass}"; session ${envelopeResult.targetSessionId} is now ${outcome.session}.`,
-      completedActions: ["Validated request/session/digest", "Parsed and classified provider output", "Applied events via candidate state", "Wrote state.json", "Appended runlog event(s)"],
+      summary: `Imported Claude Code output for request ${request.id}: classified as "${resultClass}"; session ${applyResult.targetSessionId} is now ${applyResult.resultOutcome.sessionStatus}.`,
+      completedActions: ["Validated request/session/digest", "Parsed and classified provider output", "Applied events via shared normalized-result service", "Wrote state.json", "Appended runlog event(s)"],
       changedFiles: [paths.stateFile, paths.runlogFile],
-      affectedItems: [request.id, envelopeResult.targetSessionId ?? ""].filter(Boolean),
+      affectedItems: [request.id, applyResult.targetSessionId].filter(Boolean),
       exitCode: ExitCode.Success,
       data: planData,
     });

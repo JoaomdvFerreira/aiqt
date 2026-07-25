@@ -6,6 +6,7 @@ import { getExecutionAdapterRequests, isAdapterRequestExpired } from "../../serv
 import { getExecutionSessions, findExecutionSessionById } from "../../services/execution-session-service.js";
 import { ADAPTER_ID } from "../../schema/execution-adapter-request.schema.js";
 import type { ExecutionAdapterRequest } from "../../schema/execution-adapter-request.schema.js";
+import { isLegacyProviderSpecificSession } from "../../workflow/generic-session-identity.js";
 
 export interface RunExecutionAdapterClaudeCodeStatusOptions {
   sessionId?: string;
@@ -42,7 +43,8 @@ function judgeHealth(request: ExecutionAdapterRequest | undefined): AdapterHealt
   }
 }
 
-function summarizeRequest(request: ExecutionAdapterRequest, effectiveNow: string) {
+function summarizeRequest(request: ExecutionAdapterRequest, effectiveNow: string, sessions: readonly { id: string; provider: { providerId: string } }[]) {
+  const session = sessions.find((s) => s.id === request.executionSessionId);
   return {
     id: request.id,
     executionSessionId: request.executionSessionId,
@@ -55,6 +57,7 @@ function summarizeRequest(request: ExecutionAdapterRequest, effectiveNow: string
     expiresAt: request.expiresAt,
     importedAt: request.importedAt ?? null,
     invocationSummary: request.invocationSummary ?? null,
+    sessionKind: session ? (isLegacyProviderSpecificSession(session) ? "legacy_provider_specific_session" : "generic") : null,
   };
 }
 
@@ -119,12 +122,12 @@ export function runExecutionAdapterClaudeCodeStatus(ctx: CommandContext, options
       adapterId: ADAPTER_ID,
       supportedMessageFamilies: ["system/init", "system/api_retry", "assistant", "user", "stream_event", "result"],
       requestCountsByStatus: byStatus,
-      activeRequest: activeRequest ? summarizeRequest(activeRequest, effectiveNow) : null,
+      activeRequest: activeRequest ? summarizeRequest(activeRequest, effectiveNow, sessions) : null,
       health,
       providerVersionObserved: mostRecentImported?.invocationSummary?.providerVersion ?? null,
       staleOrExpiredCount,
       userActionRequired,
-      requests: scoped.map((r) => summarizeRequest(r, effectiveNow)),
+      requests: scoped.map((r) => summarizeRequest(r, effectiveNow, sessions)),
     },
   });
 }

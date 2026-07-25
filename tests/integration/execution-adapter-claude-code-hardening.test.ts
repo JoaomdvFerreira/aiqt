@@ -110,11 +110,14 @@ describe("M27-WU05: compatibility, security, and failure hardening", () => {
       expect(readFileSync(runlogPath, "utf8")).toBe(runlogBefore);
 
       chmodSync(runlogPath, 0o644);
-      // A same-shape retry sees the non-terminal session state already
-      // wrote; it is blocked, not duplicated -- state remains authoritative
-      // and no second session/request is ever created.
+      // A same-shape retry sees the active (still "requested") request
+      // state already wrote; per M27R's retry-reuse semantics this
+      // returns the SAME request/session identity (exit 0) rather than
+      // blocking -- state remains authoritative and no second
+      // session/request is ever created.
       const retry = runCli(["execution", "adapter", "claude-code", "request", "WU001", "--as-of", T1, "--json"], dir);
-      expect(retry.status).toBe(2);
+      expect(retry.status).toBe(0);
+      expect(JSON.parse(retry.stdout).data.outcome).toBe("retry");
       const stateAfterRetry = JSON.parse(readFileSync(statePath, "utf8"));
       expect(stateAfterRetry.executionAdapterRequests).toHaveLength(1);
       expect(stateAfterRetry.executionSessions).toHaveLength(1);

@@ -128,7 +128,29 @@ describe("M27-WU02: aiqt execution adapter claude-code request", () => {
     expect(parsed.summary).toContain("Preview");
   });
 
-  it("a second start request for the same packet is blocked (exit 2) until the first session is resumed or terminal", () => {
+  it("a second start request for the same packet, while the first request is still active, is a retry (exit 0, same identity, zero mutation)", () => {
+    dir = makeTempDir();
+    initGitRepo(dir);
+    expect(runCli(["init", "--json"], dir).status).toBe(0);
+    seedInProgressWorkUnitWithPacket(dir);
+    commitAiqtState(dir);
+
+    const first = runCli(["execution", "adapter", "claude-code", "request", "WU001", "--as-of", T1, "--json"], dir);
+    expect(first.status).toBe(0);
+    const firstData = JSON.parse(first.stdout).data;
+    commitAiqtState(dir, "after first request");
+
+    const stateBefore = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
+    const res = runCli(["execution", "adapter", "claude-code", "request", "WU001", "--as-of", T1, "--json"], dir);
+    expect(res.status).toBe(0);
+    const data = JSON.parse(res.stdout).data;
+    expect(data.outcome).toBe("retry");
+    expect(data.request.id).toBe(firstData.request.id);
+    const stateAfter = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
+    expect(stateAfter).toBe(stateBefore);
+  });
+
+  it("a second start request while the session is non-terminal but has no active (already-imported) request is blocked (exit 2), zero mutation", () => {
     dir = makeTempDir();
     initGitRepo(dir);
     expect(runCli(["init", "--json"], dir).status).toBe(0);
@@ -136,14 +158,21 @@ describe("M27-WU02: aiqt execution adapter claude-code request", () => {
     commitAiqtState(dir);
 
     expect(runCli(["execution", "adapter", "claude-code", "request", "WU001", "--as-of", T1, "--json"], dir).status).toBe(0);
-    commitAiqtState(dir, "after first request");
+    const statePath = join(dir, ".aiqt", "state.json");
+    const state = JSON.parse(readFileSync(statePath, "utf8"));
+    state.executionAdapterRequests[0].status = "imported";
+    state.executionAdapterRequests[0].importedAt = T1;
+    state.executionAdapterRequests[0].importedSourceDigest = "sha256:" + "b".repeat(64);
+    state.executionSessions[0].status = "paused";
+    writeFileSync(statePath, JSON.stringify(state, null, 2));
+    commitAiqtState(dir, "after simulated import");
 
-    const stateBefore = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
+    const stateBefore = readFileSync(statePath, "utf8");
     const res = runCli(["execution", "adapter", "claude-code", "request", "WU001", "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(2);
     const parsed = JSON.parse(res.stderr);
-    expect(parsed.blockingIssues[0].id).toBe("ADAPTER-REQUEST-NON-TERMINAL-SESSION-EXISTS");
-    const stateAfter = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
+    expect(parsed.blockingIssues[0].id).toBe("EXTERNAL-REQUEST-NON-TERMINAL-SESSION-EXISTS");
+    const stateAfter = readFileSync(statePath, "utf8");
     expect(stateAfter).toBe(stateBefore);
   });
 
@@ -200,7 +229,7 @@ describe("M27-WU02: aiqt execution adapter claude-code request", () => {
     const stateBefore = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     const res = runCli(["execution", "adapter", "claude-code", "request", "WU001", "--resume-session", sessionId, "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(2);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("ADAPTER-REQUEST-ACTIVE-EXISTS");
+    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EXTERNAL-REQUEST-ACTIVE-EXISTS");
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(stateBefore);
   });
 
