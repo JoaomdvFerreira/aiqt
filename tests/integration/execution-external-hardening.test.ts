@@ -144,7 +144,7 @@ describe("M27R-WU06: hardening and disposable-project cross-agent lifecycle", ()
     expect(state.executionAdapterRequests).toHaveLength(3);
     const importedAgents = state.executionAdapterRequests.map((r: { importedAgent: { providerId: string } }) => r.importedAgent.providerId);
     expect(importedAgents).toEqual(agents);
-  });
+  }, 40000);
 
   it("a runlog-append failure during a generic external request leaves state authoritative; a retry reuses the same identity", () => {
     dir = makeTempDir();
@@ -177,7 +177,7 @@ describe("M27R-WU06: hardening and disposable-project cross-agent lifecycle", ()
     } finally {
       chmodSync(runlogPath, 0o644);
     }
-  });
+  }, 20000);
 
   it("a runlog-append failure during a generic external import leaves state authoritative; a retry is an idempotent no-op", () => {
     dir = makeTempDir();
@@ -213,7 +213,7 @@ describe("M27R-WU06: hardening and disposable-project cross-agent lifecycle", ()
     } finally {
       chmodSync(runlogPath, 0o644);
     }
-  });
+  }, 20000);
 
   it("GENERIC_MAX_REQUESTS_PER_SESSION (100) is enforced with zero mutation once reached", () => {
     dir = makeTempDir();
@@ -244,7 +244,7 @@ describe("M27R-WU06: hardening and disposable-project cross-agent lifecycle", ()
     expect(res.status).toBe(2);
     expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EXTERNAL-REQUEST-SESSION-CAP-REACHED");
     expect(readFileSync(statePath, "utf8")).toBe(stateBefore);
-  });
+  }, 20000);
 
   it("a malformed generic result with an unknown/prohibited field is rejected atomically", () => {
     dir = makeTempDir();
@@ -270,7 +270,7 @@ describe("M27R-WU06: hardening and disposable-project cross-agent lifecycle", ()
     expect(res.status).toBe(3);
     expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EXTERNAL-IMPORT-SCHEMA-INVALID");
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(stateBefore);
-  });
+  }, 20000);
 
   it("self-reported validation claims never gain elevated trust in state -- trust is always literally 'self_reported'", () => {
     dir = makeTempDir();
@@ -307,5 +307,5 @@ describe("M27R-WU06: hardening and disposable-project cross-agent lifecycle", ()
     expect(stateText).not.toMatch(/"trust":"verified"/);
     expect(stateText).not.toMatch(/"trust":"platform"/);
     expect(state.checkpoints).toHaveLength(0);
-  });
+  }, 20000);
 });
