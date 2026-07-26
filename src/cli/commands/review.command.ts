@@ -17,6 +17,7 @@ import {
 } from "../../services/manage-service.js";
 import { computeReviewNextCommand } from "../../workflow/review-next-command.js";
 import { readAgentPacketIds } from "../../state/runlog-store.js";
+import { buildAdvisoryWarningsSection } from "../../workflow/checkpoint-advisory-visibility.js";
 
 export type ReviewMode = "development" | "release";
 
@@ -192,6 +193,9 @@ export function runReviewCommand(
         productionReady: classification.productionReady,
         findings: result.findings,
         runlogHealth,
+        // M29 §4/§6: a separate, non-blocking section -- these warnings
+        // never contribute to `status`, `exitCode`, or blockingIssues above.
+        evidenceAdvisoryWarnings: buildAdvisoryWarningsSection(state),
       },
     });
   } catch (err) {

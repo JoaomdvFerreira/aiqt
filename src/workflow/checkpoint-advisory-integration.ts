@@ -4,6 +4,9 @@ import type { AdvisoryTrigger, CheckpointAdvisoryObservation } from "../schema/c
 import { evaluateCheckpointAdvisory, type CheckpointAdvisoryEvaluationResult } from "./checkpoint-advisory-evaluation.js";
 import { computeAdvisoryObservationId } from "./checkpoint-advisory-identity.js";
 import { applyAdvisoryObservation, findCheckpointAdvisory, type ApplyAdvisoryObservationOutcome } from "./checkpoint-advisory-state.js";
+import { resolveAdvisoryIssueRouting } from "./checkpoint-advisory-issues.js";
+import { getProjectIssues } from "../services/project-issue-service.js";
+import type { ProjectIssue } from "../schema/project-issue.schema.js";
 
 const UNAVAILABLE_SUMMARY = "Evidence-gate advisory evaluation could not complete. Retry with an explicit refresh.";
 const NOT_CONFIGURED_SUMMARY = "No active evidence gate policy is configured.";
@@ -19,25 +22,28 @@ export interface RunCheckpointAdvisoryParams {
   project: ProjectModel;
   checkpointId: string;
   workUnitId: string;
+  milestoneId: string;
   trigger: AdvisoryTrigger;
   asOf: string;
   recordedAt: string;
-  /** Pre-computed by the M22 issue-routing step (WU29-02); empty for pass/not_configured/unavailable. */
-  issueKeys: string[];
 }
 
 export interface RunCheckpointAdvisoryResult {
   evaluation: CheckpointAdvisoryEvaluationResult;
   observation: CheckpointAdvisoryObservation;
   applyOutcome: ApplyAdvisoryObservationOutcome;
+  /** M29 §4: new ProjectIssue records the caller must persist alongside the advisory (empty when every finding already links to an existing issue, or there are no findings). */
+  createdProjectIssues: ProjectIssue[];
 }
 
 /**
- * M29 §3.1/§3.2: the single non-blocking advisory pipeline shared by
+ * M29 §3.1/§3.2/§4: the single non-blocking advisory pipeline shared by
  * automatic checkpoint evaluation, amendment-triggered refresh, and
- * explicit refresh. Pure -- callers are responsible for persisting the
- * returned advisory and appending the runlog event; this function performs
- * no I/O itself.
+ * explicit refresh -- evaluation, M22 issue routing, and identity/state
+ * transition all in one place, so there is exactly one place that decides
+ * what an M29 finding is. Pure -- callers are responsible for persisting
+ * the returned advisory/issues and appending runlog events; this function
+ * performs no I/O itself.
  */
 export function runCheckpointAdvisory(params: RunCheckpointAdvisoryParams): RunCheckpointAdvisoryResult {
   const evaluation = evaluateCheckpointAdvisory({
@@ -54,6 +60,15 @@ export function runCheckpointAdvisory(params: RunCheckpointAdvisoryParams): RunC
   const policyRef = simulation
     ? { policyId: simulation.policy.policyId, version: simulation.policy.version, digest: simulation.policy.digest }
     : undefined;
+
+  const routing = resolveAdvisoryIssueRouting({
+    simulation,
+    checkpointId: params.checkpointId,
+    workUnitId: params.workUnitId,
+    milestoneId: params.milestoneId,
+    existingProjectIssues: getProjectIssues(params.state),
+    timestamp: params.recordedAt,
+  });
 
   const observationId = computeAdvisoryObservationId({
     checkpointId: params.checkpointId,
@@ -77,7 +92,7 @@ export function runCheckpointAdvisory(params: RunCheckpointAdvisoryParams): RunC
     ...(policyRef ? { policyRef } : {}),
     asOf: params.asOf,
     ...(simulation ? { simulationDigest: simulation.simulationDigest } : {}),
-    issueKeys: [...params.issueKeys].sort(),
+    issueKeys: routing.issueKeys,
     summary: boundedSummary(evaluation.evaluationStatus, simulation?.overallResult ?? null),
     recordedAt: params.recordedAt,
   };
@@ -85,5 +100,5 @@ export function runCheckpointAdvisory(params: RunCheckpointAdvisoryParams): RunC
   const existing = findCheckpointAdvisory(params.state.checkpointEvidenceAdvisories, params.checkpointId);
   const applyOutcome = applyAdvisoryObservation(existing, observation);
 
-  return { evaluation, observation, applyOutcome };
+  return { evaluation, observation, applyOutcome, createdProjectIssues: routing.createdProjectIssues };
 }

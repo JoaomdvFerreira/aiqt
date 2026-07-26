@@ -21,6 +21,63 @@ import {
   type ValidationResult,
 } from "../../schema/checkpoint.schema.js";
 import type { StateModel } from "../../schema/state.schema.js";
+import { runCheckpointAdvisory } from "../../workflow/checkpoint-advisory-integration.js";
+import { persistCheckpointAdvisoryResult } from "../../workflow/checkpoint-advisory-persistence.js";
+import { buildEvidenceAdvisorySummary, type EvidenceAdvisorySummary } from "../../workflow/checkpoint-advisory-visibility.js";
+import type { ProjectModel } from "../../schema/project.schema.js";
+
+/**
+ * M29 §3.1/§3.2: "The same post-success ordering applies when a checkpoint
+ * amendment attaches replacement evidence." Runs only after the amendment's
+ * own state/runlog effects are already durable, using the amendment's own
+ * `amendedAt` as asOf (the canonical amendment-recorded timestamp) and the
+ * effective checkpoint result via the existing M12 owner. Any failure here
+ * is folded into "unavailable"; it can never affect the amendment's own
+ * exit code or already-persisted state.
+ */
+function evaluateAndPersistAmendmentAdvisory(params: {
+  stateFile: string;
+  runlogFile: string;
+  postAmendmentState: StateModel;
+  project: ProjectModel;
+  checkpointId: string;
+  workUnitId: string;
+  milestoneId: string;
+  timestamp: string;
+}): EvidenceAdvisorySummary {
+  try {
+    const result = runCheckpointAdvisory({
+      state: params.postAmendmentState,
+      project: params.project,
+      checkpointId: params.checkpointId,
+      workUnitId: params.workUnitId,
+      milestoneId: params.milestoneId,
+      trigger: "amendment",
+      asOf: params.timestamp,
+      recordedAt: params.timestamp,
+    });
+
+    persistCheckpointAdvisoryResult({
+      stateFile: params.stateFile,
+      runlogFile: params.runlogFile,
+      state: params.postAmendmentState,
+      result,
+      timestamp: params.timestamp,
+      checkpointId: params.checkpointId,
+      workUnitId: params.workUnitId,
+    });
+
+    return buildEvidenceAdvisorySummary(result.observation, params.checkpointId);
+  } catch {
+    return {
+      status: "unavailable",
+      result: null,
+      issueCount: 0,
+      blocking: false,
+      refreshCommand: `aiqt evidence gate advisory refresh --checkpoint ${params.checkpointId}`,
+    };
+  }
+}
 
 export interface RunCheckpointAmendOptions {
   checkpointId?: string;
@@ -298,6 +355,19 @@ export function runCheckpointAmend(
       }),
     );
 
+    // M29 §3.1/§3.2: post-success advisory refresh, strictly after the
+    // amendment's own state write and runlog event above.
+    const evidenceAdvisory = evaluateAndPersistAmendmentAdvisory({
+      stateFile: paths.stateFile,
+      runlogFile: paths.runlogFile,
+      postAmendmentState: finalState,
+      project,
+      checkpointId,
+      workUnitId: workUnit.id,
+      milestoneId: workUnit.milestoneId,
+      timestamp,
+    });
+
     return makeResult({
       status: "passed",
       action: "checkpoint",
@@ -324,6 +394,7 @@ export function runCheckpointAmend(
         workUnitStatusBefore: applied.workUnitStatusBefore,
         workUnitStatusAfter: applied.workUnitStatusAfter,
         changed: true,
+        evidenceAdvisory,
       },
     });
   } catch (err) {

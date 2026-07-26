@@ -11,6 +11,7 @@ import { ExecutionSessionSchema, MAX_SESSIONS } from "./execution-session.schema
 import { ExecutionAdapterRequestSchema, MAX_ADAPTER_REQUESTS } from "./execution-adapter-request.schema.js";
 import { EvidenceGateConfigurationSchema } from "./evidence-gate-policy.schema.js";
 import { CheckpointEvidenceAdvisorySchema } from "./checkpoint-evidence-advisory.schema.js";
+import { EvidenceAdvisoryFeedbackSchema, MAX_EVIDENCE_ADVISORY_FEEDBACK } from "./evidence-advisory-feedback.schema.js";
 
 export const ProjectStatusSchema = z.enum([
   "draft",
@@ -55,5 +56,11 @@ export const StateModelSchema = z.object({
    * mirror only, never the complete advisory history (the runlog is).
    */
   checkpointEvidenceAdvisories: z.array(CheckpointEvidenceAdvisorySchema).optional(),
+  /**
+   * M29 §5.1: optional, additive. Missing entirely on pre-M29 state files.
+   * One current feedback record per issueKey; capped at
+   * MAX_EVIDENCE_ADVISORY_FEEDBACK per project.
+   */
+  evidenceAdvisoryFeedback: z.array(EvidenceAdvisoryFeedbackSchema).max(MAX_EVIDENCE_ADVISORY_FEEDBACK).optional(),
 });
 export type StateModel = z.infer<typeof StateModelSchema>;

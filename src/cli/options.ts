@@ -263,6 +263,13 @@ export interface RawEvidenceGateAdvisoryRefreshOptions {
   preview?: boolean;
 }
 
+export interface RawEvidenceGateAdvisoryFeedbackOptions {
+  json?: boolean;
+  classification?: string;
+  rationale?: string;
+  preview?: boolean;
+}
+
 export interface RawExecutionExternalRequestOptions {
   json?: boolean;
   resumeSession?: string;

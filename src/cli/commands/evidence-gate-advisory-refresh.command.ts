@@ -2,13 +2,9 @@ import type { CommandContext } from "../command-context.js";
 import { makeResult, type CommandResult } from "../../core/output/result.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
 import { aiqtDirExists, loadProject } from "./load-project.js";
-import { writeStateModel } from "../../state/workflow-state-store.js";
-import { appendRunlogEvent, buildEvidenceGateAdvisoryObservationRecordedEvent, readRunlogEventIds } from "../../state/runlog-store.js";
-import { nextId } from "../../state/ids.js";
 import { runCheckpointAdvisory } from "../../workflow/checkpoint-advisory-integration.js";
-import { upsertCheckpointAdvisory } from "../../workflow/checkpoint-advisory-state.js";
+import { persistCheckpointAdvisoryResult } from "../../workflow/checkpoint-advisory-persistence.js";
 import { buildEvidenceAdvisorySummary } from "../../workflow/checkpoint-advisory-visibility.js";
-import type { StateModel } from "../../schema/state.schema.js";
 
 export interface RunEvidenceGateAdvisoryRefreshOptions {
   checkpointId?: string;
@@ -35,8 +31,9 @@ function isValidIsoTimestamp(value: string): boolean {
  * aiqt evidence gate advisory refresh --checkpoint <id> [--as-of <ts>]
  * [--preview] [--json] (M29 §3.4): the sole explicit, on-demand advisory
  * re-evaluation boundary. Never changes checkpoint completion. Reuses the
- * same runCheckpointAdvisory pipeline as automatic checkpoint evaluation --
- * no second evaluator, no second persistence path.
+ * same runCheckpointAdvisory pipeline and persistCheckpointAdvisoryResult
+ * persistence path as automatic checkpoint evaluation -- no second
+ * evaluator, no second persistence path.
  */
 export function runEvidenceGateAdvisoryRefresh(
   ctx: CommandContext,
@@ -65,16 +62,20 @@ export function runEvidenceGateAdvisoryRefresh(
     if (!checkpoint) {
       return failure(`Checkpoint "${checkpointId}" does not exist.`, ExitCode.WorkflowBlocked, "EVIDENCE-GATE-ADVISORY-REFRESH-UNKNOWN-CHECKPOINT");
     }
+    const workUnit = state.workGraph.workUnits.find((wu) => wu.id === checkpoint.workUnitId);
+    if (!workUnit) {
+      return failure(`Checkpoint "${checkpointId}" references work unit "${checkpoint.workUnitId}", which does not exist.`, ExitCode.InvalidInput, "EVIDENCE-GATE-ADVISORY-REFRESH-INVALID-STATE");
+    }
 
     const result = runCheckpointAdvisory({
       state,
       project,
       checkpointId: checkpoint.id,
       workUnitId: checkpoint.workUnitId,
+      milestoneId: workUnit.milestoneId,
       trigger: "manual_refresh",
       asOf,
       recordedAt: commandTimestamp,
-      issueKeys: [],
     });
 
     const summary = buildEvidenceAdvisorySummary(result.observation, checkpoint.id);
@@ -113,42 +114,29 @@ export function runEvidenceGateAdvisoryRefresh(
       });
     }
 
-    const finalState: StateModel = {
-      ...state,
-      checkpointEvidenceAdvisories: upsertCheckpointAdvisory(
-        state.checkpointEvidenceAdvisories ?? [],
-        result.applyOutcome.advisory,
-      ),
-    };
-    writeStateModel(paths.stateFile, finalState);
-
+    let outcome;
     try {
-      const eventIds = readRunlogEventIds(paths.runlogFile);
-      const eventId = nextId("EVT", eventIds);
-      appendRunlogEvent(
-        paths.runlogFile,
-        buildEvidenceGateAdvisoryObservationRecordedEvent({
-          id: eventId,
-          timestamp: commandTimestamp,
-          relatedIds: [checkpoint.id, checkpoint.workUnitId],
-          data: {
-            observationId: result.observation.observationId,
-            checkpointId: result.observation.checkpointId,
-            workUnitId: result.observation.workUnitId,
-            trigger: result.observation.trigger,
-            evaluationStatus: result.observation.evaluationStatus,
-            overallResult: result.observation.overallResult,
-            ...(result.observation.policyRef ? { policyRef: result.observation.policyRef } : {}),
-            asOf: result.observation.asOf,
-            ...(result.observation.simulationDigest ? { simulationDigest: result.observation.simulationDigest } : {}),
-            issueKeys: result.observation.issueKeys,
-            recordedAt: result.observation.recordedAt,
-          },
-        }),
-      );
+      outcome = persistCheckpointAdvisoryResult({
+        stateFile: paths.stateFile,
+        runlogFile: paths.runlogFile,
+        state,
+        result,
+        timestamp: commandTimestamp,
+        checkpointId: checkpoint.id,
+        workUnitId: checkpoint.workUnitId,
+      });
     } catch (err) {
+      return failure((err as Error).message, ExitCode.InvalidInput, "EVIDENCE-GATE-ADVISORY-REFRESH-CONFLICT");
+    }
+
+    if (outcome.runlogGap) {
+      // M29 §7.2: "command returns exit 3 where the advisory operation is
+      // explicit" -- unlike the automatic checkpoint-triggered path, this
+      // command's entire purpose IS the advisory operation, so a runlog
+      // gap after a successful state write is surfaced directly. State
+      // remains authoritative; retrying is idempotent.
       return failure(
-        `State was written successfully but the runlog append failed: ${(err as Error).message}. State remains authoritative; retrying this refresh is idempotent.`,
+        `State was written successfully but the runlog append failed. State remains authoritative; retrying this refresh is idempotent.`,
         ExitCode.InvalidInput,
         "EVIDENCE-GATE-ADVISORY-REFRESH-RUNLOG-APPEND-FAILED",
       );
@@ -157,9 +145,9 @@ export function runEvidenceGateAdvisoryRefresh(
     return makeResult({
       status: "passed",
       action: "evidence",
-      projectStatus: finalState.projectStatus,
-      currentMilestoneId: finalState.currentMilestoneId,
-      currentWorkUnitId: finalState.currentWorkUnitId,
+      projectStatus: state.projectStatus,
+      currentMilestoneId: state.currentMilestoneId,
+      currentWorkUnitId: state.currentWorkUnitId,
       summary: `Advisory refreshed for checkpoint ${checkpoint.id}: ${result.observation.evaluationStatus}${result.observation.overallResult ? ` (${result.observation.overallResult})` : ""}.`,
       completedActions: ["Read project.json", "Read state.json", "Evaluated advisory", "Wrote state.json", "Appended runlog event"],
       changedFiles: [paths.stateFile, paths.runlogFile],

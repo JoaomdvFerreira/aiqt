@@ -60,6 +60,20 @@ export function mintEvidenceIssueKey(scopeClaim: ScopeClaim, title: string, occu
 }
 
 /**
+ * M29 §4: canonical key input is exactly `{source: evidence_gate_advisory,
+ * checkpointId, policyDigest, ruleId}`. Since ruleId is unique within a
+ * policy (checkPolicyInvariants rejects duplicate ruleIds -- M28), this
+ * triple is already collision-free with no occurrence-index needed, unlike
+ * mintEvidenceIssueKey/checkpointIssueKey's title-derived slugs. Follows
+ * the same `<domain>:...` minting convention, reusing the same digest/slug
+ * primitives rather than reimplementing key minting a third time.
+ */
+export function mintAdvisoryIssueKey(checkpointId: string, policyDigest: string, ruleId: string): string {
+  const shortDigest = policyDigest.replace(/^sha256:/, "").slice(0, 12);
+  return `checkpoint:${checkpointId}:advisory:${shortDigest}:${slugify(ruleId)}`;
+}
+
+/**
  * M23-WU06: M22 defined `DecisionEscalation.escalationKey` (§5.7) but never
  * instantiated a minting convention for it, since no M22-era command ever
  * created one. Follows the exact same deterministic

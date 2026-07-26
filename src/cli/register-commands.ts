@@ -41,6 +41,7 @@ import {
   type RawEvidenceGatePolicyActivateOptions,
   type RawEvidenceGateSimulateOptions,
   type RawEvidenceGateAdvisoryRefreshOptions,
+  type RawEvidenceGateAdvisoryFeedbackOptions,
   type RawExecutionExternalRequestOptions,
   type RawExecutionExternalImportOptions,
   type RawExecutionExternalStatusOptions,
@@ -102,6 +103,7 @@ import { runEvidenceGatePolicyShow } from "./commands/evidence-gate-policy-show.
 import { runEvidenceGatePolicyActivate } from "./commands/evidence-gate-policy-activate.command.js";
 import { runEvidenceGateSimulate } from "./commands/evidence-gate-simulate.command.js";
 import { runEvidenceGateAdvisoryRefresh } from "./commands/evidence-gate-advisory-refresh.command.js";
+import { runEvidenceGateAdvisoryFeedback } from "./commands/evidence-gate-advisory-feedback.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
 import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
@@ -831,6 +833,24 @@ export function buildProgram(): Command {
       const result = runEvidenceGateAdvisoryRefresh(ctx, {
         checkpointId: raw.checkpoint,
         asOf: raw.asOf,
+        preview: Boolean(raw.preview),
+      });
+      emit(result, ctx.json);
+    });
+
+  evidenceGateAdvisoryCommand
+    .command("feedback <issue-key>")
+    .description("Record explicit, bounded human feedback on one advisory issue for false-positive/friction measurement -- never changes issue lifecycle, severity, or readiness")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--classification <value>", "one of: confirmed, false_positive, policy_gap, evidence_missing")
+    .option("--rationale <text>", "bounded, non-empty rationale text")
+    .option("--preview", "validate and report without persisting", false)
+    .action((issueKey: string, raw: RawEvidenceGateAdvisoryFeedbackOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runEvidenceGateAdvisoryFeedback(ctx, {
+        issueKey,
+        classification: raw.classification,
+        rationale: raw.rationale,
         preview: Boolean(raw.preview),
       });
       emit(result, ctx.json);

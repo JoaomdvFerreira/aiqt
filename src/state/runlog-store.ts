@@ -686,6 +686,37 @@ export function readRunlogEventIds(path: string): string[] {
   return ids;
 }
 
+/**
+ * M29 §5.2: read every well-formed event in runlog.jsonl as a full object
+ * (not just its id), ignoring malformed lines -- the append-only runlog is
+ * the complete historical authority for advisory observation/feedback
+ * telemetry and gap detection, since canonical state only mirrors the
+ * current/latest-N view. Returns an empty list for a missing/unreadable
+ * file, matching readRunlogEventIds' best-effort contract.
+ */
+export function readRunlogEvents(path: string): RunlogEvent[] {
+  if (!isFile(path)) return [];
+  let raw: string;
+  try {
+    raw = readTextFile(path);
+  } catch {
+    return [];
+  }
+
+  const events: RunlogEvent[] = [];
+  for (const line of raw.split(/\r?\n/)) {
+    if (line.trim() === "") continue;
+    try {
+      const parsed = JSON.parse(line);
+      const result = RunlogEventSchema.safeParse(parsed);
+      if (result.success) events.push(result.data);
+    } catch {
+      // skip malformed lines
+    }
+  }
+  return events;
+}
+
 function invalidRunlogIssue(message: string): Issue {
   return {
     id: "RUNLOG-INVALID",

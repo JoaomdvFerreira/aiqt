@@ -17,6 +17,7 @@ import { computeWorkspaceReadiness } from "../../workflow/workspace-readiness-ad
 import type { ParallelStatusData } from "../../services/parallel-status-template.js";
 import type { StateModel } from "../../schema/state.schema.js";
 import { getActivePolicyRef } from "../../services/evidence-gate-policy-service.js";
+import { computeEvidenceAdvisoryTelemetry } from "../../workflow/evidence-advisory-telemetry.js";
 
 export interface RunStatusOptions {
   /** M24 §11: read-only advisory eligibility/batch reporting -- never mutates state or runlog. */
@@ -177,12 +178,21 @@ export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): 
 
     const summary = `Project "${project.project.name}" is ${state.projectStatus} with ${milestoneCount} milestone(s) and ${workUnitCount} work unit(s). AIQT control root: ${roots.controlRoot}. Implementation root: ${roots.implementationRoot}.`;
 
-    // M28 §6: read-only, additive. Only present when policy configuration
-    // exists; never simulates, and never materializes state.evidenceGate on
-    // a project that lacks it (loadProject/getActivePolicyRef read only).
+    // M28 §6/M29 §6: read-only, additive. Only present when policy
+    // configuration exists; never simulates implicitly -- the aggregate
+    // advisory counts below are derived entirely from already-persisted
+    // canonical state and runlog history, never a fresh evaluation.
     const activePolicyRef = getActivePolicyRef(state);
+    const advisoryTelemetry = state.evidenceGate || (state.checkpointEvidenceAdvisories?.length ?? 0) > 0
+      ? computeEvidenceAdvisoryTelemetry(state, paths.runlogFile)
+      : undefined;
     const evidenceGateSummary = state.evidenceGate
-      ? { activePolicy: activePolicyRef ?? null, simulationEnforced: false as const, checkpointAdvisoryIntegrated: false as const }
+      ? {
+          activePolicy: activePolicyRef ?? null,
+          simulationEnforced: false as const,
+          checkpointAdvisoryIntegrated: true as const,
+          ...(advisoryTelemetry ? { advisory: advisoryTelemetry } : {}),
+        }
       : undefined;
 
     return makeResult({

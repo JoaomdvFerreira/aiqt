@@ -32,9 +32,8 @@ import type { WorkUnit } from "../../schema/work-unit.schema.js";
 import { getExecutionSessions, findSessionsForPacket } from "../../services/execution-session-service.js";
 import { isTerminalSessionStatus } from "../../schema/execution-session.schema.js";
 import { runCheckpointAdvisory } from "../../workflow/checkpoint-advisory-integration.js";
-import { upsertCheckpointAdvisory } from "../../workflow/checkpoint-advisory-state.js";
+import { persistCheckpointAdvisoryResult } from "../../workflow/checkpoint-advisory-persistence.js";
 import { buildEvidenceAdvisorySummary, type EvidenceAdvisorySummary } from "../../workflow/checkpoint-advisory-visibility.js";
-import { buildEvidenceGateAdvisoryObservationRecordedEvent } from "../../state/runlog-store.js";
 
 /**
  * M29 §3.1: automatic post-success advisory evaluation. Runs strictly after
@@ -42,7 +41,10 @@ import { buildEvidenceGateAdvisoryObservationRecordedEvent } from "../../state/r
  * only after those writes below). Any failure here -- evaluation, the
  * second state write, or the runlog append -- is caught and folded into an
  * "unavailable" advisory summary; it can never change the checkpoint's own
- * exit code, status, or already-persisted state (M29 §3.1/§7.2).
+ * exit code, status, or already-persisted state (M29 §3.1/§7.2). A runlog
+ * gap after a successful state write is likewise never surfaced as a
+ * checkpoint-level failure -- it is left detectable via telemetry/export
+ * and repairable via idempotent refresh.
  */
 function evaluateAndPersistCheckpointAdvisory(params: {
   stateFile: string;
@@ -51,6 +53,7 @@ function evaluateAndPersistCheckpointAdvisory(params: {
   project: Parameters<typeof runCheckpointAdvisory>[0]["project"];
   checkpointId: string;
   workUnitId: string;
+  milestoneId: string;
   timestamp: string;
 }): EvidenceAdvisorySummary {
   try {
@@ -59,57 +62,21 @@ function evaluateAndPersistCheckpointAdvisory(params: {
       project: params.project,
       checkpointId: params.checkpointId,
       workUnitId: params.workUnitId,
+      milestoneId: params.milestoneId,
       trigger: "checkpoint",
       asOf: params.timestamp,
       recordedAt: params.timestamp,
-      issueKeys: [],
     });
 
-    if (result.applyOutcome.kind === "conflict") {
-      throw new Error("Advisory observation identity conflict (unexpected non-deterministic evaluation).");
-    }
-
-    if (result.applyOutcome.kind === "created") {
-      const stateWithAdvisory: StateModel = {
-        ...params.postCheckpointState,
-        checkpointEvidenceAdvisories: upsertCheckpointAdvisory(
-          params.postCheckpointState.checkpointEvidenceAdvisories ?? [],
-          result.applyOutcome.advisory,
-        ),
-      };
-      writeStateModel(params.stateFile, stateWithAdvisory);
-
-      try {
-        const advisoryEventIds = readRunlogEventIds(params.runlogFile);
-        const advisoryEventId = nextId("EVT", advisoryEventIds);
-        appendRunlogEvent(
-          params.runlogFile,
-          buildEvidenceGateAdvisoryObservationRecordedEvent({
-            id: advisoryEventId,
-            timestamp: params.timestamp,
-            relatedIds: [params.checkpointId, params.workUnitId],
-            data: {
-              observationId: result.observation.observationId,
-              checkpointId: result.observation.checkpointId,
-              workUnitId: result.observation.workUnitId,
-              trigger: result.observation.trigger,
-              evaluationStatus: result.observation.evaluationStatus,
-              overallResult: result.observation.overallResult,
-              ...(result.observation.policyRef ? { policyRef: result.observation.policyRef } : {}),
-              asOf: result.observation.asOf,
-              ...(result.observation.simulationDigest ? { simulationDigest: result.observation.simulationDigest } : {}),
-              issueKeys: result.observation.issueKeys,
-              recordedAt: result.observation.recordedAt,
-            },
-          }),
-        );
-      } catch {
-        // M29 §3.1/§7.2: state succeeded, runlog append failed. State remains
-        // authoritative for current advisory status; the gap is detectable
-        // via telemetry/export and repairable via idempotent retry. This
-        // never affects the checkpoint command's own exit code.
-      }
-    }
+    persistCheckpointAdvisoryResult({
+      stateFile: params.stateFile,
+      runlogFile: params.runlogFile,
+      state: params.postCheckpointState,
+      result,
+      timestamp: params.timestamp,
+      checkpointId: params.checkpointId,
+      workUnitId: params.workUnitId,
+    });
 
     return buildEvidenceAdvisorySummary(result.observation, params.checkpointId);
   } catch {
@@ -484,6 +451,7 @@ export function runCheckpoint(
       project,
       checkpointId: applied.checkpoint.id,
       workUnitId: workUnit.id,
+      milestoneId: workUnit.milestoneId,
       timestamp,
     });
 

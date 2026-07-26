@@ -6,6 +6,7 @@ import { runReview } from "../../services/review-service.js";
 import { buildManageReport } from "../../services/manage-service.js";
 import { readAgentPacketIds } from "../../state/runlog-store.js";
 import { resolveRoots } from "../../workflow/root-resolution.js";
+import { buildAdvisoryWarningsSection } from "../../workflow/checkpoint-advisory-visibility.js";
 
 /**
  * aiqt manage (M9 §8.1): a read-only project manager report. Never mutates
@@ -43,6 +44,19 @@ export function runManage(ctx: CommandContext): CommandResult {
       existingRepositoryPath: project.project.existingRepositoryPath,
     });
 
+    // M29 §6: "Expose advisory counts and a secondary suggested action. Do
+    // not replace the existing primary next action or readiness
+    // classification." -- report.recommendedCommand/nextRecommendedCommand
+    // below are entirely unaffected by this.
+    const advisoryWarnings = buildAdvisoryWarningsSection(state);
+    const evidenceAdvisory = {
+      warningCount: advisoryWarnings.length,
+      warnings: advisoryWarnings,
+      ...(advisoryWarnings.length > 0
+        ? { suggestedAction: `aiqt evidence gate advisory refresh --checkpoint ${advisoryWarnings[0].checkpointId}` }
+        : {}),
+    };
+
     return makeResult({
       status: "passed",
       action: "manage",
@@ -59,6 +73,7 @@ export function runManage(ctx: CommandContext): CommandResult {
         projectName: project.project.name,
         roots,
         ...report,
+        evidenceAdvisory,
       },
     });
   } catch (err) {

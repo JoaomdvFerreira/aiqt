@@ -119,8 +119,13 @@ describe("aiqt checkpoint amend", () => {
     ).toBe(false);
 
     const runlogLines = readRunlogLines(dir);
-    expect(runlogLines).toHaveLength(runlogBefore + 1);
-    expect(runlogLines[runlogLines.length - 1].type).toBe("checkpoint.amended");
+    // M29 §3.1: an amendment that changes the effective result also triggers
+    // a post-success advisory re-evaluation (no active policy here, so it
+    // records a "not_configured" observation) -- one extra event beyond the
+    // pre-M29 checkpoint.amended event.
+    expect(runlogLines).toHaveLength(runlogBefore + 2);
+    expect(runlogLines[runlogLines.length - 1].type).toBe("evidence_gate.advisory_observation_recorded");
+    expect(runlogLines[runlogLines.length - 2].type).toBe("checkpoint.amended");
   });
 
   it("needs_review checkpoint amendment to passed/passed transitions the work unit to done", async () => {

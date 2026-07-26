@@ -1,4 +1,8 @@
 import type { CheckpointAdvisoryObservation } from "../schema/checkpoint-evidence-advisory.schema.js";
+import type { StateModel } from "../schema/state.schema.js";
+import { getProjectIssues, resolveEffectiveProjectIssueLifecycle } from "../services/project-issue-service.js";
+import { getIssueOverrides, getIssuePromotions } from "../services/issue-service.js";
+import { isAdvisoryIssueKey } from "./checkpoint-advisory-issues.js";
 
 /**
  * M29 §6: "Use one centralized advisory projection." Checkpoint, status,
@@ -45,4 +49,33 @@ export function buildEvidenceAdvisorySummary(
   }
 
   return summary;
+}
+
+export interface AdvisoryWarning {
+  issueKey: string;
+  title: string;
+  severity: string;
+  checkpointId: string | null;
+  status: string;
+}
+
+/**
+ * M29 §6: "Show advisory warnings in a separate non-blocking section."
+ * Only currently-active (not overridden/resolved) advisory-sourced
+ * ProjectIssues are surfaced -- reuses the existing M22 override/promotion
+ * lifecycle resolver directly, never a second classifier.
+ */
+export function buildAdvisoryWarningsSection(state: StateModel): AdvisoryWarning[] {
+  const overrides = getIssueOverrides(state);
+  const promotions = getIssuePromotions(state);
+  return getProjectIssues(state)
+    .filter((issue) => isAdvisoryIssueKey(issue.issueKey))
+    .map((issue) => ({
+      issueKey: issue.issueKey,
+      title: issue.title,
+      severity: issue.severity,
+      checkpointId: issue.checkpointRefs[0] ?? null,
+      status: resolveEffectiveProjectIssueLifecycle(issue.issueKey, overrides, promotions),
+    }))
+    .filter((w) => w.status === "active");
 }

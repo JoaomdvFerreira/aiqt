@@ -261,10 +261,28 @@ describe("M28-WU05: compatibility, security, and failure hardening", () => {
     const afterRes = runCli(["status", "--json"], dir);
     expect(afterRes.status).toBe(0);
     const data = JSON.parse(afterRes.stdout).data;
+    // M29 §6: checkpointAdvisoryIntegrated is now true (advisory evaluation
+    // runs automatically post-checkpoint); status derives aggregate counts
+    // from already-persisted state/runlog, never a fresh simulation -- no
+    // checkpoint exists yet in this project, so every count is zero.
     expect(data.evidenceGate).toEqual({
       activePolicy: { policyId: "release-gate", version: 1 },
       simulationEnforced: false,
-      checkpointAdvisoryIntegrated: false,
+      checkpointAdvisoryIntegrated: true,
+      advisory: {
+        evaluatedCheckpoints: 0,
+        pass: 0,
+        fail: 0,
+        indeterminate: 0,
+        unavailable: 0,
+        notConfigured: 0,
+        checkpointsCompletedDespiteFail: 0,
+        checkpointsCompletedDespiteIndeterminate: 0,
+        refreshedAfterAmendment: 0,
+        feedback: { confirmed: 0, falsePositive: 0, policyGap: 0, evidenceMissing: 0, unclassified: 0 },
+        historyComplete: true,
+        runlogGapCount: 0,
+      },
     });
   }, 20000);
 

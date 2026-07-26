@@ -26,6 +26,29 @@ import {
   type ExportTarget,
   type ExportDocumentPlan,
 } from "../../services/export-service.js";
+import { computeEvidenceAdvisoryTelemetry } from "../../workflow/evidence-advisory-telemetry.js";
+import { buildAdvisoryWarningsSection } from "../../workflow/checkpoint-advisory-visibility.js";
+import type { StateModel } from "../../schema/state.schema.js";
+
+/**
+ * M29 §6: export includes current checkpoint advisory summaries, advisory
+ * issue references, runlog-backed aggregate telemetry, historyComplete/
+ * runlogGapCount, and an explicit blocking: false -- never raw evidence or
+ * feedback rationale (default is counts/classifications only).
+ */
+function buildEvidenceAdvisoryExportSection(state: StateModel, runlogFile: string) {
+  return {
+    blocking: false as const,
+    telemetry: computeEvidenceAdvisoryTelemetry(state, runlogFile),
+    checkpointAdvisories: (state.checkpointEvidenceAdvisories ?? []).map((a) => ({
+      checkpointId: a.checkpointId,
+      status: a.current.evaluationStatus,
+      result: a.current.overallResult,
+      issueKeys: a.current.issueKeys,
+    })),
+    issueWarnings: buildAdvisoryWarningsSection(state),
+  };
+}
 
 export interface RunExportOptions {
   target?: string;
@@ -199,7 +222,10 @@ export function runExport(
         warnings: skipWarnings,
         nextRecommendedCommand,
         exitCode: ExitCode.Success,
-        data: buildExportResultData({ target, dryRun: true, plans }),
+        data: {
+          ...buildExportResultData({ target, dryRun: true, plans }),
+          evidenceAdvisory: buildEvidenceAdvisoryExportSection(state, paths.runlogFile),
+        },
       });
     }
 
@@ -256,7 +282,10 @@ export function runExport(
       warnings: skipWarnings,
       nextRecommendedCommand,
       exitCode: ExitCode.Success,
-      data: buildExportResultData({ target, dryRun: false, plans }),
+      data: {
+        ...buildExportResultData({ target, dryRun: false, plans }),
+        evidenceAdvisory: buildEvidenceAdvisoryExportSection(state, paths.runlogFile),
+      },
     });
   } catch (err) {
     return errorToResult("export", err);
