@@ -39,6 +39,7 @@ import {
   type RawEvidenceGatePolicyListOptions,
   type RawEvidenceGatePolicyShowOptions,
   type RawEvidenceGatePolicyActivateOptions,
+  type RawEvidenceGateSimulateOptions,
   type RawExecutionExternalRequestOptions,
   type RawExecutionExternalImportOptions,
   type RawExecutionExternalStatusOptions,
@@ -98,6 +99,7 @@ import { runEvidenceGatePolicyImport } from "./commands/evidence-gate-policy-imp
 import { runEvidenceGatePolicyList } from "./commands/evidence-gate-policy-list.command.js";
 import { runEvidenceGatePolicyShow } from "./commands/evidence-gate-policy-show.command.js";
 import { runEvidenceGatePolicyActivate } from "./commands/evidence-gate-policy-activate.command.js";
+import { runEvidenceGateSimulate } from "./commands/evidence-gate-simulate.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
 import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
@@ -782,6 +784,31 @@ export function buildProgram(): Command {
         version: raw.version !== undefined ? Number(raw.version) : undefined,
         preview: Boolean(raw.preview),
         asOf: raw.asOf,
+      });
+      emit(result, ctx.json);
+    });
+
+  evidenceGateCommand
+    .command("simulate")
+    .description("Read-only evidence-gate simulation against a project, work unit, or checkpoint -- never enforces, blocks, or mutates state")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--project", "simulate against the current project", false)
+    .option("--work-unit <id>", "simulate against this work unit")
+    .option("--checkpoint <id>", "simulate against this checkpoint")
+    .option("--policy <policy-id>", "use this policy instead of the active one")
+    .option("--version <n>", "use this specific policy version (requires --policy)")
+    .option("--as-of <timestamp>", "ISO timestamp used as the effective evaluation time (defaults to the command's captured current time)")
+    .option("--output <path>", "also write the full simulation report to this file")
+    .action((raw: RawEvidenceGateSimulateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runEvidenceGateSimulate(ctx, {
+        project: Boolean(raw.project),
+        workUnitId: raw.workUnit,
+        checkpointId: raw.checkpoint,
+        policyId: raw.policy,
+        policyVersion: raw.version !== undefined ? Number(raw.version) : undefined,
+        asOf: raw.asOf,
+        output: raw.output,
       });
       emit(result, ctx.json);
     });

@@ -245,6 +245,17 @@ export interface RawEvidenceGatePolicyActivateOptions {
   asOf?: string;
 }
 
+export interface RawEvidenceGateSimulateOptions {
+  json?: boolean;
+  project?: boolean;
+  workUnit?: string;
+  checkpoint?: string;
+  policy?: string;
+  version?: string;
+  asOf?: string;
+  output?: string;
+}
+
 export interface RawExecutionExternalRequestOptions {
   json?: boolean;
   resumeSession?: string;
