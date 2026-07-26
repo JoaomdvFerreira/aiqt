@@ -24,7 +24,7 @@ function observationsEqual(a: CheckpointAdvisoryObservation, b: CheckpointAdviso
 
 export type ApplyAdvisoryObservationOutcome =
   | { kind: "created"; advisory: CheckpointEvidenceAdvisory }
-  | { kind: "no_op"; advisory: CheckpointEvidenceAdvisory }
+  | { kind: "no_op"; advisory: CheckpointEvidenceAdvisory; matched: CheckpointAdvisoryObservation }
   | { kind: "conflict"; existing: CheckpointAdvisoryObservation };
 
 /**
@@ -41,7 +41,7 @@ export function applyAdvisoryObservation(
     const duplicate = existing.history.find((o) => o.observationId === observation.observationId);
     if (duplicate) {
       if (observationsEqual(duplicate, observation)) {
-        return { kind: "no_op", advisory: existing };
+        return { kind: "no_op", advisory: existing, matched: duplicate };
       }
       return { kind: "conflict", existing: duplicate };
     }

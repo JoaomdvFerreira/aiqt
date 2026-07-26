@@ -101,19 +101,6 @@ export function runEvidenceGateAdvisoryRefresh(
       );
     }
 
-    if (result.applyOutcome.kind === "no_op") {
-      return makeResult({
-        status: "passed",
-        action: "evidence",
-        projectStatus: state.projectStatus,
-        currentMilestoneId: state.currentMilestoneId,
-        currentWorkUnitId: state.currentWorkUnitId,
-        summary: `Advisory for checkpoint ${checkpoint.id} is already up to date (idempotent no-op).`,
-        exitCode: ExitCode.Success,
-        data: { checkpointId: checkpoint.id, evidenceAdvisory: summary, outcome: "no_op" },
-      });
-    }
-
     let outcome;
     try {
       outcome = persistCheckpointAdvisoryResult({
@@ -133,8 +120,9 @@ export function runEvidenceGateAdvisoryRefresh(
       // M29 §7.2: "command returns exit 3 where the advisory operation is
       // explicit" -- unlike the automatic checkpoint-triggered path, this
       // command's entire purpose IS the advisory operation, so a runlog
-      // gap after a successful state write is surfaced directly. State
-      // remains authoritative; retrying is idempotent.
+      // gap after a successful state write (or an unrepaired gap on a
+      // no_op replay) is surfaced directly. State remains authoritative;
+      // retrying is idempotent.
       return failure(
         `State was written successfully but the runlog append failed. State remains authoritative; retrying this refresh is idempotent.`,
         ExitCode.InvalidInput,
@@ -142,18 +130,25 @@ export function runEvidenceGateAdvisoryRefresh(
       );
     }
 
+    const summaryText =
+      outcome.kind === "no_op"
+        ? `Advisory for checkpoint ${checkpoint.id} is already up to date (idempotent no-op).`
+        : outcome.kind === "repaired"
+          ? `Advisory for checkpoint ${checkpoint.id} was already current; backfilled a missing runlog event.`
+          : `Advisory refreshed for checkpoint ${checkpoint.id}: ${result.observation.evaluationStatus}${result.observation.overallResult ? ` (${result.observation.overallResult})` : ""}.`;
+
     return makeResult({
       status: "passed",
       action: "evidence",
       projectStatus: state.projectStatus,
       currentMilestoneId: state.currentMilestoneId,
       currentWorkUnitId: state.currentWorkUnitId,
-      summary: `Advisory refreshed for checkpoint ${checkpoint.id}: ${result.observation.evaluationStatus}${result.observation.overallResult ? ` (${result.observation.overallResult})` : ""}.`,
+      summary: summaryText,
       completedActions: ["Read project.json", "Read state.json", "Evaluated advisory", "Wrote state.json", "Appended runlog event"],
       changedFiles: [paths.stateFile, paths.runlogFile],
       affectedItems: [checkpoint.id, checkpoint.workUnitId],
       exitCode: ExitCode.Success,
-      data: { checkpointId: checkpoint.id, evidenceAdvisory: summary, outcome: "refreshed" },
+      data: { checkpointId: checkpoint.id, evidenceAdvisory: summary, outcome: outcome.kind === "created" ? "refreshed" : outcome.kind },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
