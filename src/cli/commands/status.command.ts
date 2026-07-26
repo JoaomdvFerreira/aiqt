@@ -16,6 +16,7 @@ import { buildParallelBatch } from "../../workflow/parallel-batch.js";
 import { computeWorkspaceReadiness } from "../../workflow/workspace-readiness-advisory.js";
 import type { ParallelStatusData } from "../../services/parallel-status-template.js";
 import type { StateModel } from "../../schema/state.schema.js";
+import { getActivePolicyRef } from "../../services/evidence-gate-policy-service.js";
 
 export interface RunStatusOptions {
   /** M24 §11: read-only advisory eligibility/batch reporting -- never mutates state or runlog. */
@@ -176,6 +177,14 @@ export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): 
 
     const summary = `Project "${project.project.name}" is ${state.projectStatus} with ${milestoneCount} milestone(s) and ${workUnitCount} work unit(s). AIQT control root: ${roots.controlRoot}. Implementation root: ${roots.implementationRoot}.`;
 
+    // M28 §6: read-only, additive. Only present when policy configuration
+    // exists; never simulates, and never materializes state.evidenceGate on
+    // a project that lacks it (loadProject/getActivePolicyRef read only).
+    const activePolicyRef = getActivePolicyRef(state);
+    const evidenceGateSummary = state.evidenceGate
+      ? { activePolicy: activePolicyRef ?? null, simulationEnforced: false as const, checkpointAdvisoryIntegrated: false as const }
+      : undefined;
+
     return makeResult({
       status: allWarnings.length > 0 ? "warning" : "passed",
       action: "status",
@@ -197,6 +206,7 @@ export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): 
         nextActionReason: next.reason,
         runlogHealth,
         roots,
+        ...(evidenceGateSummary ? { evidenceGate: evidenceGateSummary } : {}),
       },
     });
   } catch (err) {
