@@ -1371,6 +1371,56 @@ export function buildExecutionAdapterRequestImportedEvent(input: {
   };
 }
 
+export interface EvidenceGatePolicyImportedEventData {
+  policyId: string;
+  version: number;
+  policyDigest: string;
+  ruleCount: number;
+}
+
+/** M28 §4.2: records a successful policy import. Never contains rule bodies or raw import bytes. */
+export function buildEvidenceGatePolicyImportedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: EvidenceGatePolicyImportedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.policy_imported",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Imported evidence gate policy ${input.data.policyId} v${input.data.version} (${input.data.ruleCount} rule(s))`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface EvidenceGatePolicyActivatedEventData {
+  policyId: string;
+  version: number;
+  previousPolicyId: string | null;
+  previousVersion: number | null;
+}
+
+/** M28 §4.3: records activation -- a pointer change only, never a simulation or finding. */
+export function buildEvidenceGatePolicyActivatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: EvidenceGatePolicyActivatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.policy_activated",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Activated evidence gate policy ${input.data.policyId} v${input.data.version}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 /** Build the warning Issue for malformed runlog lines, or null if healthy. */
 export function runlogHealthWarning(health: RunlogHealth): Issue | null {
   if (health.malformedLines === 0) return null;

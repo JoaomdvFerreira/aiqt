@@ -35,6 +35,10 @@ import {
   type RawExecutionAdapterClaudeCodeRequestOptions,
   type RawExecutionAdapterClaudeCodeImportOptions,
   type RawExecutionAdapterClaudeCodeStatusOptions,
+  type RawEvidenceGatePolicyImportOptions,
+  type RawEvidenceGatePolicyListOptions,
+  type RawEvidenceGatePolicyShowOptions,
+  type RawEvidenceGatePolicyActivateOptions,
   type RawExecutionExternalRequestOptions,
   type RawExecutionExternalImportOptions,
   type RawExecutionExternalStatusOptions,
@@ -90,6 +94,10 @@ import { runExecutionAdapterClaudeCodeRequest } from "./commands/execution-adapt
 import { runExecutionAdapterClaudeCodeImport } from "./commands/execution-adapter-claude-code-import.command.js";
 import { runExecutionAdapterClaudeCodeStatus } from "./commands/execution-adapter-claude-code-status.command.js";
 import { EXAMPLE_CLAUDE_CODE_REQUEST } from "./commands/execution-adapter-claude-code-example.js";
+import { runEvidenceGatePolicyImport } from "./commands/evidence-gate-policy-import.command.js";
+import { runEvidenceGatePolicyList } from "./commands/evidence-gate-policy-list.command.js";
+import { runEvidenceGatePolicyShow } from "./commands/evidence-gate-policy-show.command.js";
+import { runEvidenceGatePolicyActivate } from "./commands/evidence-gate-policy-activate.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
 import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
@@ -708,6 +716,72 @@ export function buildProgram(): Command {
         fromFile: raw.fromFile,
         stdin: Boolean(raw.stdin),
         preview: Boolean(raw.preview),
+      });
+      emit(result, ctx.json);
+    });
+
+  const evidenceGateCommand = evidenceCommand
+    .command("gate")
+    .description("Evidence gate policy management and read-only simulation (M28). Never enforces, blocks, or creates findings.");
+
+  const evidenceGatePolicyCommand = evidenceGateCommand
+    .command("policy")
+    .description("Manage bounded, versioned evidence gate policies");
+
+  evidenceGatePolicyCommand
+    .command("import")
+    .description("Import one bounded evidence gate policy version from a file or stdin")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "path to the evidence gate policy JSON file")
+    .option("--stdin", "read the evidence gate policy JSON from standard input", false)
+    .option("--preview", "validate and report the import plan without persisting", false)
+    .option("--as-of <timestamp>", "ISO timestamp used as the effective current time")
+    .action(async (raw: RawEvidenceGatePolicyImportOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runEvidenceGatePolicyImport(ctx, {
+        fromFile: raw.fromFile,
+        stdin: Boolean(raw.stdin),
+        preview: Boolean(raw.preview),
+        asOf: raw.asOf,
+      });
+      emit(result, ctx.json);
+    });
+
+  evidenceGatePolicyCommand
+    .command("list")
+    .description("Read-only listing of imported evidence gate policies")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: RawEvidenceGatePolicyListOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runEvidenceGatePolicyList(ctx);
+      emit(result, ctx.json);
+    });
+
+  evidenceGatePolicyCommand
+    .command("show <policy-id>")
+    .description("Read-only inspection of one evidence gate policy version (latest by default)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--version <n>", "show this specific policy version")
+    .action((policyId: string, raw: RawEvidenceGatePolicyShowOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runEvidenceGatePolicyShow(ctx, { policyId, version: raw.version !== undefined ? Number(raw.version) : undefined });
+      emit(result, ctx.json);
+    });
+
+  evidenceGatePolicyCommand
+    .command("activate <policy-id>")
+    .description("Activate one existing evidence gate policy version -- changes only the active-policy pointer; never evaluates or enforces")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--version <n>", "the policy version to activate")
+    .option("--preview", "validate and report the activation plan without persisting", false)
+    .option("--as-of <timestamp>", "ISO timestamp used as the effective current time")
+    .action(async (policyId: string, raw: RawEvidenceGatePolicyActivateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runEvidenceGatePolicyActivate(ctx, {
+        policyId,
+        version: raw.version !== undefined ? Number(raw.version) : undefined,
+        preview: Boolean(raw.preview),
+        asOf: raw.asOf,
       });
       emit(result, ctx.json);
     });

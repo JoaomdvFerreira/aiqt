@@ -221,6 +221,30 @@ export interface RawExecutionStatusOptions {
   workUnit?: string;
 }
 
+export interface RawEvidenceGatePolicyImportOptions {
+  json?: boolean;
+  fromFile?: string;
+  stdin?: boolean;
+  preview?: boolean;
+  asOf?: string;
+}
+
+export interface RawEvidenceGatePolicyListOptions {
+  json?: boolean;
+}
+
+export interface RawEvidenceGatePolicyShowOptions {
+  json?: boolean;
+  version?: string;
+}
+
+export interface RawEvidenceGatePolicyActivateOptions {
+  json?: boolean;
+  version?: string;
+  preview?: boolean;
+  asOf?: string;
+}
+
 export interface RawExecutionExternalRequestOptions {
   json?: boolean;
   resumeSession?: string;
