@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.15.0 (M27R Agent-Agnostic External Execution Contract and Adapter Refactor)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.15.0");
+  it("is the current released version 0.16.0 (M28 Evidence Gate Simulation)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.16.0");
   });
 });
