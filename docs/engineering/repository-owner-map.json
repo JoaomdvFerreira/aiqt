@@ -1,0 +1,144 @@
+{
+  "protocolVersion": "aiqt-repository-owner-map@1",
+  "generatedFromCommit": "1cd20db362569f038ec58e1449bbb8fd73e84a65",
+  "statement": "This map is an index into the repository, not an authority over it. Future Gate audits must verify each relevant entry against the current source before relying on it -- a stale entry is a documentation bug, not a contract change.",
+  "entries": {
+    "canonicalState": {
+      "primary": "src/schema/state.schema.ts",
+      "supporting": ["src/state/workflow-state-store.ts", "src/core/constants/schema-version.ts"],
+      "notes": "Defines StateModelSchema/StateModel, the canonical overall on-disk state shape and its schema version."
+    },
+    "projectConfigSchema": {
+      "primary": "src/schema/project.schema.ts",
+      "supporting": ["src/state/project-store.ts"],
+      "notes": "Defines ProjectSchema/ProjectContextSchema/ProjectModelSchema for project.json."
+    },
+    "candidateStateValidation": {
+      "primary": "src/state/workflow-state-store.ts",
+      "supporting": ["src/schema/state.schema.ts", "src/state/versioning.ts"],
+      "notes": "readStateModel() runs StateModelSchema.safeParse plus assertCompatibleVersion; there is no separate pre-write candidate validator -- commands build the next state in memory and the schema gate is enforced on the next read/write cycle."
+    },
+    "atomicStateWrite": {
+      "primary": "src/core/filesystem/atomic-write.ts",
+      "supporting": ["src/core/filesystem/safe-writer.ts", "src/state/workflow-state-store.ts"],
+      "notes": "atomicWriteFileSync() is the sole atomic-write primitive; writeStateModel() and safe-writer helpers build on it."
+    },
+    "runlogStore": {
+      "primary": "src/state/runlog-store.ts",
+      "supporting": ["src/schema/runlog-event.schema.ts", "src/core/filesystem/safe-writer.ts"],
+      "notes": "appendRunlogEvent/readRunlogEventIds/inspectRunlogHealth plus all build*Event() builder functions (~40, including M28's buildEvidenceGatePolicyImportedEvent/buildEvidenceGatePolicyActivatedEvent)."
+    },
+    "canonicalJson": {
+      "primary": "src/schema/external-evidence/canonical-json.ts",
+      "supporting": ["src/workflow/evidence-gate-digest.ts", "src/workflow/execution-adapter-request-identity.ts"],
+      "notes": "canonicalizeJsonValue/canonicalJsonStringify/computeCanonicalPayloadDigest -- the single canonicalization implementation, introduced in M23 and reused directly by M28."
+    },
+    "sha256Digest": {
+      "primary": "src/core/util/hash.ts",
+      "supporting": ["src/schema/external-evidence/canonical-json.ts"],
+      "notes": "sha256Hex() is the sole hashing primitive; computeCanonicalPayloadDigest builds on it."
+    },
+    "exitCodeOwner": {
+      "primary": "src/core/output/exit-codes.ts",
+      "supporting": ["src/core/output/aiqt-error.ts", "src/cli/register-commands.ts"],
+      "notes": "ExitCode const map and ExitCodeValue type; AiqtError carries an ExitCode, register-commands.ts maps thrown errors to the process exit code."
+    },
+    "boundedInput": {
+      "primary": "src/core/filesystem/bounded-file-input.ts",
+      "supporting": ["src/core/filesystem/stdin.ts", "src/cli/commands/evidence-gate-policy-import.command.ts"],
+      "notes": "readBoundedTextFile() plus readStdinText() are the size-bounded input readers used by every file/stdin import command."
+    },
+    "jsonOutput": {
+      "primary": "src/core/output/json-output.ts",
+      "supporting": ["src/cli/register-commands.ts", "src/core/output/result.ts"],
+      "notes": "renderJson() plus the CommandResult shape; register-commands.ts is the central --json dispatch point."
+    },
+    "previewBehavior": {
+      "primary": "src/cli/commands/next-preview.command.ts",
+      "supporting": ["src/cli/commands/graph-repair.command.ts", "src/cli/options.ts"],
+      "notes": "Canonical --preview implementation (M9/M20). This is a repeated per-command pattern (see graph repair's --dry-run/--apply), not a single shared preview module -- new preview-style commands should follow this file's pattern, not assume a shared helper exists."
+    },
+    "evidenceSchema": {
+      "primary": "src/schema/evidence.schema.ts",
+      "supporting": ["src/services/evidence-service.ts", "src/schema/external-evidence/normalized-evidence-candidate.ts"],
+      "notes": "EvidenceRecordSchema and ArtifactReference/ArtifactKind (M22); the sole evidence-taxonomy owner, reused directly by M28's evidenceSelector.artifactKinds."
+    },
+    "evidenceTrust": {
+      "primary": "src/schema/evidence.schema.ts",
+      "supporting": ["src/workflow/evidence-gate-simulation-engine.ts", "src/workflow/evidence-gate-snapshot.ts"],
+      "notes": "TRUST_LEVEL_ORDER and meetsTrustLevel(), co-located with the evidence schema (M22): unverified < self_reported < repository_local < platform_verified."
+    },
+    "checkpoint": {
+      "primary": "src/schema/checkpoint.schema.ts",
+      "supporting": ["src/services/checkpoint-service.ts", "src/cli/commands/checkpoint.command.ts", "src/schema/checkpoint-amendment.schema.ts"],
+      "notes": "CheckpointSchema/CheckpointIssueSchema/ValidationResultSchema/AcceptanceCriterionResultSchema."
+    },
+    "packetLifecycle": {
+      "primary": "src/services/agent-packet-service.ts",
+      "supporting": ["src/cli/commands/next-cancel.command.ts", "src/workflow/work-unit-cancel-transition.ts", "src/schema/agent-packet.schema.ts"],
+      "notes": "Creation via buildPacketContext/computePacketAuditMetadata (invoked from next.command.ts); cancellation via next-cancel.command.ts orchestrating buildPacketCancelledEvent and applyWorkUnitCancelTransition."
+    },
+    "workspaceLifecycle": {
+      "primary": "src/workspaces/workspace-service.ts",
+      "supporting": ["src/workspaces/workspace-recovery.ts", "src/cli/commands/workspace.command.ts", "src/schema/managed-workspace.schema.ts"],
+      "notes": "prepareIsolatedWorkspace()/releaseIsolatedWorkspace(); recovery handled by recoverWorkspaceOperations()."
+    },
+    "executionSessions": {
+      "primary": "src/schema/execution-session.schema.ts",
+      "supporting": ["src/services/execution-session-service.ts", "src/workflow/execution-session-transitions.ts"],
+      "notes": "Execution session schema and protocol constants (M26); service functions getExecutionSessions/findSessionsForWorkUnit/findAnySessionForPacket (M27)."
+    },
+    "externalExecutionAdapters": {
+      "primary": "src/workflow/claude-code-result-normalizer.ts",
+      "supporting": ["src/schema/claude-code-request-package.schema.ts", "src/schema/claude-code-stream-json.schema.ts", "src/workflow/claude-code-stream-json-parser.ts"],
+      "notes": "Normalizes Claude Code adapter results into the generic execution-result shape (M27); generic external-adapter CLI path lives in execution-external-request.command.ts."
+    },
+    "evidenceGatePolicy": {
+      "primary": "src/schema/evidence-gate-policy.schema.ts",
+      "supporting": ["src/services/evidence-gate-policy-service.ts", "src/cli/commands/evidence-gate-policy-import.command.ts", "src/cli/commands/evidence-gate-policy-activate.command.ts"],
+      "notes": "Policy/rule schema and bounds (MAX_POLICIES, MAX_RULES_PER_POLICY, etc.), introduced in M28."
+    },
+    "evidenceGateSimulation": {
+      "primary": "src/workflow/evidence-gate-simulation-engine.ts",
+      "supporting": ["src/schema/evidence-gate-simulation.schema.ts", "src/workflow/evidence-gate-snapshot.ts", "src/cli/commands/evidence-gate-simulate.command.ts"],
+      "notes": "evaluateRule()/aggregateOverallResult()/simulate() -- the sole pure, read-only simulation entry point, introduced in M28. Never imports runlog-store, atomic-write, or workflow-state-store."
+    },
+    "statusCommand": {
+      "primary": "src/cli/commands/status.command.ts",
+      "supporting": ["src/services/parallel-status-template.ts"],
+      "notes": "runStatus(); as of M28 optionally includes a read-only evidenceGate summary field."
+    },
+    "reviewCommand": {
+      "primary": "src/cli/commands/review.command.ts",
+      "supporting": ["src/services/review-service.ts", "src/workflow/review-next-command.ts", "src/workflow/review-rules.ts"],
+      "notes": "runReviewCommand() and the runReview()/review-rules evaluation it delegates to."
+    },
+    "manageCommand": {
+      "primary": "src/cli/commands/manage.command.ts",
+      "supporting": ["src/services/manage-service.ts", "src/services/manage-report-template.ts"],
+      "notes": "runManage() and its reporting service/template."
+    },
+    "versioningPolicy": {
+      "primary": "docs/versioning.md",
+      "supporting": ["src/tooling/version-check.ts", "src/tooling/version-check-cli.ts"],
+      "notes": "package.json's version field is the single canonical version source; runVersionCheck()/version-check-cli.ts implement the policy's automated checks (pnpm version:check)."
+    },
+    "ciWorkflows": {
+      "primary": ".github/workflows/validate.yml",
+      "supporting": [],
+      "notes": "The sole GitHub Actions workflow (name: Validate), matrix build on Node 22 and 24 -- no other workflow files exist."
+    },
+    "historicalCompatibilityFixtures": {
+      "primary": "tests/integration/cli.test.ts",
+      "supporting": [
+        "tests/unit/m22-historical-compatibility.test.ts",
+        "tests/unit/m24-historical-compatibility.test.ts",
+        "tests/unit/m25-historical-compatibility.test.ts",
+        "tests/unit/m26-historical-compatibility.test.ts",
+        "tests/integration/root-backward-compatibility.test.ts",
+        "tests/integration/execution-adapter-claude-code-legacy-compat.test.ts"
+      ],
+      "notes": "cli.test.ts's 'aiqt CLI entrypoint' describe block carries the original per-milestone command-set/exit-code assertions; later milestones (M22+) split their own dedicated historical-compatibility test files rather than extending it."
+    }
+  }
+}

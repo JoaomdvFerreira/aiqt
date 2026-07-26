@@ -10,7 +10,11 @@ coverage/
 # M21-WU05/WU09: extended with the coverage baseline and maintainer
 # recovery runbook -- each new tracked docs/ file must be added here
 # explicitly, per docs/versioning.md's relevant-paths discipline.
+# Lean Governance v0.2: extended with the docs/engineering/ directory,
+# which holds the shared milestone-protocol/owner-map/prompt-template
+# governance documents referenced by future milestone specs.
 docs/*
 !docs/versioning.md
 !docs/coverage-baseline.md
 !docs/maintainer-recovery.md
+!docs/engineering/
