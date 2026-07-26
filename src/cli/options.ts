@@ -256,6 +256,13 @@ export interface RawEvidenceGateSimulateOptions {
   output?: string;
 }
 
+export interface RawEvidenceGateAdvisoryRefreshOptions {
+  json?: boolean;
+  checkpoint?: string;
+  asOf?: string;
+  preview?: boolean;
+}
+
 export interface RawExecutionExternalRequestOptions {
   json?: boolean;
   resumeSession?: string;

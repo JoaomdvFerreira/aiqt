@@ -1421,6 +1421,74 @@ export function buildEvidenceGatePolicyActivatedEvent(input: {
   };
 }
 
+export interface EvidenceGateAdvisoryObservationRecordedEventData {
+  observationId: string;
+  checkpointId: string;
+  workUnitId: string;
+  trigger: "checkpoint" | "amendment" | "manual_refresh";
+  evaluationStatus: "evaluated" | "not_configured" | "unavailable";
+  overallResult: "pass" | "fail" | "indeterminate" | null;
+  policyRef?: { policyId?: string; version?: number; digest?: string };
+  asOf: string;
+  simulationDigest?: string;
+  issueKeys: string[];
+  recordedAt: string;
+}
+
+/**
+ * M29 §3.1: the complete append-only historical authority for advisory
+ * observations -- canonical state keeps only a current/latest-N mirror.
+ * Deterministic `observationId` (see checkpoint-advisory-identity.ts) makes
+ * repeated append attempts for the same logical observation idempotent at
+ * the caller level; this builder itself performs no dedup.
+ */
+export function buildEvidenceGateAdvisoryObservationRecordedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: EvidenceGateAdvisoryObservationRecordedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.advisory_observation_recorded",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Advisory observation for checkpoint ${input.data.checkpointId}: ${input.data.evaluationStatus}${input.data.overallResult ? ` (${input.data.overallResult})` : ""}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface EvidenceGateAdvisoryFeedbackRecordedEventData {
+  issueKey: string;
+  classification: "confirmed" | "false_positive" | "policy_gap" | "evidence_missing";
+  recordedAt: string;
+  updatedAt: string;
+}
+
+/**
+ * M29 §5.1: records a human's bounded, non-semantic classification of an
+ * advisory issue. Never touches issue lifecycle, severity, readiness,
+ * checkpoint state, or enforcement -- rationale text is stored in state
+ * (bounded, capped) but never included in this event's payload.
+ */
+export function buildEvidenceGateAdvisoryFeedbackRecordedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: EvidenceGateAdvisoryFeedbackRecordedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.advisory_feedback_recorded",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Advisory feedback recorded for ${input.data.issueKey}: ${input.data.classification}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 /** Build the warning Issue for malformed runlog lines, or null if healthy. */
 export function runlogHealthWarning(health: RunlogHealth): Issue | null {
   if (health.malformedLines === 0) return null;

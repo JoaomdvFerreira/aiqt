@@ -10,6 +10,7 @@ import { WorkspaceStateSchema } from "./managed-workspace.schema.js";
 import { ExecutionSessionSchema, MAX_SESSIONS } from "./execution-session.schema.js";
 import { ExecutionAdapterRequestSchema, MAX_ADAPTER_REQUESTS } from "./execution-adapter-request.schema.js";
 import { EvidenceGateConfigurationSchema } from "./evidence-gate-policy.schema.js";
+import { CheckpointEvidenceAdvisorySchema } from "./checkpoint-evidence-advisory.schema.js";
 
 export const ProjectStatusSchema = z.enum([
   "draft",
@@ -47,5 +48,12 @@ export const StateModelSchema = z.object({
   executionAdapterRequests: z.array(ExecutionAdapterRequestSchema).max(MAX_ADAPTER_REQUESTS).optional(),
   /** M28 §3: optional, additive. Missing entirely on pre-M28 state files; never materialized by a read-only command. */
   evidenceGate: EvidenceGateConfigurationSchema.optional(),
+  /**
+   * M29 §3.3: optional, additive. Missing entirely on pre-M29 state files
+   * and on historical checkpoints with no advisory yet. One entry per
+   * checkpoint that has ever been advisory-evaluated; current/latest-N
+   * mirror only, never the complete advisory history (the runlog is).
+   */
+  checkpointEvidenceAdvisories: z.array(CheckpointEvidenceAdvisorySchema).optional(),
 });
 export type StateModel = z.infer<typeof StateModelSchema>;

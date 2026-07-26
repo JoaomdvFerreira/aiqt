@@ -40,6 +40,7 @@ import {
   type RawEvidenceGatePolicyShowOptions,
   type RawEvidenceGatePolicyActivateOptions,
   type RawEvidenceGateSimulateOptions,
+  type RawEvidenceGateAdvisoryRefreshOptions,
   type RawExecutionExternalRequestOptions,
   type RawExecutionExternalImportOptions,
   type RawExecutionExternalStatusOptions,
@@ -100,6 +101,7 @@ import { runEvidenceGatePolicyList } from "./commands/evidence-gate-policy-list.
 import { runEvidenceGatePolicyShow } from "./commands/evidence-gate-policy-show.command.js";
 import { runEvidenceGatePolicyActivate } from "./commands/evidence-gate-policy-activate.command.js";
 import { runEvidenceGateSimulate } from "./commands/evidence-gate-simulate.command.js";
+import { runEvidenceGateAdvisoryRefresh } from "./commands/evidence-gate-advisory-refresh.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
 import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
@@ -809,6 +811,27 @@ export function buildProgram(): Command {
         policyVersion: raw.version !== undefined ? Number(raw.version) : undefined,
         asOf: raw.asOf,
         output: raw.output,
+      });
+      emit(result, ctx.json);
+    });
+
+  const evidenceGateAdvisoryCommand = evidenceGateCommand
+    .command("advisory")
+    .description("Advisory checkpoint evidence integration (M29): non-blocking visibility only, never enforcement");
+
+  evidenceGateAdvisoryCommand
+    .command("refresh")
+    .description("Explicitly re-evaluate the advisory for one checkpoint against the active policy -- never changes checkpoint completion")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--checkpoint <id>", "the checkpoint to re-evaluate")
+    .option("--as-of <timestamp>", "ISO timestamp used as the evaluation time (defaults to the command's captured current time)")
+    .option("--preview", "evaluate and report without persisting", false)
+    .action((raw: RawEvidenceGateAdvisoryRefreshOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runEvidenceGateAdvisoryRefresh(ctx, {
+        checkpointId: raw.checkpoint,
+        asOf: raw.asOf,
+        preview: Boolean(raw.preview),
       });
       emit(result, ctx.json);
     });
