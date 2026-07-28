@@ -1,9 +1,19 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { spawnSync, execFileSync } from "node:child_process";
 import { writeFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeTempDir, removeDir } from "../helpers.js";
+
+// Every test here drives the real CLI through 2-4 tsx subprocess spawns
+// (each paying Node startup + on-the-fly TS transpile with no build cache)
+// plus real `git commit` subprocesses. Measured isolated runtime on this
+// repo's fastest available Node runtime is already 3.7-6.2s; under CI's
+// Node 22 leg with full-suite concurrent load the busiest tests
+// (4+ subprocess calls) exceed the 5000ms default. This is inherent
+// subprocess-spawn cost, not product or test-setup inefficiency -- see
+// docs/engineering/m30-correction-node22-integration-timeouts.md.
+vi.setConfig({ testTimeout: 15000 });
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");
