@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.17.1 (M29 advisory-unclassified-telemetry correction)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.17.1");
+  it("is the current released version 0.18.0 (M30 Required Evidence Enforcement)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.18.0");
   });
 });
