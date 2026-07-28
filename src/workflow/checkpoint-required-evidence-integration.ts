@@ -6,6 +6,9 @@ import { resolveEffectiveEvidenceMode, getActiveActivation, getEnforcementProfil
 import { getEvidenceGatePolicies, findPolicy } from "../services/evidence-gate-policy-service.js";
 import { evaluateRequiredEvidenceGate, computeRequiredEvidenceDecisionId } from "./required-evidence-gate.js";
 import type { RequiredDecisionOutcome, RequiredDeficiency } from "../schema/required-evidence-decision.schema.js";
+import { resolveRequiredIssueRouting } from "./required-evidence-issues.js";
+import { getProjectIssues } from "../services/project-issue-service.js";
+import type { ProjectIssue } from "../schema/project-issue.schema.js";
 
 export interface CheckpointRequiredGateDecision {
   activationId: string;
@@ -18,6 +21,8 @@ export interface CheckpointRequiredGateDecision {
   blockingRuleRefs: string[];
   summary: string;
   decisionId: string;
+  createdProjectIssues: ProjectIssue[];
+  issueKeys: string[];
 }
 
 export interface CheckpointRequiredGateOutcome {
@@ -131,6 +136,23 @@ export function evaluateCheckpointRequiredGate(params: {
     outcome: result.outcome,
   });
 
+  // M30 §10.1: only persisted outcomes (needs_review, allow-with-exception)
+  // ever route a required deficiency into a ProjectIssue -- blocked/invalid
+  // attempts perform zero mutation, so nothing is routed for them.
+  const issueRouting =
+    result.outcome === "blocked" || result.outcome === "invalid"
+      ? { issueKeys: [], createdProjectIssues: [] }
+      : resolveRequiredIssueRouting({
+          targetEvaluations: result.targetEvaluations,
+          activationId: activation.activationId,
+          gate: "checkpoint",
+          policyDigest: policy.policyDigest,
+          workUnitId: params.workUnit.id,
+          milestoneId: params.workUnit.milestoneId,
+          existingProjectIssues: getProjectIssues(params.state),
+          timestamp: params.timestamp,
+        });
+
   const decision: CheckpointRequiredGateDecision = {
     activationId: activation.activationId,
     profileId: profile.profileId,
@@ -142,6 +164,8 @@ export function evaluateCheckpointRequiredGate(params: {
     blockingRuleRefs: result.blockingRuleRefs,
     summary: result.summary,
     decisionId,
+    createdProjectIssues: issueRouting.createdProjectIssues,
+    issueKeys: issueRouting.issueKeys,
   };
 
   if (result.outcome === "blocked") {

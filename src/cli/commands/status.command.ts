@@ -18,6 +18,7 @@ import type { ParallelStatusData } from "../../services/parallel-status-template
 import type { StateModel } from "../../schema/state.schema.js";
 import { getActivePolicyRef } from "../../services/evidence-gate-policy-service.js";
 import { computeEvidenceAdvisoryTelemetry } from "../../workflow/evidence-advisory-telemetry.js";
+import { buildRequiredEvidenceVisibilitySummary } from "../../workflow/required-evidence-visibility.js";
 
 export interface RunStatusOptions {
   /** M24 §11: read-only advisory eligibility/batch reporting -- never mutates state or runlog. */
@@ -217,6 +218,10 @@ export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): 
         runlogHealth,
         roots,
         ...(evidenceGateSummary ? { evidenceGate: evidenceGateSummary } : {}),
+        // M30 §10.3: one centralized required-evidence projection, shared
+        // with manage/export. Purely derived from persisted state -- never
+        // a fresh evaluation, never blocking.
+        requiredEvidence: buildRequiredEvidenceVisibilitySummary(state),
       },
     });
   } catch (err) {

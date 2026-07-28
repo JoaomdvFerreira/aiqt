@@ -7,6 +7,7 @@ import { buildManageReport } from "../../services/manage-service.js";
 import { readAgentPacketIds } from "../../state/runlog-store.js";
 import { resolveRoots } from "../../workflow/root-resolution.js";
 import { buildAdvisoryWarningsSection } from "../../workflow/checkpoint-advisory-visibility.js";
+import { buildRequiredEvidenceVisibilitySummary } from "../../workflow/required-evidence-visibility.js";
 
 /**
  * aiqt manage (M9 §8.1): a read-only project manager report. Never mutates
@@ -57,6 +58,12 @@ export function runManage(ctx: CommandContext): CommandResult {
         : {}),
     };
 
+    // M30 §10.3: manage may recommend an evidence recovery command when it
+    // is the primary workflow blocker, but must not hide stronger
+    // pre-existing blockers -- report.recommendedCommand (the existing
+    // primary next action) is left completely untouched.
+    const requiredEvidence = buildRequiredEvidenceVisibilitySummary(state);
+
     return makeResult({
       status: "passed",
       action: "manage",
@@ -74,6 +81,7 @@ export function runManage(ctx: CommandContext): CommandResult {
         roots,
         ...report,
         evidenceAdvisory,
+        requiredEvidence,
       },
     });
   } catch (err) {

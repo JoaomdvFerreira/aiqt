@@ -312,6 +312,26 @@ export interface RawEvidenceGateEnforcementActivationActivateOptions {
   confirmRequired?: string;
 }
 
+export interface RawEvidenceGateExceptionCreateOptions {
+  json?: boolean;
+  activation?: string;
+  gate?: string;
+  workUnit?: string;
+  rules?: string;
+  authorizedBy?: string;
+  reason?: string;
+  expiresAt?: string;
+  confirmException?: string;
+  preview?: boolean;
+}
+
+export interface RawEvidenceGateExceptionRevokeOptions {
+  json?: boolean;
+  revokedBy?: string;
+  reason?: string;
+  preview?: boolean;
+}
+
 export interface RawEvidenceGateEnforcementActivationDeactivateOptions {
   json?: boolean;
   activation?: string;

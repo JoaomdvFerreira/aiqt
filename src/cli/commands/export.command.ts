@@ -28,6 +28,7 @@ import {
 } from "../../services/export-service.js";
 import { computeEvidenceAdvisoryTelemetry } from "../../workflow/evidence-advisory-telemetry.js";
 import { buildAdvisoryWarningsSection } from "../../workflow/checkpoint-advisory-visibility.js";
+import { buildRequiredEvidenceVisibilitySummary } from "../../workflow/required-evidence-visibility.js";
 import type { StateModel } from "../../schema/state.schema.js";
 
 /**
@@ -225,6 +226,7 @@ export function runExport(
         data: {
           ...buildExportResultData({ target, dryRun: true, plans }),
           evidenceAdvisory: buildEvidenceAdvisoryExportSection(state, paths.runlogFile),
+          requiredEvidence: buildRequiredEvidenceVisibilitySummary(state),
         },
       });
     }
@@ -285,6 +287,7 @@ export function runExport(
       data: {
         ...buildExportResultData({ target, dryRun: false, plans }),
         evidenceAdvisory: buildEvidenceAdvisoryExportSection(state, paths.runlogFile),
+        requiredEvidence: buildRequiredEvidenceVisibilitySummary(state),
       },
     });
   } catch (err) {

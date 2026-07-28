@@ -48,6 +48,8 @@ import {
   type RawEvidenceGateEnforcementActivationPrepareOptions,
   type RawEvidenceGateEnforcementActivationActivateOptions,
   type RawEvidenceGateEnforcementActivationDeactivateOptions,
+  type RawEvidenceGateExceptionCreateOptions,
+  type RawEvidenceGateExceptionRevokeOptions,
   type RawExecutionExternalRequestOptions,
   type RawExecutionExternalImportOptions,
   type RawExecutionExternalStatusOptions,
@@ -117,6 +119,9 @@ import { runEvidenceGateEnforcementRecoveryImport } from "./commands/evidence-ga
 import { runEvidenceGateEnforcementActivationPrepare } from "./commands/evidence-gate-enforcement-activation-prepare.command.js";
 import { runEvidenceGateEnforcementActivationActivate } from "./commands/evidence-gate-enforcement-activation-activate.command.js";
 import { runEvidenceGateEnforcementActivationDeactivate } from "./commands/evidence-gate-enforcement-activation-deactivate.command.js";
+import { runEvidenceGateExceptionCreate } from "./commands/evidence-gate-exception-create.command.js";
+import { runEvidenceGateExceptionRevoke } from "./commands/evidence-gate-exception-revoke.command.js";
+import { runEvidenceGateExceptionList } from "./commands/evidence-gate-exception-list.command.js";
 import { runEvidenceGateEnforcementStatus } from "./commands/evidence-gate-enforcement-status.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
@@ -1019,6 +1024,67 @@ export function buildProgram(): Command {
     .action((raw: { json?: boolean }) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runEvidenceGateEnforcementStatus(ctx);
+      emit(result, ctx.json);
+    });
+
+  const evidenceGateExceptionCommand = evidenceGateCommand
+    .command("exception")
+    .description("Exact, governed, expiring scoped exceptions to required evidence (M30) -- never a generic force/skip/ignore-evidence bypass");
+
+  evidenceGateExceptionCommand
+    .command("create")
+    .description("Create one exact scoped exception -- only for rules the active profile explicitly marks exception-eligible")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--activation <activation-id>", "the active activation this exception is scoped under")
+    .option("--gate <gate>", "checkpoint | development-review | release-review")
+    .option("--work-unit <id>", "required for checkpoint-gate exceptions; scopes the exception to one Work Unit")
+    .option("--rules <rule-ids>", "comma-separated exception-eligible rule ids")
+    .option("--authorized-by <human-id>", "explicit human identity authorizing the exception")
+    .option("--reason <text>", "bounded, non-empty reason")
+    .option("--expires-at <timestamp>", "ISO timestamp, at most 30 days out")
+    .option("--confirm-exception <project-id>", "must exactly match the current project id")
+    .option("--preview", "validate and report without persisting", false)
+    .action(async (raw: RawEvidenceGateExceptionCreateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runEvidenceGateExceptionCreate(ctx, {
+        activationId: raw.activation,
+        gate: raw.gate,
+        workUnitId: raw.workUnit,
+        rules: raw.rules,
+        authorizedBy: raw.authorizedBy,
+        reason: raw.reason,
+        expiresAt: raw.expiresAt,
+        confirmException: raw.confirmException,
+        preview: Boolean(raw.preview),
+      });
+      emit(result, ctx.json);
+    });
+
+  evidenceGateExceptionCommand
+    .command("revoke <exception-id>")
+    .description("Revoke an active scoped exception -- append-only audited; idempotent on an already-revoked exception")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--revoked-by <human-id>", "explicit human identity authorizing the revocation")
+    .option("--reason <text>", "bounded, non-empty reason")
+    .option("--preview", "validate and report without persisting", false)
+    .action(async (exceptionId: string, raw: RawEvidenceGateExceptionRevokeOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runEvidenceGateExceptionRevoke(ctx, {
+        exceptionId,
+        revokedBy: raw.revokedBy,
+        reason: raw.reason,
+        preview: Boolean(raw.preview),
+      });
+      emit(result, ctx.json);
+    });
+
+  evidenceGateExceptionCommand
+    .command("list")
+    .description("Read-only listing of scoped exceptions")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: { json?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runEvidenceGateExceptionList(ctx);
       emit(result, ctx.json);
     });
 

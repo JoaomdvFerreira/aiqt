@@ -26,7 +26,7 @@ import { persistCheckpointAdvisoryResult } from "../../workflow/checkpoint-advis
 import { buildEvidenceAdvisorySummary, type EvidenceAdvisorySummary } from "../../workflow/checkpoint-advisory-visibility.js";
 import type { ProjectModel } from "../../schema/project.schema.js";
 import { evaluateCheckpointRequiredGate, recoveryCommandsFor, type CheckpointRequiredGateDecision } from "../../workflow/checkpoint-required-evidence-integration.js";
-import { buildRequiredDecisionRecordedEvent, buildExceptionConsumedEvent } from "../../state/runlog-store.js";
+import { buildRequiredDecisionRecordedEvent, buildExceptionConsumedEvent, buildProjectIssueCreatedEvent } from "../../state/runlog-store.js";
 
 /**
  * M29 §3.1/§3.2: "The same post-success ordering applies when a checkpoint
@@ -381,6 +381,16 @@ export function runCheckpointAmend(
             ),
           }
         : {}),
+      ...(requiredGateDecision && requiredGateDecision.createdProjectIssues.length > 0
+        ? {
+            issues: {
+              overrides: state.issues?.overrides ?? [],
+              promotions: state.issues?.promotions ?? [],
+              projectIssues: [...(state.issues?.projectIssues ?? []), ...requiredGateDecision.createdProjectIssues],
+              ...(state.issues?.projectIssueTransitions ? { projectIssueTransitions: state.issues.projectIssueTransitions } : {}),
+            },
+          }
+        : {}),
     };
 
     const review = runReview(project, stateWithAmendment, knownPacketIds);
@@ -443,6 +453,19 @@ export function runCheckpointAmend(
           }),
         );
       }
+
+      for (const createdIssue of requiredGateDecision.createdProjectIssues) {
+        const issueEventId = nextId("EVT", [...readRunlogEventIds(paths.runlogFile)]);
+        appendRunlogEvent(
+          paths.runlogFile,
+          buildProjectIssueCreatedEvent({
+            id: issueEventId,
+            timestamp,
+            relatedIds: [createdIssue.projectIssueId, checkpointId],
+            data: { projectIssueId: createdIssue.projectIssueId, issueKey: createdIssue.issueKey, severity: createdIssue.severity, sourceType: createdIssue.sourceType },
+          }),
+        );
+      }
     }
 
     // M29 §3.1/§3.2: post-success advisory refresh, strictly after the
@@ -492,6 +515,8 @@ export function runCheckpointAmend(
                 deficiency: requiredGateDecision.deficiency,
                 exceptionRefs: requiredGateDecision.consumedExceptionIds,
                 blockingRuleRefs: requiredGateDecision.blockingRuleRefs,
+                issueKeys: requiredGateDecision.issueKeys,
+                recovery: { commands: recoveryCommandsFor(requiredGateDecision.deficiency) },
               },
             }
           : {}),
