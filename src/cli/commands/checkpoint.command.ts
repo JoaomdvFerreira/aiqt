@@ -34,6 +34,8 @@ import { isTerminalSessionStatus } from "../../schema/execution-session.schema.j
 import { runCheckpointAdvisory } from "../../workflow/checkpoint-advisory-integration.js";
 import { persistCheckpointAdvisoryResult } from "../../workflow/checkpoint-advisory-persistence.js";
 import { buildEvidenceAdvisorySummary, type EvidenceAdvisorySummary } from "../../workflow/checkpoint-advisory-visibility.js";
+import { evaluateCheckpointRequiredGate, recoveryCommandsFor, type CheckpointRequiredGateDecision } from "../../workflow/checkpoint-required-evidence-integration.js";
+import { buildRequiredDecisionRecordedEvent, buildExceptionConsumedEvent } from "../../state/runlog-store.js";
 
 /**
  * M29 §3.1: automatic post-success advisory evaluation. Runs strictly after
@@ -314,23 +316,70 @@ export function runCheckpoint(
       : `aiqt checkpoint --from-file ${options.fromFile}`;
 
     let result;
+    let requiredGateDecision: CheckpointRequiredGateDecision | undefined;
     try {
       const input = options.input !== undefined
         ? validateCheckpointInput(options.input)
         : loadCheckpointInputFromFile(options.fromFile!);
       const timestamp = new Date().toISOString();
       const checkpointId = nextId("C", state.checkpoints.map((c) => c.id), "");
-      result = {
-        applied: applyCheckpoint({
-          state,
-          workUnit,
-          input,
-          checkpointId,
-          timestamp,
-          executionSessionIds: packetSessions.map((s) => s.id),
-        }),
+
+      let applied = applyCheckpoint({
+        state,
+        workUnit,
+        input,
+        checkpointId,
         timestamp,
-      };
+        executionSessionIds: packetSessions.map((s) => s.id),
+      });
+
+      // M30 §7.2: required evidence only ever gates a transition that
+      // would otherwise become "done" -- existing acceptance/validation
+      // failure (needs_review) always takes precedence and is never
+      // touched here.
+      if (applied.checkpoint.finalWorkUnitStatus === "done") {
+        const gate = evaluateCheckpointRequiredGate({
+          state,
+          project,
+          candidateCheckpoint: applied.checkpoint,
+          candidateWorkUnits: applied.workUnits,
+          workUnit,
+          timestamp,
+        });
+
+        if (gate.rejection) {
+          // M30 §7.2/§7.4: blocked/invalid attempts perform zero canonical
+          // mutation -- return immediately, before any state is built.
+          const recoveryCommands = gate.decision ? recoveryCommandsFor(gate.decision.deficiency) : [];
+          if (gate.rejection.exitCode === 2) {
+            return blockedOnState(state, gate.rejection.summary, recoveryCommands[0] ?? "aiqt evidence import --from-file <path>", gate.rejection.issueId);
+          }
+          return failedOnState(state, gate.rejection.summary, recoveryCommands[0] ?? null, gate.rejection.exitCode, gate.rejection.issueId);
+        }
+
+        if (gate.evaluated && gate.decision) {
+          requiredGateDecision = gate.decision;
+        }
+
+        if (gate.downgradeToNeedsReview) {
+          // M30 §7.2/transition matrix: required evidence may downgrade a
+          // would-be done to needs_review, never upgrade failure to
+          // success. Re-derive via the SAME existing pure applyCheckpoint,
+          // forcing targetStatus so its own needs_review branch (never
+          // recalculating readiness) is used -- no second readiness or
+          // completion engine.
+          applied = applyCheckpoint({
+            state,
+            workUnit,
+            input: { ...input, targetStatus: "needs_review" },
+            checkpointId,
+            timestamp,
+            executionSessionIds: packetSessions.map((s) => s.id),
+          });
+        }
+      }
+
+      result = { applied, timestamp };
     } catch (err) {
       if (err instanceof AiqtError) {
         return failedOnState(
@@ -359,6 +408,17 @@ export function runCheckpoint(
       checkpoints: [...state.checkpoints, applied.checkpoint],
       nextRecommendedCommand: applied.nextRecommendedCommand,
       lastUpdatedAt: timestamp,
+      // M30 §7.4: exception consumption is persisted in the SAME state
+      // write as the checkpoint/decision it was consumed by.
+      ...(requiredGateDecision && requiredGateDecision.consumedExceptionIds.length > 0
+        ? {
+            requiredEvidenceExceptions: (state.requiredEvidenceExceptions ?? []).map((exc) =>
+              requiredGateDecision!.consumedExceptionIds.includes(exc.exceptionId)
+                ? { ...exc, status: (exc.usage.mode === "single_use" ? "consumed" : exc.status) as typeof exc.status, usage: { ...exc.usage, consumedAt: timestamp, consumedByDecisionId: requiredGateDecision!.decisionId } }
+                : exc,
+            ),
+          }
+        : {}),
     };
 
     writeStateModel(paths.stateFile, newState);
@@ -441,6 +501,43 @@ export function runCheckpoint(
       );
     }
 
+    // M30 §7.4: appended in the same ordered sequence as the checkpoint's
+    // own events, right after readiness events -- never a second write.
+    if (requiredGateDecision) {
+      const decisionEventId = nextId("EVT", eventIds);
+      eventIds = [...eventIds, decisionEventId];
+      appendRunlogEvent(
+        paths.runlogFile,
+        buildRequiredDecisionRecordedEvent({
+          id: decisionEventId,
+          timestamp,
+          relatedIds: [applied.checkpoint.id, workUnit.id, requiredGateDecision.activationId],
+          data: {
+            decisionId: requiredGateDecision.decisionId,
+            activationId: requiredGateDecision.activationId,
+            gate: "checkpoint",
+            outcome: requiredGateDecision.outcome,
+            deficiency: requiredGateDecision.deficiency,
+            targetRefs: [`checkpoint:${applied.checkpoint.id}`],
+          },
+        }),
+      );
+
+      for (const exceptionId of requiredGateDecision.consumedExceptionIds) {
+        const consumedEventId = nextId("EVT", eventIds);
+        eventIds = [...eventIds, consumedEventId];
+        appendRunlogEvent(
+          paths.runlogFile,
+          buildExceptionConsumedEvent({
+            id: consumedEventId,
+            timestamp,
+            relatedIds: [exceptionId, applied.checkpoint.id],
+            data: { exceptionId, decisionId: requiredGateDecision.decisionId },
+          }),
+        );
+      }
+    }
+
     // M29 §3.1: advisory evaluation is attempted only after every step above
     // (the checkpoint's own state write and all its runlog events) has
     // already succeeded. `newState` is the durable post-checkpoint state.
@@ -489,6 +586,16 @@ export function runCheckpoint(
         newlyReadyWorkUnitIds: applied.newlyReadyWorkUnitIds,
         nextReadyWorkUnitId: applied.nextReadyWorkUnitId,
         evidenceAdvisory,
+        ...(requiredGateDecision
+          ? {
+              requiredEvidence: {
+                outcome: requiredGateDecision.outcome,
+                deficiency: requiredGateDecision.deficiency,
+                exceptionRefs: requiredGateDecision.consumedExceptionIds,
+                blockingRuleRefs: requiredGateDecision.blockingRuleRefs,
+              },
+            }
+          : {}),
       },
     });
   } catch (err) {

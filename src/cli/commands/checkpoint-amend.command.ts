@@ -25,6 +25,8 @@ import { runCheckpointAdvisory } from "../../workflow/checkpoint-advisory-integr
 import { persistCheckpointAdvisoryResult } from "../../workflow/checkpoint-advisory-persistence.js";
 import { buildEvidenceAdvisorySummary, type EvidenceAdvisorySummary } from "../../workflow/checkpoint-advisory-visibility.js";
 import type { ProjectModel } from "../../schema/project.schema.js";
+import { evaluateCheckpointRequiredGate, recoveryCommandsFor, type CheckpointRequiredGateDecision } from "../../workflow/checkpoint-required-evidence-integration.js";
+import { buildRequiredDecisionRecordedEvent, buildExceptionConsumedEvent } from "../../state/runlog-store.js";
 
 /**
  * M29 §3.1/§3.2: "The same post-success ordering applies when a checkpoint
@@ -300,6 +302,52 @@ export function runCheckpointAmend(
       });
     }
 
+    // M30 §7.3: required evidence only gates a needs_review -> done
+    // transition that applyCheckpointAmendment's own completion gate
+    // already decided to allow. Changing result fields alone can never
+    // waive evidence -- there is no override here, only a possible
+    // downgrade back to needs_review.
+    let requiredGateDecision: CheckpointRequiredGateDecision | undefined;
+    const completionGatePassed = applied.workUnitStatusBefore === "needs_review" && applied.workUnitStatusAfter === "done";
+    if (completionGatePassed) {
+      const gate = evaluateCheckpointRequiredGate({
+        state,
+        project,
+        candidateCheckpoint: checkpoint,
+        candidateWorkUnits: applied.workUnits,
+        workUnit,
+        timestamp,
+      });
+
+      if (gate.rejection) {
+        const recoveryCommands = gate.decision ? recoveryCommandsFor(gate.decision.deficiency) : [];
+        return makeResult({
+          status: gate.rejection.exitCode === 2 ? "blocked" : "failed",
+          action: "checkpoint",
+          projectStatus: state.projectStatus,
+          currentMilestoneId: state.currentMilestoneId,
+          currentWorkUnitId: state.currentWorkUnitId,
+          summary: gate.rejection.summary,
+          nextRecommendedCommand: recoveryCommands[0] ?? null,
+          exitCode: gate.rejection.exitCode,
+          blockingIssues: [{ id: gate.rejection.issueId, severity: "high", area: "evidence-gate", message: gate.rejection.summary, agentCanFix: false }],
+        });
+      }
+
+      if (gate.evaluated && gate.decision) requiredGateDecision = gate.decision;
+
+      if (gate.downgradeToNeedsReview) {
+        // Discard the completion-gate-passed branch's mutations -- the
+        // amendment overlay itself is still stored (below), just without
+        // the done transition applyCheckpointAmendment would have applied.
+        applied.workUnitStatusAfter = "needs_review";
+        applied.workUnits = state.workGraph.workUnits;
+        applied.milestones = state.workGraph.milestones;
+        applied.projectStatus = state.projectStatus;
+        applied.newlyReadyWorkUnitIds = [];
+      }
+    }
+
     let currentMilestoneId = state.currentMilestoneId;
     if (
       applied.workUnitStatusAfter === "done" &&
@@ -324,6 +372,15 @@ export function runCheckpointAmend(
       },
       checkpointAmendments: [...(state.checkpointAmendments ?? []), applied.amendment!],
       lastUpdatedAt: timestamp,
+      ...(requiredGateDecision && requiredGateDecision.consumedExceptionIds.length > 0
+        ? {
+            requiredEvidenceExceptions: (state.requiredEvidenceExceptions ?? []).map((exc) =>
+              requiredGateDecision!.consumedExceptionIds.includes(exc.exceptionId)
+                ? { ...exc, status: (exc.usage.mode === "single_use" ? "consumed" : exc.status) as typeof exc.status, usage: { ...exc.usage, consumedAt: timestamp, consumedByDecisionId: requiredGateDecision!.decisionId } }
+                : exc,
+            ),
+          }
+        : {}),
     };
 
     const review = runReview(project, stateWithAmendment, knownPacketIds);
@@ -354,6 +411,39 @@ export function runCheckpointAmend(
         },
       }),
     );
+
+    if (requiredGateDecision) {
+      const decisionEventId = nextId("EVT", [...readRunlogEventIds(paths.runlogFile)]);
+      appendRunlogEvent(
+        paths.runlogFile,
+        buildRequiredDecisionRecordedEvent({
+          id: decisionEventId,
+          timestamp,
+          relatedIds: [checkpointId, workUnit.id, requiredGateDecision.activationId],
+          data: {
+            decisionId: requiredGateDecision.decisionId,
+            activationId: requiredGateDecision.activationId,
+            gate: "checkpoint",
+            outcome: requiredGateDecision.outcome,
+            deficiency: requiredGateDecision.deficiency,
+            targetRefs: [`checkpoint:${checkpointId}`],
+          },
+        }),
+      );
+
+      for (const exceptionId of requiredGateDecision.consumedExceptionIds) {
+        const consumedEventId = nextId("EVT", [...readRunlogEventIds(paths.runlogFile)]);
+        appendRunlogEvent(
+          paths.runlogFile,
+          buildExceptionConsumedEvent({
+            id: consumedEventId,
+            timestamp,
+            relatedIds: [exceptionId, checkpointId],
+            data: { exceptionId, decisionId: requiredGateDecision.decisionId },
+          }),
+        );
+      }
+    }
 
     // M29 §3.1/§3.2: post-success advisory refresh, strictly after the
     // amendment's own state write and runlog event above.
@@ -395,6 +485,16 @@ export function runCheckpointAmend(
         workUnitStatusAfter: applied.workUnitStatusAfter,
         changed: true,
         evidenceAdvisory,
+        ...(requiredGateDecision
+          ? {
+              requiredEvidence: {
+                outcome: requiredGateDecision.outcome,
+                deficiency: requiredGateDecision.deficiency,
+                exceptionRefs: requiredGateDecision.consumedExceptionIds,
+                blockingRuleRefs: requiredGateDecision.blockingRuleRefs,
+              },
+            }
+          : {}),
       },
     });
   } catch (err) {
