@@ -1521,6 +1521,225 @@ export function buildEvidenceGateAdvisoryFeedbackRecordedEvent(input: {
 }
 
 /** Build the warning Issue for malformed runlog lines, or null if healthy. */
+export interface EnforcementProfileImportedEventData {
+  profileId: string;
+  version: number;
+  profileDigest: string;
+}
+
+/** M30 §11: profile import is append-only, never activates enforcement. */
+export function buildEnforcementProfileImportedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: EnforcementProfileImportedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.enforcement_profile_imported",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Imported enforcement profile ${input.data.profileId} v${input.data.version}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface RecoveryProofImportedEventData {
+  proofId: string;
+  gate: string;
+  ruleId: string;
+  recoveryKind: string;
+  proofDigest: string;
+}
+
+export function buildRecoveryProofImportedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: RecoveryProofImportedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.recovery_proof_imported",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Imported recovery proof ${input.data.proofId} for rule ${input.data.ruleId} (${input.data.gate})`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ActivationPlanPreparedEventData {
+  planId: string;
+  profileId: string;
+  profileVersion: number;
+  projectActivationResidualRisk: number;
+  blockerCount: number;
+}
+
+export function buildActivationPlanPreparedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ActivationPlanPreparedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.activation_plan_prepared",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Prepared activation plan ${input.data.planId} (risk ${input.data.projectActivationResidualRisk})`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface RequiredModeActivatedEventData {
+  activationId: string;
+  planId: string;
+  profileId: string;
+  profileVersion: number;
+  activatedBy: string;
+}
+
+/** M30 §5.3: activation is explicit, human-authored, and audited -- never silent. */
+export function buildRequiredModeActivatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: RequiredModeActivatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.required_mode_activated",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Activated required mode ${input.data.activationId} (profile ${input.data.profileId} v${input.data.profileVersion})`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface RequiredModeDeactivatedEventData {
+  activationId: string;
+  deactivatedBy: string;
+}
+
+export function buildRequiredModeDeactivatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: RequiredModeDeactivatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.required_mode_deactivated",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Deactivated required mode ${input.data.activationId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface RequiredDecisionRecordedEventData {
+  decisionId: string;
+  activationId: string;
+  gate: string;
+  outcome: string;
+  deficiency: string;
+  targetRefs: string[];
+}
+
+/** M30 §7.4: appended for every persisted checkpoint/amendment required-evidence decision. */
+export function buildRequiredDecisionRecordedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: RequiredDecisionRecordedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.required_decision_recorded",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Required decision ${input.data.decisionId}: ${input.data.outcome} (${input.data.deficiency})`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExceptionCreatedEventData {
+  exceptionId: string;
+  activationId: string;
+  gate: string;
+  ruleIds: string[];
+  authorizedBy: string;
+  expiresAt: string;
+}
+
+export function buildExceptionCreatedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExceptionCreatedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.exception_created",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Created scoped exception ${input.data.exceptionId} for gate ${input.data.gate}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExceptionConsumedEventData {
+  exceptionId: string;
+  decisionId: string;
+}
+
+export function buildExceptionConsumedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExceptionConsumedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.exception_consumed",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Consumed scoped exception ${input.data.exceptionId} via decision ${input.data.decisionId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface ExceptionRevokedEventData {
+  exceptionId: string;
+  revokedBy: string;
+}
+
+export function buildExceptionRevokedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: ExceptionRevokedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "evidence_gate.exception_revoked",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Revoked scoped exception ${input.data.exceptionId}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 export function runlogHealthWarning(health: RunlogHealth): Issue | null {
   if (health.malformedLines === 0) return null;
   return {

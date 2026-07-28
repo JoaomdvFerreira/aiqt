@@ -270,6 +270,40 @@ export interface RawEvidenceGateAdvisoryFeedbackOptions {
   preview?: boolean;
 }
 
+export interface RawEvidenceGateEnforcementProfileImportOptions {
+  json?: boolean;
+  fromFile?: string;
+  stdin?: boolean;
+  preview?: boolean;
+  asOf?: string;
+}
+
+export interface RawEvidenceGateEnforcementProfileShowOptions {
+  json?: boolean;
+  version?: string;
+}
+
+export interface RawEvidenceGateEnforcementRecoveryImportOptions {
+  json?: boolean;
+  profile?: string;
+  version?: string;
+  gate?: string;
+  rule?: string;
+  before?: string;
+  after?: string;
+  recoveryKind?: string;
+  preview?: boolean;
+  asOf?: string;
+}
+
+export interface RawEvidenceGateEnforcementActivationPrepareOptions {
+  json?: boolean;
+  profile?: string;
+  version?: string;
+  preview?: boolean;
+  asOf?: string;
+}
+
 export interface RawExecutionExternalRequestOptions {
   json?: boolean;
   resumeSession?: string;

@@ -42,6 +42,10 @@ import {
   type RawEvidenceGateSimulateOptions,
   type RawEvidenceGateAdvisoryRefreshOptions,
   type RawEvidenceGateAdvisoryFeedbackOptions,
+  type RawEvidenceGateEnforcementProfileImportOptions,
+  type RawEvidenceGateEnforcementProfileShowOptions,
+  type RawEvidenceGateEnforcementRecoveryImportOptions,
+  type RawEvidenceGateEnforcementActivationPrepareOptions,
   type RawExecutionExternalRequestOptions,
   type RawExecutionExternalImportOptions,
   type RawExecutionExternalStatusOptions,
@@ -104,6 +108,12 @@ import { runEvidenceGatePolicyActivate } from "./commands/evidence-gate-policy-a
 import { runEvidenceGateSimulate } from "./commands/evidence-gate-simulate.command.js";
 import { runEvidenceGateAdvisoryRefresh } from "./commands/evidence-gate-advisory-refresh.command.js";
 import { runEvidenceGateAdvisoryFeedback } from "./commands/evidence-gate-advisory-feedback.command.js";
+import { runEvidenceGateEnforcementProfileImport } from "./commands/evidence-gate-enforcement-profile-import.command.js";
+import { runEvidenceGateEnforcementProfileList } from "./commands/evidence-gate-enforcement-profile-list.command.js";
+import { runEvidenceGateEnforcementProfileShow } from "./commands/evidence-gate-enforcement-profile-show.command.js";
+import { runEvidenceGateEnforcementRecoveryImport } from "./commands/evidence-gate-enforcement-recovery-import.command.js";
+import { runEvidenceGateEnforcementActivationPrepare } from "./commands/evidence-gate-enforcement-activation-prepare.command.js";
+import { runEvidenceGateEnforcementStatus } from "./commands/evidence-gate-enforcement-status.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
 import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
@@ -853,6 +863,120 @@ export function buildProgram(): Command {
         rationale: raw.rationale,
         preview: Boolean(raw.preview),
       });
+      emit(result, ctx.json);
+    });
+
+  const evidenceGateEnforcementCommand = evidenceGateCommand
+    .command("enforcement")
+    .description("Required evidence enforcement (M30): profiles, recovery proofs, activation plans. Import/preparation never activates enforcement.");
+
+  const evidenceGateEnforcementProfileCommand = evidenceGateEnforcementCommand
+    .command("profile")
+    .description("Manage immutable, bounded evidence enforcement profiles");
+
+  evidenceGateEnforcementProfileCommand
+    .command("import")
+    .description("Import one bounded evidence enforcement profile version from a file or stdin -- never activates enforcement")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "path to the enforcement profile JSON file")
+    .option("--stdin", "read the enforcement profile JSON from standard input", false)
+    .option("--preview", "validate and report the import plan without persisting", false)
+    .option("--as-of <timestamp>", "ISO timestamp used as the effective current time")
+    .action(async (raw: RawEvidenceGateEnforcementProfileImportOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runEvidenceGateEnforcementProfileImport(ctx, {
+        fromFile: raw.fromFile,
+        stdin: Boolean(raw.stdin),
+        preview: Boolean(raw.preview),
+        asOf: raw.asOf,
+      });
+      emit(result, ctx.json);
+    });
+
+  evidenceGateEnforcementProfileCommand
+    .command("list")
+    .description("Read-only listing of imported evidence enforcement profiles")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: { json?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runEvidenceGateEnforcementProfileList(ctx);
+      emit(result, ctx.json);
+    });
+
+  evidenceGateEnforcementProfileCommand
+    .command("show <profile-id>")
+    .description("Read-only inspection of one evidence enforcement profile version (latest by default)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--version <n>", "show this specific profile version")
+    .action((profileId: string, raw: RawEvidenceGateEnforcementProfileShowOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runEvidenceGateEnforcementProfileShow(ctx, { profileId, version: raw.version !== undefined ? Number(raw.version) : undefined });
+      emit(result, ctx.json);
+    });
+
+  const evidenceGateEnforcementRecoveryCommand = evidenceGateEnforcementCommand
+    .command("recovery")
+    .description("Required-rule recovery proofs");
+
+  evidenceGateEnforcementRecoveryCommand
+    .command("import")
+    .description("Import a required-rule recovery proof from before/after M28 simulation reports -- never persists the raw reports")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--profile <profile-id>", "the enforcement profile this proof is for")
+    .option("--version <n>", "the enforcement profile version")
+    .option("--gate <gate>", "checkpoint | development-review | release-review")
+    .option("--rule <rule-id>", "the policy rule this proof covers")
+    .option("--before <path>", "path to the before (fail/indeterminate) M28 simulation report")
+    .option("--after <path>", "path to the after (pass) M28 simulation report")
+    .option("--recovery-kind <kind>", "evidence_import | checkpoint_amendment | evidence_replacement | scoped_exception")
+    .option("--preview", "validate and report without persisting", false)
+    .option("--as-of <timestamp>", "ISO timestamp used as the effective current time")
+    .action(async (raw: RawEvidenceGateEnforcementRecoveryImportOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runEvidenceGateEnforcementRecoveryImport(ctx, {
+        profileId: raw.profile,
+        version: raw.version !== undefined ? Number(raw.version) : undefined,
+        gate: raw.gate,
+        ruleId: raw.rule,
+        beforeFile: raw.before,
+        afterFile: raw.after,
+        recoveryKind: raw.recoveryKind,
+        preview: Boolean(raw.preview),
+        asOf: raw.asOf,
+      });
+      emit(result, ctx.json);
+    });
+
+  const evidenceGateEnforcementActivationCommand = evidenceGateEnforcementCommand
+    .command("activation")
+    .description("Required-mode activation lifecycle -- prepare never activates; activation is explicit and human-authored");
+
+  evidenceGateEnforcementActivationCommand
+    .command("prepare")
+    .description("Compute a bounded, replay-safe activation plan (exact Gate K risk formula) -- never activates enforcement")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--profile <profile-id>", "the enforcement profile to prepare activation for")
+    .option("--version <n>", "the enforcement profile version")
+    .option("--preview", "compute and report without persisting", false)
+    .option("--as-of <timestamp>", "ISO timestamp used as the effective current time")
+    .action(async (raw: RawEvidenceGateEnforcementActivationPrepareOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runEvidenceGateEnforcementActivationPrepare(ctx, {
+        profileId: raw.profile,
+        version: raw.version !== undefined ? Number(raw.version) : undefined,
+        preview: Boolean(raw.preview),
+        asOf: raw.asOf,
+      });
+      emit(result, ctx.json);
+    });
+
+  evidenceGateEnforcementCommand
+    .command("status")
+    .description("Read-only effective evidence mode (off | advisory | required) and active-activation summary")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: { json?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runEvidenceGateEnforcementStatus(ctx);
       emit(result, ctx.json);
     });
 

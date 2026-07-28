@@ -12,6 +12,11 @@ import { ExecutionAdapterRequestSchema, MAX_ADAPTER_REQUESTS } from "./execution
 import { EvidenceGateConfigurationSchema } from "./evidence-gate-policy.schema.js";
 import { CheckpointEvidenceAdvisorySchema } from "./checkpoint-evidence-advisory.schema.js";
 import { EvidenceAdvisoryFeedbackSchema, MAX_EVIDENCE_ADVISORY_FEEDBACK } from "./evidence-advisory-feedback.schema.js";
+import { EvidenceEnforcementProfileSchema, MAX_ENFORCEMENT_PROFILES } from "./evidence-enforcement-profile.schema.js";
+import { RequiredRuleRecoveryProofSchema, MAX_RECOVERY_PROOFS } from "./required-rule-recovery-proof.schema.js";
+import { RequiredModeActivationPlanSchema, MAX_ACTIVATION_PLANS } from "./required-mode-activation-plan.schema.js";
+import { RequiredModeActivationSchema } from "./required-mode-activation.schema.js";
+import { RequiredEvidenceExceptionSchema, MAX_EXCEPTIONS } from "./required-evidence-exception.schema.js";
 
 export const ProjectStatusSchema = z.enum([
   "draft",
@@ -62,5 +67,15 @@ export const StateModelSchema = z.object({
    * MAX_EVIDENCE_ADVISORY_FEEDBACK per project.
    */
   evidenceAdvisoryFeedback: z.array(EvidenceAdvisoryFeedbackSchema).max(MAX_EVIDENCE_ADVISORY_FEEDBACK).optional(),
+  /** M30 §4.1: optional, additive. Missing entirely on pre-M30 state files. Immutable, versioned; never edited in place. */
+  enforcementProfiles: z.array(EvidenceEnforcementProfileSchema).max(MAX_ENFORCEMENT_PROFILES).optional(),
+  /** M30 §4.5: optional, additive. Bounded, append-only recovery-proof metadata (no raw simulation reports). */
+  requiredRuleRecoveryProofs: z.array(RequiredRuleRecoveryProofSchema).max(MAX_RECOVERY_PROOFS).optional(),
+  /** M30 §4.6: optional, additive. Bounded to MAX_ACTIVATION_PLANS retained; each expires after 24h. */
+  requiredModeActivationPlans: z.array(RequiredModeActivationPlanSchema).max(MAX_ACTIVATION_PLANS).optional(),
+  /** M30 §4.7: optional, additive. Append-only (status transitions active->deactivated in place; a new activation is a new entry). */
+  requiredModeActivations: z.array(RequiredModeActivationSchema).optional(),
+  /** M30 §4.8: optional, additive. Bounded scoped exceptions. */
+  requiredEvidenceExceptions: z.array(RequiredEvidenceExceptionSchema).max(MAX_EXCEPTIONS).optional(),
 });
 export type StateModel = z.infer<typeof StateModelSchema>;
