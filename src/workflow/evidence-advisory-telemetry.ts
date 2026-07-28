@@ -1,5 +1,7 @@
 import type { StateModel } from "../schema/state.schema.js";
 import { readRunlogEvents } from "../state/runlog-store.js";
+import { getProjectIssues } from "../services/project-issue-service.js";
+import { isAdvisoryIssueKey } from "./checkpoint-advisory-issues.js";
 
 export interface EvidenceAdvisoryFeedbackTelemetry {
   confirmed: number;
@@ -85,6 +87,9 @@ export function computeEvidenceAdvisoryTelemetry(state: StateModel, runlogPath: 
   }
 
   // M29 §5.2: distinct issues, keyed by their most recent feedback event.
+  // A Map naturally collapses duplicate/replayed events for the same
+  // issueKey to their last (i.e. current) classification, so identical
+  // replay and duplicate runlog events never double-count.
   const latestFeedbackByIssue = new Map<string, string>();
   const runlogFeedbackKeys = new Set<string>();
   for (const event of feedbackEvents) {
@@ -94,6 +99,17 @@ export function computeEvidenceAdvisoryTelemetry(state: StateModel, runlogPath: 
     runlogFeedbackKeys.add(data.issueKey);
   }
 
+  // Gate J correction: `unclassified` must be "distinct M29 advisory issue
+  // keys minus distinct M29 advisory issue keys with current feedback" --
+  // not (as before) a dead branch on an already-valid classification enum.
+  // Reuses the existing M22 ProjectIssue owner and the M29 advisory-key
+  // predicate; no second issue/telemetry store is introduced.
+  const advisoryIssueKeys = new Set(
+    getProjectIssues(state)
+      .map((issue) => issue.issueKey)
+      .filter((issueKey) => isAdvisoryIssueKey(issueKey)),
+  );
+
   const feedback: EvidenceAdvisoryFeedbackTelemetry = {
     confirmed: 0,
     falsePositive: 0,
@@ -101,13 +117,16 @@ export function computeEvidenceAdvisoryTelemetry(state: StateModel, runlogPath: 
     evidenceMissing: 0,
     unclassified: 0,
   };
-  for (const classification of latestFeedbackByIssue.values()) {
+  let classifiedAdvisoryIssueCount = 0;
+  for (const [issueKey, classification] of latestFeedbackByIssue) {
+    if (!advisoryIssueKeys.has(issueKey)) continue;
+    classifiedAdvisoryIssueCount += 1;
     if (classification === "confirmed") feedback.confirmed += 1;
     else if (classification === "false_positive") feedback.falsePositive += 1;
     else if (classification === "policy_gap") feedback.policyGap += 1;
     else if (classification === "evidence_missing") feedback.evidenceMissing += 1;
-    else feedback.unclassified += 1;
   }
+  feedback.unclassified = advisoryIssueKeys.size - classifiedAdvisoryIssueCount;
 
   // Checkpoints completed despite an advisory fail/indeterminate: derived
   // from canonical checkpoint state (current status), since that reflects
