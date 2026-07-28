@@ -18,6 +18,7 @@ import {
 import { computeReviewNextCommand } from "../../workflow/review-next-command.js";
 import { readAgentPacketIds } from "../../state/runlog-store.js";
 import { buildAdvisoryWarningsSection } from "../../workflow/checkpoint-advisory-visibility.js";
+import { evaluateReviewRequiredGate, type ReviewGateKind } from "../../workflow/review-required-evidence-integration.js";
 
 export type ReviewMode = "development" | "release";
 
@@ -129,18 +130,38 @@ export function runReviewCommand(
         ? classification.releaseBlockers.slice(classification.blockingFindingsIgnoringAcknowledgment.length)
         : [];
 
-    const status: CommandStatus = hasBlocking
+    let status: CommandStatus = hasBlocking
       ? "failed"
       : result.findingCount > 0
         ? "warning"
         : "passed";
-    const exitCode = hasBlocking ? ExitCode.ValidationFailed : ExitCode.Success;
+    let exitCode: number = hasBlocking ? ExitCode.ValidationFailed : ExitCode.Success;
+
+    // M30 §8.1/§9.2: required evidence can only ever ESCALATE -- it can
+    // never hide or downgrade a stronger existing review blocker.
+    const reviewGateKind: ReviewGateKind = reviewMode === "development" ? "development_review" : "release_review";
+    const requiredGate = evaluateReviewRequiredGate({ state, project, reviewGateKind, asOf: new Date().toISOString() });
+    const requiredEvidenceBlockingIssue: Issue | null = requiredGate.invalid
+      ? { id: "REVIEW-REQUIRED-EVIDENCE-INVALID", severity: "critical", area: "evidence-gate", message: requiredGate.decision?.summary ?? "Required evidence reference or binding is invalid.", agentCanFix: false }
+      : requiredGate.failsReview
+        ? { id: "REVIEW-REQUIRED-EVIDENCE-FAILED", severity: "high", area: "evidence-gate", message: requiredGate.decision?.summary ?? "Required evidence deficiency detected.", agentCanFix: false }
+        : null;
+
+    if (requiredGate.invalid) {
+      exitCode = ExitCode.InvalidInput;
+      status = "failed";
+    } else if (requiredGate.failsReview && exitCode === ExitCode.Success) {
+      exitCode = ExitCode.ValidationFailed;
+      status = "failed";
+    }
 
     const summary = hasBlocking
       ? `Review (${reviewMode} mode) completed with ${modeBlockingCount} blocking finding(s).`
-      : result.findingCount > 0
-        ? `Review (${reviewMode} mode) completed with non-blocking findings.`
-        : `Review (${reviewMode} mode) completed with no findings.`;
+      : requiredEvidenceBlockingIssue
+        ? `Review (${reviewMode} mode) completed with a required-evidence blocker: ${requiredEvidenceBlockingIssue.message}`
+        : result.findingCount > 0
+          ? `Review (${reviewMode} mode) completed with non-blocking findings.`
+          : `Review (${reviewMode} mode) completed with no findings.`;
 
     // Reuse the single authoritative next-command precedence, but only feed
     // it the findings that are actually blocking under this mode, so a fully
@@ -163,20 +184,23 @@ export function runReviewCommand(
       completedActions: ["Read project.json", "Read state.json", "Evaluated review rules"],
       changedFiles: [],
       affectedItems: [project.project.id],
-      blockingIssues: hasBlocking
-        ? [
-            ...modeBlockingFindings.map(findingToIssue),
-            ...releaseOnlyIssueBlockers.map(
-              (label): Issue => ({
-                id: "REVIEW-RELEASE-CHECKPOINT-ISSUE-BLOCKER",
-                severity: "high",
-                area: "checkpoint",
-                message: label,
-                agentCanFix: false,
-              }),
-            ),
-          ]
-        : [],
+      blockingIssues: [
+        ...(hasBlocking
+          ? [
+              ...modeBlockingFindings.map(findingToIssue),
+              ...releaseOnlyIssueBlockers.map(
+                (label): Issue => ({
+                  id: "REVIEW-RELEASE-CHECKPOINT-ISSUE-BLOCKER",
+                  severity: "high",
+                  area: "checkpoint",
+                  message: label,
+                  agentCanFix: false,
+                }),
+              ),
+            ]
+          : []),
+        ...(requiredEvidenceBlockingIssue ? [requiredEvidenceBlockingIssue] : []),
+      ],
       warnings,
       nextRecommendedCommand,
       exitCode,
@@ -196,6 +220,9 @@ export function runReviewCommand(
         // M29 §4/§6: a separate, non-blocking section -- these warnings
         // never contribute to `status`, `exitCode`, or blockingIssues above.
         evidenceAdvisoryWarnings: buildAdvisoryWarningsSection(state),
+        ...(requiredGate.evaluated && requiredGate.decision
+          ? { requiredEvidence: { outcome: requiredGate.decision.outcome, deficiency: requiredGate.decision.deficiency, blockingRuleRefs: requiredGate.decision.blockingRuleRefs } }
+          : {}),
       },
     });
   } catch (err) {

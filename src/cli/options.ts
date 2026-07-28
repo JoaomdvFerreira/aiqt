@@ -304,6 +304,22 @@ export interface RawEvidenceGateEnforcementActivationPrepareOptions {
   asOf?: string;
 }
 
+export interface RawEvidenceGateEnforcementActivationActivateOptions {
+  json?: boolean;
+  plan?: string;
+  activatedBy?: string;
+  reason?: string;
+  confirmRequired?: string;
+}
+
+export interface RawEvidenceGateEnforcementActivationDeactivateOptions {
+  json?: boolean;
+  activation?: string;
+  deactivatedBy?: string;
+  reason?: string;
+  confirmDeactivate?: string;
+}
+
 export interface RawExecutionExternalRequestOptions {
   json?: boolean;
   resumeSession?: string;

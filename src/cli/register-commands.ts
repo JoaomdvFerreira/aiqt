@@ -46,6 +46,8 @@ import {
   type RawEvidenceGateEnforcementProfileShowOptions,
   type RawEvidenceGateEnforcementRecoveryImportOptions,
   type RawEvidenceGateEnforcementActivationPrepareOptions,
+  type RawEvidenceGateEnforcementActivationActivateOptions,
+  type RawEvidenceGateEnforcementActivationDeactivateOptions,
   type RawExecutionExternalRequestOptions,
   type RawExecutionExternalImportOptions,
   type RawExecutionExternalStatusOptions,
@@ -113,6 +115,8 @@ import { runEvidenceGateEnforcementProfileList } from "./commands/evidence-gate-
 import { runEvidenceGateEnforcementProfileShow } from "./commands/evidence-gate-enforcement-profile-show.command.js";
 import { runEvidenceGateEnforcementRecoveryImport } from "./commands/evidence-gate-enforcement-recovery-import.command.js";
 import { runEvidenceGateEnforcementActivationPrepare } from "./commands/evidence-gate-enforcement-activation-prepare.command.js";
+import { runEvidenceGateEnforcementActivationActivate } from "./commands/evidence-gate-enforcement-activation-activate.command.js";
+import { runEvidenceGateEnforcementActivationDeactivate } from "./commands/evidence-gate-enforcement-activation-deactivate.command.js";
 import { runEvidenceGateEnforcementStatus } from "./commands/evidence-gate-enforcement-status.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
@@ -966,6 +970,44 @@ export function buildProgram(): Command {
         version: raw.version !== undefined ? Number(raw.version) : undefined,
         preview: Boolean(raw.preview),
         asOf: raw.asOf,
+      });
+      emit(result, ctx.json);
+    });
+
+  evidenceGateEnforcementActivationCommand
+    .command("activate")
+    .description("Activate required mode -- requires a non-expired plan, zero blockers, risk <=5, and exact human confirmation")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--plan <plan-id>", "the activation plan to activate")
+    .option("--activated-by <human-id>", "explicit human identity authorizing activation")
+    .option("--reason <text>", "bounded, non-empty reason")
+    .option("--confirm-required <project-id>", "must exactly match the current project id")
+    .action(async (raw: RawEvidenceGateEnforcementActivationActivateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runEvidenceGateEnforcementActivationActivate(ctx, {
+        planId: raw.plan,
+        activatedBy: raw.activatedBy,
+        reason: raw.reason,
+        confirmRequired: raw.confirmRequired,
+      });
+      emit(result, ctx.json);
+    });
+
+  evidenceGateEnforcementActivationCommand
+    .command("deactivate")
+    .description("Deactivate required mode -- returns the project to advisory/off; never completes/amends/deletes anything")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--activation <activation-id>", "the activation to deactivate")
+    .option("--deactivated-by <human-id>", "explicit human identity authorizing deactivation")
+    .option("--reason <text>", "bounded, non-empty reason")
+    .option("--confirm-deactivate <project-id>", "must exactly match the current project id")
+    .action(async (raw: RawEvidenceGateEnforcementActivationDeactivateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runEvidenceGateEnforcementActivationDeactivate(ctx, {
+        activationId: raw.activation,
+        deactivatedBy: raw.deactivatedBy,
+        reason: raw.reason,
+        confirmDeactivate: raw.confirmDeactivate,
       });
       emit(result, ctx.json);
     });
