@@ -4,6 +4,7 @@ coverage/
 .tmp-pnpm7-store/
 *.log
 .DS_Store
+*.tgz
 # M19: docs/* (not docs/) so the negation below can still re-include one
 # tracked file -- a trailing-slash directory ignore prevents git from ever
 # evaluating per-file negations inside it.
