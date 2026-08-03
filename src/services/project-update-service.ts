@@ -129,6 +129,113 @@ interface MergeArraySectionResult<TCanonical> {
   changed: boolean;
 }
 
+type RecordFingerprint = string;
+
+function fingerprintObject(value: Record<string, unknown>): RecordFingerprint {
+  return JSON.stringify(value);
+}
+
+function requirementInputFingerprint(input: RequirementInput): RecordFingerprint | null {
+  if (!input.title?.trim() || !input.description?.trim()) return null;
+  return fingerprintObject({
+    title: input.title,
+    description: input.description,
+    priority: input.priority ?? "medium",
+    type: input.type ?? "functional",
+    acceptanceCriteria: input.acceptanceCriteria ?? [],
+    status: input.status ?? "draft",
+  });
+}
+
+function requirementRecordFingerprint(record: Requirement): RecordFingerprint {
+  return fingerprintObject({
+    title: record.title,
+    description: record.description,
+    priority: record.priority,
+    type: record.type,
+    acceptanceCriteria: record.acceptanceCriteria,
+    status: record.status,
+  });
+}
+
+function decisionInputFingerprint(input: DecisionInput): RecordFingerprint | null {
+  if (!input.decision?.trim()) return null;
+  return fingerprintObject({
+    decision: input.decision,
+    reason: input.reason ?? "",
+    impact: input.impact ?? "",
+    status: input.status ?? "decided",
+  });
+}
+
+function decisionRecordFingerprint(record: Decision): RecordFingerprint {
+  return fingerprintObject({
+    decision: record.decision,
+    reason: record.reason,
+    impact: record.impact,
+    status: record.status,
+  });
+}
+
+function assumptionInputFingerprint(input: AssumptionInput): RecordFingerprint | null {
+  if (!input.statement?.trim()) return null;
+  return fingerprintObject({
+    statement: input.statement,
+    reason: input.reason ?? null,
+    source: input.source ?? "human",
+    status: input.status ?? "active",
+  });
+}
+
+function assumptionRecordFingerprint(record: Assumption): RecordFingerprint {
+  return fingerprintObject({
+    statement: record.statement,
+    reason: record.reason,
+    source: record.source,
+    status: record.status,
+  });
+}
+
+function riskInputFingerprint(input: RiskInput): RecordFingerprint | null {
+  if (!input.title?.trim() || !input.description?.trim()) return null;
+  return fingerprintObject({
+    title: input.title,
+    description: input.description,
+    severity: input.severity ?? "medium",
+    mitigation: input.mitigation ?? null,
+    status: input.status ?? "open",
+  });
+}
+
+function riskRecordFingerprint(record: Risk): RecordFingerprint {
+  return fingerprintObject({
+    title: record.title,
+    description: record.description,
+    severity: record.severity,
+    mitigation: record.mitigation,
+    status: record.status,
+  });
+}
+
+function openQuestionInputFingerprint(input: OpenQuestionInput): RecordFingerprint | null {
+  if (!input.question?.trim()) return null;
+  return fingerprintObject({
+    question: input.question,
+    impact: input.impact ?? "medium",
+    status: input.status ?? "open",
+    answer: input.answer ?? null,
+  });
+}
+
+function openQuestionRecordFingerprint(record: OpenQuestion): RecordFingerprint {
+  return fingerprintObject({
+    question: record.question,
+    impact: record.impact,
+    status: record.status,
+    answer: record.answer,
+  });
+}
+
 function mergeArraySection<
   TInput extends { id?: string; clientKey?: string },
   TCanonical extends { id: string; clientKey?: string },
@@ -140,6 +247,8 @@ function mergeArraySection<
   recordTypeLabel: string;
   createFn: (input: TInput, id: string, timestamp: string) => TCanonical;
   updateFn: (record: TCanonical, input: TInput) => TCanonical;
+  inputFingerprintFn: (input: TInput) => RecordFingerprint | null;
+  recordFingerprintFn: (record: TCanonical) => RecordFingerprint;
   timestamp: string;
 }): MergeArraySectionResult<TCanonical> {
   const {
@@ -150,6 +259,8 @@ function mergeArraySection<
     recordTypeLabel,
     createFn,
     updateFn,
+    inputFingerprintFn,
+    recordFingerprintFn,
     timestamp,
   } = params;
 
@@ -173,6 +284,13 @@ function mergeArraySection<
       }
     } else if (input.clientKey !== undefined) {
       matchIndex = records.findIndex((r) => r.clientKey === input.clientKey);
+    } else {
+      const fingerprint = inputFingerprintFn(input);
+      if (fingerprint !== null) {
+        matchIndex = records.findIndex(
+          (r) => r.clientKey === undefined && recordFingerprintFn(r) === fingerprint,
+        );
+      }
     }
 
     if (matchIndex >= 0) {
@@ -523,6 +641,8 @@ export function applyUpdatePatch(
     recordTypeLabel: "requirement",
     createFn: createRequirement,
     updateFn: updateRequirement,
+    inputFingerprintFn: requirementInputFingerprint,
+    recordFingerprintFn: requirementRecordFingerprint,
     timestamp,
   });
   if (reqResult.changed) {
@@ -538,6 +658,8 @@ export function applyUpdatePatch(
     recordTypeLabel: "decision",
     createFn: createDecision,
     updateFn: updateDecision,
+    inputFingerprintFn: decisionInputFingerprint,
+    recordFingerprintFn: decisionRecordFingerprint,
     timestamp,
   });
   if (decResult.changed) {
@@ -553,6 +675,8 @@ export function applyUpdatePatch(
     recordTypeLabel: "assumption",
     createFn: createAssumption,
     updateFn: updateAssumption,
+    inputFingerprintFn: assumptionInputFingerprint,
+    recordFingerprintFn: assumptionRecordFingerprint,
     timestamp,
   });
   if (asmResult.changed) {
@@ -568,6 +692,8 @@ export function applyUpdatePatch(
     recordTypeLabel: "risk",
     createFn: createRisk,
     updateFn: updateRisk,
+    inputFingerprintFn: riskInputFingerprint,
+    recordFingerprintFn: riskRecordFingerprint,
     timestamp,
   });
   if (riskResult.changed) {
@@ -583,6 +709,8 @@ export function applyUpdatePatch(
     recordTypeLabel: "open question",
     createFn: createOpenQuestion,
     updateFn: updateOpenQuestion,
+    inputFingerprintFn: openQuestionInputFingerprint,
+    recordFingerprintFn: openQuestionRecordFingerprint,
     timestamp,
   });
   if (oqResult.changed) {

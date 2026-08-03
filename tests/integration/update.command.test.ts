@@ -12,6 +12,77 @@ import { makeTempDir, removeDir, contextFor } from "../helpers.js";
 const here = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(here, "..", "fixtures", "update-input");
 
+const PROMPT_SHAPE_PATCH = {
+  project: {
+    objective: "Create a local CLI that manages AI-agent implementation workflow state.",
+    targetUsers: ["Human project owner using Claude Code"],
+    preferredAgent: "claude-code",
+    existingRepositoryPath: ".",
+  },
+  context: {
+    constraints: [
+      "Local files are the source of truth",
+      "No markdown files are created by default",
+    ],
+    nonGoals: ["No SaaS backend in MVP", "No autonomous code execution in MVP"],
+    technologyPreferences: ["Node.js", "TypeScript", "pnpm", "Vitest"],
+    businessRules: ["Human-readable exports are generated only on request"],
+    architectureNotes: [
+      "project.json stores durable context",
+      "state.json stores workflow position and work graph",
+    ],
+  },
+  requirements: [
+    {
+      title: "Capture project context",
+      description: "The update command stores durable project context in project.json.",
+      priority: "critical",
+      type: "functional",
+      acceptanceCriteria: [
+        "aiqt update --from-file updates project.json",
+        "aiqt update --json returns a deterministic CommandResult",
+      ],
+      status: "accepted",
+    },
+  ],
+  decisions: [
+    {
+      decision: "Use aiqt update as the single context mutation command.",
+      reason: "Avoids a large command surface with add-requirement/add-decision commands.",
+      impact: "Granular actions are handled internally by the update service.",
+      status: "decided",
+    },
+  ],
+  assumptions: [
+    {
+      statement: "The implementation agent runs outside AIQT for MVP.",
+      reason: "Deep provider integration is deferred.",
+      source: "human",
+      status: "active",
+    },
+  ],
+  risks: [
+    {
+      title: "Overbuilding the planning engine too early",
+      description: "M2 could accidentally drift into plan generation.",
+      severity: "medium",
+      mitigation: "Keep workGraph empty and defer aiqt plan.",
+      status: "open",
+    },
+  ],
+  openQuestions: [
+    {
+      question: "Which planning heuristic should M3 use first?",
+      impact: "medium",
+      status: "open",
+      answer: null,
+    },
+  ],
+  quality: {
+    preferredValidationCommands: ["pnpm validate"],
+  },
+};
+
 function readProject(dir: string) {
   return JSON.parse(readFileSync(join(dir, ".aiqt", "project.json"), "utf8"));
 }
@@ -23,6 +94,22 @@ function readState(dir: string) {
 function readRunlogLines(dir: string): unknown[] {
   const raw = readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8").trim();
   return raw.split(/\r?\n/).map((line) => JSON.parse(line));
+}
+
+function recordCounts(project: {
+  requirements: unknown[];
+  decisions: unknown[];
+  assumptions: unknown[];
+  risks: unknown[];
+  openQuestions: unknown[];
+}) {
+  return {
+    requirements: project.requirements.length,
+    decisions: project.decisions.length,
+    assumptions: project.assumptions.length,
+    risks: project.risks.length,
+    openQuestions: project.openQuestions.length,
+  };
 }
 
 describe("aiqt update", () => {
@@ -85,6 +172,29 @@ describe("aiqt update", () => {
     expect(second.exitCode).toBe(ExitCode.Success);
     expect((second.data as Record<string, unknown>).noOp).toBe(true);
     expect(readProject(dir).decisions).toHaveLength(decisionCountAfterFirst);
+  });
+
+  it("is a no-op on repeated prompt-shaped input without record ids or clientKeys", async () => {
+    dir = makeTempDir();
+    runInit(contextFor(dir), normalizeInitOptions({}));
+    const patchPath = join(dir, "prompt-shape-update.json");
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(patchPath, JSON.stringify(PROMPT_SHAPE_PATCH, null, 2));
+
+    const first = await runUpdate(contextFor(dir), { fromFile: patchPath });
+    expect(first.exitCode).toBe(ExitCode.Success);
+    expect((first.data as Record<string, unknown>).noOp).toBe(false);
+    const projectAfterFirst = readProject(dir);
+    const countsAfterFirst = recordCounts(projectAfterFirst);
+    const runlogAfterFirst = readRunlogLines(dir) as Array<{ type: string }>;
+
+    const second = await runUpdate(contextFor(dir), { fromFile: patchPath });
+
+    expect(second.exitCode).toBe(ExitCode.Success);
+    expect((second.data as Record<string, unknown>).noOp).toBe(true);
+    expect(recordCounts(readProject(dir))).toEqual(countsAfterFirst);
+    expect(readRunlogLines(dir)).toHaveLength(runlogAfterFirst.length);
+    expect(runlogAfterFirst.filter((e) => e.type === "decision.recorded")).toHaveLength(1);
   });
 
   it("has direct flags win over --from-file for the objective", async () => {

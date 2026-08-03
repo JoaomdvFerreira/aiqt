@@ -194,6 +194,68 @@ describe("applyUpdatePatch: record identity, merge, and idempotency", () => {
     expect(second.project.assumptions[0].updatedAt).toBe(T1);
   });
 
+  it("is idempotent: re-applying identical records without id or clientKey matches by content fingerprint", () => {
+    const patch = {
+      requirements: [
+        {
+          title: "Capture context",
+          description: "Durable project context is recorded.",
+          priority: "critical" as const,
+          type: "functional" as const,
+          acceptanceCriteria: ["context stored"],
+          status: "accepted" as const,
+        },
+      ],
+      decisions: [{ decision: "Use one update command", reason: "Small surface", impact: "Simple" }],
+      assumptions: [{ statement: "Agents run externally", source: "human" as const }],
+      risks: [{ title: "Overbuild", description: "Planning arrives too early" }],
+      openQuestions: [{ question: "Which heuristic first?", impact: "medium" as const }],
+    };
+
+    const first = applyUpdatePatch(freshProject(), freshState(), patch, T1);
+    const second = applyUpdatePatch(first.project, first.state, patch, T2);
+
+    expect(first.createdRecordIds).toEqual(["REQ-001", "D001", "ASM-001", "RISK-001", "Q001"]);
+    expect(second.projectChanged).toBe(false);
+    expect(second.project).toBe(first.project);
+    expect(second.createdRecordIds).toEqual([]);
+    expect(second.updatedRecordIds).toEqual([]);
+  });
+
+  it("uses explicit id, then clientKey, then fingerprint for mixed replay identity", () => {
+    const first = applyUpdatePatch(
+      freshProject(),
+      freshState(),
+      {
+        requirements: [{ title: "Fingerprint req", description: "Same content" }],
+        decisions: [{ clientKey: "decision-key", decision: "Original decision" }],
+      },
+      T1,
+    );
+
+    const second = applyUpdatePatch(
+      first.project,
+      first.state,
+      {
+        requirements: [
+          { id: "REQ-001", status: "accepted" },
+          { title: "Fingerprint req", description: "Same content", status: "accepted" },
+          { title: "Fingerprint req", description: "Changed content" },
+        ],
+        decisions: [{ clientKey: "decision-key", decision: "Updated decision" }],
+      },
+      T2,
+    );
+
+    expect(second.project.requirements).toHaveLength(2);
+    expect(second.project.requirements[0].status).toBe("accepted");
+    expect(second.project.requirements[1].id).toBe("REQ-002");
+    expect(second.project.decisions).toHaveLength(1);
+    expect(second.project.decisions[0].decision).toBe("Updated decision");
+    expect(second.createdRecordIds).toEqual(["REQ-002"]);
+    expect(second.updatedRecordIds).toEqual(["REQ-001", "D001"]);
+  });
+
   it("does not emit decision.recorded candidates for updated (only newly created) decisions", () => {
     const first = applyUpdatePatch(
       freshProject(),

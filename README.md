@@ -59,6 +59,13 @@ never runs a shell command on your behalf, never makes a network request,
 never invokes an AI provider, and never touches your git branches beyond
 reading/committing the `.aiqt/` state it owns.
 
+`aiqt update` is replay-safe for project context records. Requirements,
+decisions, assumptions, risks, and open questions resolve identity in this
+order: explicit canonical `id`, stable `clientKey`, then a deterministic
+content fingerprint over the record's semantic fields. Reapplying the same
+prompt-generated update JSON is therefore a no-op; changing content without
+an `id` or `clientKey` creates an intentionally distinct record.
+
 ## Command surface (selected)
 
 ```
