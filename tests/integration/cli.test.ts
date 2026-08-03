@@ -692,6 +692,45 @@ describe("aiqt CLI entrypoint", () => {
     expect(parsed.blockingIssues[0].id).toBe("PLAN-GRAPH-NOT-EMPTY");
   }, 15000);
 
+  it("M31-WU01: aiqt plan --preview --json emits JSON on stdout and changes no canonical files", () => {
+    dir = makeTempDir();
+    expect(runCli(["init"], dir).status).toBe(0);
+    expect(
+      runCli(["update", "--objective", "Ship it", "--target-user", "devs"], dir).status,
+    ).toBe(0);
+    const patchPath = join(dir, "patch.json");
+    writeFileSync(
+      patchPath,
+      JSON.stringify({ context: { constraints: ["Local files are the source of truth"] } }),
+    );
+    expect(runCli(["update", "--from-file", patchPath], dir).status).toBe(0);
+    const planRes = runCli(["plan", "--example"], dir);
+    const planPath = join(dir, "plan.json");
+    writeFileSync(planPath, planRes.stdout);
+    const filesBefore = {
+      project: readFileSync(join(dir, ".aiqt", "project.json"), "utf8"),
+      state: readFileSync(join(dir, ".aiqt", "state.json"), "utf8"),
+      runlog: readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8"),
+    };
+
+    const res = runCli(["plan", "--from-file", planPath, "--preview", "--json"], dir);
+
+    expect(res.status).toBe(0);
+    expect(res.stderr).toBe("");
+    const parsed = JSON.parse(res.stdout);
+    expect(parsed.status).toBe("passed");
+    expect(parsed.exitCode).toBe(0);
+    expect(parsed.changedFiles).toEqual([]);
+    expect(parsed.summary).toContain("Preview:");
+    expect(parsed.summary).toContain("No files were changed.");
+    expect(parsed.summary).not.toContain("generated.");
+    expect(parsed.data.preview).toBe(true);
+    expect(parsed.data.mutationPerformed).toBe(false);
+    expect(readFileSync(join(dir, ".aiqt", "project.json"), "utf8")).toBe(filesBefore.project);
+    expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(filesBefore.state);
+    expect(readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8")).toBe(filesBefore.runlog);
+  }, 20000);
+
   it("M18/M19/M19-RC1/M20/M21/M23: aiqt --version matches package.json's canonical version", () => {
     dir = makeTempDir();
     const res = runCli(["--version"], dir);

@@ -298,7 +298,7 @@ export function buildProgram(): Command {
     )
     .option(
       "--preview",
-      "validate and report an --extend operation (append or refine) without persisting or appending runlog events",
+      "validate and report the plan operation without persisting or appending runlog events",
       false,
     )
     .action((raw: RawPlanOptions) => {

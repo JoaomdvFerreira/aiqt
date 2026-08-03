@@ -181,7 +181,7 @@ export interface RunPlanOptions {
   refineWorkUnit?: string;
   /** @deprecated M17-RC1: use `refineWorkUnit`. Kept as a functional alias for M17 backward compatibility. */
   replacePlaceholder?: string;
-  /** M17/M17-RC1: validate and report append/refine without persisting or appending runlog events. */
+  /** Validate and report plan changes without persisting or appending runlog events. */
   preview?: boolean;
 }
 
@@ -677,6 +677,48 @@ export function runPlan(
       lastUpdatedAt: timestamp,
     };
 
+    const affectedItems = [
+      ...result.milestones.map((m) => m.id),
+      ...result.workUnits.map((wu) => wu.id),
+      ...result.dependencies.map((d) => d.id),
+    ];
+
+    const sharedData = {
+      milestoneCount: result.milestones.length,
+      workUnitCount: result.workUnits.length,
+      dependencyCount: result.dependencies.length,
+      readyWorkUnitId: result.readyWorkUnitId,
+      readyWorkUnitCount: result.readyWorkUnitCount,
+      plannedWorkUnitCount: result.plannedWorkUnitCount,
+      workGraphWasEmpty: true,
+    };
+
+    const replayCommand = options.fromFile
+      ? `aiqt plan --from-file ${options.fromFile}`
+      : "aiqt import plan --stdin";
+
+    if (options.preview) {
+      return makeResult({
+        status: "passed",
+        action: "plan",
+        projectStatus: state.projectStatus,
+        currentMilestoneId: state.currentMilestoneId,
+        currentWorkUnitId: state.currentWorkUnitId,
+        summary: "Preview: would generate the initial work graph. No files were changed.",
+        completedActions: [
+          "Read project.json",
+          "Read state.json",
+          "Validated plan input",
+          "Computed candidate work graph",
+        ],
+        changedFiles: [],
+        affectedItems,
+        nextRecommendedCommand: replayCommand,
+        exitCode: ExitCode.Success,
+        data: { ...sharedData, preview: true, mutationPerformed: false },
+      });
+    }
+
     writeStateModel(paths.stateFile, newState);
 
     const eventIds = readRunlogEventIds(paths.runlogFile);
@@ -717,22 +759,10 @@ export function runPlan(
         "Generated work graph",
       ],
       changedFiles: [paths.stateFile, paths.runlogFile],
-      affectedItems: [
-        ...result.milestones.map((m) => m.id),
-        ...result.workUnits.map((wu) => wu.id),
-        ...result.dependencies.map((d) => d.id),
-      ],
+      affectedItems,
       nextRecommendedCommand: "aiqt next",
       exitCode: ExitCode.Success,
-      data: {
-        milestoneCount: result.milestones.length,
-        workUnitCount: result.workUnits.length,
-        dependencyCount: result.dependencies.length,
-        readyWorkUnitId: result.readyWorkUnitId,
-        readyWorkUnitCount: result.readyWorkUnitCount,
-        plannedWorkUnitCount: result.plannedWorkUnitCount,
-        workGraphWasEmpty: true,
-      },
+      data: { ...sharedData, preview: false, mutationPerformed: true },
     });
   } catch (err) {
     return errorToResult("plan", err);
