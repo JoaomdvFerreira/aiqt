@@ -108,6 +108,22 @@
       "supporting": ["src/services/parallel-status-template.ts"],
       "notes": "runStatus(); as of M28 optionally includes a read-only evidenceGate summary field."
     },
+    "workflowAssessment": {
+      "primary": "src/workflow/workflow-assessment.ts",
+      "supporting": [
+        "src/workflow/planning-readiness.ts",
+        "src/workflow/effective-readiness.ts",
+        "src/workflow/next-action.ts",
+        "src/workflow/review-next-command.ts",
+        "src/workflow/guidance-rules.ts",
+        "src/services/manage-service.ts",
+        "src/services/graph-validation-service.ts",
+        "src/services/graph-repair-service.ts",
+        "src/services/checkpoint-service.ts",
+        "src/services/project-update-service.ts"
+      ],
+      "notes": "M32-WU01 intended authoritative workflow assessment contract and owner inventory. Legacy command-specific recommendation owners remain operational until later WU32 migrations consolidate them behind assessWorkflow()."
+    },
     "reviewCommand": {
       "primary": "src/cli/commands/review.command.ts",
       "supporting": ["src/services/review-service.ts", "src/workflow/review-next-command.ts", "src/workflow/review-rules.ts"],
