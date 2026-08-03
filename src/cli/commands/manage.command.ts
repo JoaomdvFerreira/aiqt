@@ -8,6 +8,7 @@ import { readAgentPacketIds } from "../../state/runlog-store.js";
 import { resolveRoots } from "../../workflow/root-resolution.js";
 import { buildAdvisoryWarningsSection } from "../../workflow/checkpoint-advisory-visibility.js";
 import { buildRequiredEvidenceVisibilitySummary } from "../../workflow/required-evidence-visibility.js";
+import { assessWorkflow } from "../../workflow/workflow-assessment.js";
 
 /**
  * aiqt manage (M9 §8.1): a read-only project manager report. Never mutates
@@ -39,6 +40,7 @@ export function runManage(ctx: CommandContext): CommandResult {
     const knownPacketIds = readAgentPacketIds(paths.runlogFile, state.lastAgentPacket);
     const review = runReview(project, state, knownPacketIds);
     const report = buildManageReport(project, state, review);
+    const assessment = assessWorkflow(project, state, { productionReady: report.productionReady });
     // M16 §10: aiqt manage displays a root summary alongside the review report.
     const roots = resolveRoots({
       controlRoot: paths.root,
@@ -67,7 +69,7 @@ export function runManage(ctx: CommandContext): CommandResult {
     return makeResult({
       status: "passed",
       action: "manage",
-      projectStatus: state.projectStatus,
+      projectStatus: assessment.projectStatus,
       currentMilestoneId: state.currentMilestoneId,
       currentWorkUnitId: state.currentWorkUnitId,
       summary: report.reason,

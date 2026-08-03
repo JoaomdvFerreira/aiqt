@@ -85,12 +85,12 @@ for (const [label, run] of [
       expect(data.canProceedWithoutAgent).toBe(true);
     });
 
-    it("recommends aiqt prompt plan when context is ready and the graph is empty", async () => {
+    it("recommends aiqt plan when context is ready and the graph is empty", async () => {
       dir = makeTempDir();
       await makeReadyProject(dir);
       const result = run(contextFor(dir));
       expect(result.exitCode).toBe(ExitCode.Success);
-      expect(result.nextRecommendedCommand).toBe("aiqt prompt plan");
+      expect(result.nextRecommendedCommand).toBe("aiqt plan");
       const data = result.data as { stage: string };
       expect(data.stage).toBe("needs_plan");
     });
@@ -108,12 +108,12 @@ for (const [label, run] of [
       expect(data.stage).toBe("ready_for_handoff");
     });
 
-    it("recommends aiqt prompt checkpoint when a work unit is in progress", async () => {
+    it("recommends aiqt checkpoint when a work unit is in progress", async () => {
       dir = makeTempDir();
       await makeInProgressProject(dir);
       const result = run(contextFor(dir));
       expect(result.exitCode).toBe(ExitCode.Success);
-      expect(result.nextRecommendedCommand).toBe("aiqt prompt checkpoint");
+      expect(result.nextRecommendedCommand).toBe("aiqt checkpoint");
       const data = result.data as { stage: string };
       expect(data.stage).toBe("awaiting_checkpoint");
     });
@@ -149,12 +149,12 @@ for (const [label, run] of [
 
       const result = run(contextFor(dir));
       expect(result.exitCode).toBe(ExitCode.Success);
-      expect(result.nextRecommendedCommand).toBe("aiqt prompt checkpoint");
+      expect(result.nextRecommendedCommand).toBe("aiqt checkpoint");
       const data = result.data as { stage: string };
       expect(data.stage).toBe("awaiting_checkpoint");
     });
 
-    it("returns status=warning and recommends aiqt review when a work unit needs review", async () => {
+    it("returns status=warning and recommends aiqt checkpoint amend when a work unit needs review", async () => {
       dir = makeTempDir();
       await makeInProgressProject(dir, "valid-plan-with-dependencies.json");
       const checkpointResult = runCheckpoint(contextFor(dir), {
@@ -164,12 +164,12 @@ for (const [label, run] of [
       const result = run(contextFor(dir));
       expect(result.exitCode).toBe(ExitCode.Success);
       expect(result.status).toBe("warning");
-      expect(result.nextRecommendedCommand).toBe("aiqt review");
+      expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend");
       const data = result.data as { stage: string };
       expect(data.stage).toBe("needs_review");
     });
 
-    it("recommends aiqt review then aiqt export all when all work is done", async () => {
+    it("recommends aiqt export all when all work is done", async () => {
       dir = makeTempDir();
       await makeInProgressProject(dir);
       const checkpointResult = runCheckpoint(contextFor(dir), {
@@ -178,10 +178,10 @@ for (const [label, run] of [
       expect(checkpointResult.exitCode).toBe(ExitCode.Success);
       const result = run(contextFor(dir));
       expect(result.exitCode).toBe(ExitCode.Success);
-      expect(result.nextRecommendedCommand).toBe("aiqt review");
+      expect(result.nextRecommendedCommand).toBe("aiqt export all");
       const data = result.data as { stage: string; followUpCommand: string | null };
       expect(data.stage).toBe("ready_for_export");
-      expect(data.followUpCommand).toBe("aiqt export all");
+      expect(data.followUpCommand).toBeNull();
     });
 
     it("does not mutate project.json, state.json, or runlog.jsonl", async () => {
@@ -226,10 +226,8 @@ describe("RC1: all-done recommendation is consistent across start, continue, and
 
     const startResult = runStart(contextFor(dir));
     const continueResult = runContinue(contextFor(dir));
-    const startData = startResult.data as { followUpCommand: string | null };
-    const continueData = continueResult.data as { followUpCommand: string | null };
-    expect(startData.followUpCommand).toBe("aiqt export all");
-    expect(continueData.followUpCommand).toBe("aiqt export all");
+    expect(startResult.nextRecommendedCommand).toBe("aiqt export all");
+    expect(continueResult.nextRecommendedCommand).toBe("aiqt export all");
 
     const reviewResult = runReviewCommand(contextFor(dir));
     expect(reviewResult.exitCode).toBe(ExitCode.Success);
@@ -240,7 +238,7 @@ describe("RC1: all-done recommendation is consistent across start, continue, and
     // must equal the same "aiqt export all" that start/continue already
     // pointed to -- the CLI must never disagree with itself here.
     expect(reviewResult.nextRecommendedCommand).toBe("aiqt export all");
-    expect(reviewResult.nextRecommendedCommand).toBe(startData.followUpCommand);
-    expect(reviewResult.nextRecommendedCommand).toBe(continueData.followUpCommand);
+    expect(reviewResult.nextRecommendedCommand).toBe(startResult.nextRecommendedCommand);
+    expect(reviewResult.nextRecommendedCommand).toBe(continueResult.nextRecommendedCommand);
   });
 });

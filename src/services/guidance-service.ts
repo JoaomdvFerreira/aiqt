@@ -13,6 +13,10 @@ import { isFile } from "../core/filesystem/file-exists.js";
 import { aiqtDirExists, loadProject } from "../cli/commands/load-project.js";
 import { computeGuidance } from "../workflow/guidance-rules.js";
 import type { GuidanceResultData } from "../schema/guidance-result.schema.js";
+import { assessWorkflow } from "../workflow/workflow-assessment.js";
+import { readAgentPacketIds } from "../state/runlog-store.js";
+import { runReview } from "./review-service.js";
+import { classifyFindings } from "./manage-service.js";
 
 function notInitializedGuidanceData(): GuidanceResultData {
   return {
@@ -92,14 +96,21 @@ export function runGuidanceCommand(
 
     const { paths, project, state, warnings } = loaded;
     const checkpointInputExists = isFile(join(paths.inputsDir, "checkpoint.json"));
-    const guidance = computeGuidance({ project, state, checkpointInputExists });
+    const review = runReview(project, state, readAgentPacketIds(paths.runlogFile, state.lastAgentPacket));
+    const classification = classifyFindings(project, state, review);
+    const allWorkUnitStatusesDone =
+      state.workGraph.workUnits.length > 0 &&
+      state.workGraph.workUnits.every((wu) => wu.status === "done");
+    const productionReady = allWorkUnitStatusesDone ? classification.productionReady : null;
+    const assessment = assessWorkflow(project, state, { productionReady });
+    const guidance = computeGuidance({ project, state, checkpointInputExists, productionReady });
 
     const status: CommandStatus = guidance.stage === "needs_review" ? "warning" : "passed";
 
     return makeResult({
       status,
       action,
-      projectStatus: state.projectStatus,
+      projectStatus: assessment.projectStatus,
       currentMilestoneId: state.currentMilestoneId,
       currentWorkUnitId: state.currentWorkUnitId,
       summary: guidance.guidance,

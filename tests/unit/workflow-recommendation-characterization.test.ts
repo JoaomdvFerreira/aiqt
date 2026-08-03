@@ -9,6 +9,7 @@ import type { ReviewResult } from "../../src/services/review-service.js";
 import { computeGuidance } from "../../src/workflow/guidance-rules.js";
 import { computeNextAction } from "../../src/workflow/next-action.js";
 import { computeReviewNextCommand } from "../../src/workflow/review-next-command.js";
+import { assessWorkflow } from "../../src/workflow/workflow-assessment.js";
 
 const NOW = "2026-01-01T00:00:00.000Z";
 
@@ -158,33 +159,39 @@ function emptyReview(nextRecommendedCommand: string): ReviewResult {
 }
 
 function recommendations(project: ProjectModel, state: StateModel): Record<string, string | null> {
+  const allDone =
+    state.workGraph.workUnits.length > 0 &&
+    state.workGraph.workUnits.every((wu) => wu.status === "done");
+  const productionReady = allDone ? true : null;
   const reviewNext = computeReviewNextCommand(project, state, []);
   return {
-    status: computeNextAction(project, state).nextRecommendedCommand,
-    startContinue: computeGuidance({ project, state, checkpointInputExists: false }).recommendedCommand,
+    status: productionReady === null
+      ? computeNextAction(project, state).nextRecommendedCommand
+      : assessWorkflow(project, state, { productionReady }).recommendedCommand,
+    startContinue: computeGuidance({ project, state, checkpointInputExists: false, productionReady }).recommendedCommand,
     review: reviewNext,
     manage: buildManageReport(project, state, emptyReview(reviewNext)).recommendedCommand,
     persisted: state.nextRecommendedCommand,
   };
 }
 
-describe("WU32-01 workflow recommendation characterization", () => {
-  it("pins all-done disagreement across existing owners", () => {
+describe("WU32-02 workflow recommendation parity", () => {
+  it("aligns all-done owners on terminal export while persisted cache may lag", () => {
     const state = stateWithGraph([workUnit({ status: "done" })], {
       projectStatus: "review",
       nextRecommendedCommand: "aiqt review",
     });
 
     expect(recommendations(readyProject(), state)).toEqual({
-      status: "aiqt manage",
-      startContinue: "aiqt review",
+      status: "aiqt export all",
+      startContinue: "aiqt export all",
       review: "aiqt export all",
       manage: "aiqt export all",
       persisted: "aiqt review",
     });
   });
 
-  it("pins in-progress command-family disagreement", () => {
+  it("aligns in-progress command families on checkpoint", () => {
     const state = stateWithGraph([workUnit({ status: "in_progress" })], {
       currentWorkUnitId: "WU001",
       currentMilestoneId: "M001",
@@ -193,39 +200,39 @@ describe("WU32-01 workflow recommendation characterization", () => {
 
     expect(recommendations(readyProject(), state)).toMatchObject({
       status: "aiqt checkpoint",
-      startContinue: "aiqt prompt checkpoint",
+      startContinue: "aiqt checkpoint",
       review: "aiqt checkpoint",
       manage: "aiqt checkpoint",
       persisted: "aiqt checkpoint",
     });
   });
 
-  it("pins needs_review looping through review instead of an amend-oriented route", () => {
+  it("aligns needs_review on amend-oriented routing", () => {
     const state = stateWithGraph([workUnit({ status: "needs_review" })], {
       projectStatus: "review",
       nextRecommendedCommand: "aiqt review",
     });
 
     expect(recommendations(readyProject(), state)).toEqual({
-      status: "aiqt review",
-      startContinue: "aiqt review",
-      review: "aiqt review",
-      manage: "aiqt review",
+      status: "aiqt checkpoint amend",
+      startContinue: "aiqt checkpoint amend",
+      review: "aiqt checkpoint amend",
+      manage: "aiqt checkpoint amend",
       persisted: "aiqt review",
     });
   });
 
-  it("pins planning-ready/no-graph disagreement between direct and prompt planning", () => {
+  it("aligns planning-ready/no-graph on direct planning", () => {
     expect(recommendations(readyProject(), baseState({ nextRecommendedCommand: "aiqt plan" }))).toEqual({
       status: "aiqt plan",
-      startContinue: "aiqt prompt plan",
+      startContinue: "aiqt plan",
       review: "aiqt plan",
       manage: "aiqt plan",
       persisted: "aiqt plan",
     });
   });
 
-  it("pins incomplete context as the one broadly consistent pre-plan state", () => {
+  it("keeps incomplete context consistent", () => {
     expect(recommendations(baseProject(), baseState({ nextRecommendedCommand: "aiqt update" }))).toEqual({
       status: "aiqt update",
       startContinue: "aiqt update",
@@ -235,30 +242,30 @@ describe("WU32-01 workflow recommendation characterization", () => {
     });
   });
 
-  it("pins stale ready disagreement caused by canonical-ready checks outside effective readiness", () => {
+  it("aligns stale ready owners on graph repair", () => {
     const blocked = workUnit({ id: "WU001", status: "planned" });
     const staleReady = workUnit({ id: "WU002", status: "ready", dependencies: ["DEP001"] });
     const state = stateWithGraph([blocked, staleReady], {}, [dependency({ fromId: "WU001", toId: "WU002" })]);
 
     expect(recommendations(readyProject(), state)).toMatchObject({
-      status: "aiqt review",
-      startContinue: "aiqt next",
-      review: "aiqt review",
-      manage: "aiqt review",
+      status: "aiqt graph repair --apply",
+      startContinue: "aiqt graph repair --apply",
+      review: "aiqt graph repair --apply",
+      manage: "aiqt graph repair --apply",
     });
   });
 
-  it("pins dangling currentWorkUnitId disagreement between pointer-truthiness and referenced status checks", () => {
+  it("aligns dangling currentWorkUnitId owners on graph validation", () => {
     const state = stateWithGraph([workUnit({ status: "planned" })], {
       currentWorkUnitId: "WU999",
       currentMilestoneId: "M001",
     });
 
     expect(recommendations(readyProject(), state)).toMatchObject({
-      status: "aiqt checkpoint",
-      startContinue: "aiqt review",
-      review: "aiqt review",
-      manage: "aiqt review",
+      status: "aiqt graph validate",
+      startContinue: "aiqt graph validate",
+      review: "aiqt graph validate",
+      manage: "aiqt graph validate",
     });
   });
 });

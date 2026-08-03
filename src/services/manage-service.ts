@@ -12,6 +12,7 @@ import {
 } from "./issue-service.js";
 import type { IssueOverrideStatus } from "../schema/issue-state.schema.js";
 import { buildExecutionManageSummary, type ExecutionManageSummary } from "../workflow/execution-manage-summary.js";
+import { assessWorkflow } from "../workflow/workflow-assessment.js";
 
 /** M9 §7.1: missing state.review must be treated as an empty acknowledgment list. */
 export function getAcknowledgedFindings(state: StateModel): AcknowledgedFinding[] {
@@ -257,45 +258,16 @@ export interface ManageReport {
  */
 function computeManageRecommendation(
   classification: FindingClassification,
-  review: ReviewResult,
+  project: ProjectModel,
+  state: StateModel,
 ): { recommendedCommand: string; reason: string } {
-  if (!classification.developmentComplete) {
-    // §10.1 case: release review failed with unacknowledged development
-    // blockers -- once all work is done, repeatedly recommending "aiqt
-    // review" would just repeat the same blocker forever.
-    if (classification.unacknowledgedBlockingFindings.length > 0) {
-      return {
-        recommendedCommand: "aiqt review acknowledge",
-        reason: "Acknowledge accepted historical findings or fix the blocker.",
-      };
-    }
-    return {
-      recommendedCommand: review.nextRecommendedCommand,
-      reason: `Development is not yet complete. Recommended next step: ${review.nextRecommendedCommand}.`,
-    };
-  }
-
-  // developmentComplete is true from here on.
-  if (classification.releaseBlockers.length > 0) {
-    return {
-      recommendedCommand: "aiqt manage",
-      reason: "Resolve release blockers, then rerun aiqt review --mode release.",
-    };
-  }
-
-  if (
-    classification.userActionRequired.length > 0 ||
-    classification.externalVerificationGaps.length > 0
-  ) {
-    return {
-      recommendedCommand: "aiqt manage",
-      reason: "Complete user-action-required setup and live verification.",
-    };
-  }
-
+  const allWorkUnitStatusesDone = isAllWorkDone(state);
+  const assessment = assessWorkflow(project, state, {
+    productionReady: allWorkUnitStatusesDone ? classification.productionReady : null,
+  });
   return {
-    recommendedCommand: "aiqt export all",
-    reason: "Development-complete export is available.",
+    recommendedCommand: assessment.recommendedCommand ?? "aiqt review",
+    reason: assessment.recommendationReason,
   };
 }
 
@@ -310,10 +282,14 @@ export function buildManageReport(
   review: ReviewResult,
 ): ManageReport {
   const classification = classifyFindings(project, state, review);
-  const { recommendedCommand, reason } = computeManageRecommendation(classification, review);
+  const allWorkUnitStatusesDone = isAllWorkDone(state);
+  const assessment = assessWorkflow(project, state, {
+    productionReady: allWorkUnitStatusesDone ? classification.productionReady : null,
+  });
+  const { recommendedCommand, reason } = computeManageRecommendation(classification, project, state);
 
   return {
-    projectStatus: state.projectStatus,
+    projectStatus: assessment.projectStatus,
     developmentComplete: classification.developmentComplete,
     productionReady: classification.productionReady,
     recommendedCommand,

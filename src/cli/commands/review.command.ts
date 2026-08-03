@@ -11,14 +11,12 @@ import { aiqtDirExists, loadProject } from "./load-project.js";
 import { runReview } from "../../services/review-service.js";
 import {
   classifyFindings,
-  findingsForMode,
-  getAcknowledgedFindings,
   type FindingView,
 } from "../../services/manage-service.js";
-import { computeReviewNextCommand } from "../../workflow/review-next-command.js";
 import { readAgentPacketIds } from "../../state/runlog-store.js";
 import { buildAdvisoryWarningsSection } from "../../workflow/checkpoint-advisory-visibility.js";
 import { evaluateReviewRequiredGate, type ReviewGateKind } from "../../workflow/review-required-evidence-integration.js";
+import { assessWorkflow } from "../../workflow/workflow-assessment.js";
 
 export type ReviewMode = "development" | "release";
 
@@ -100,7 +98,6 @@ export function runReviewCommand(
     const knownPacketIds = readAgentPacketIds(paths.runlogFile, state.lastAgentPacket);
     const result = runReview(project, state, knownPacketIds);
     const classification = classifyFindings(project, state, result);
-    const acknowledgedRecords = getAcknowledgedFindings(state);
 
     // M9 §8.2: development mode ignores acknowledged blocking findings for
     // pass/fail purposes; release mode ignores acknowledgment entirely, so an
@@ -167,17 +164,18 @@ export function runReviewCommand(
     // it the findings that are actually blocking under this mode, so a fully
     // acknowledged development review can move past "aiqt review" to
     // whatever comes next (e.g. aiqt export all).
-    const findingsForNextCommand = findingsForMode(result, acknowledgedRecords, reviewMode);
-    const nextRecommendedCommand = computeReviewNextCommand(
-      project,
-      state,
-      findingsForNextCommand,
-    );
+    const allWorkUnitStatusesDone =
+      state.workGraph.workUnits.length > 0 &&
+      state.workGraph.workUnits.every((wu) => wu.status === "done");
+    const assessment = assessWorkflow(project, state, {
+      productionReady: allWorkUnitStatusesDone ? classification.productionReady : null,
+    });
+    const nextRecommendedCommand = assessment.recommendedCommand ?? "aiqt review";
 
     return makeResult({
       status,
       action: "review",
-      projectStatus: state.projectStatus,
+      projectStatus: assessment.projectStatus,
       currentMilestoneId: state.currentMilestoneId,
       currentWorkUnitId: state.currentWorkUnitId,
       summary,

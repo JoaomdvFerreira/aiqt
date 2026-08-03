@@ -7,7 +7,6 @@ import {
 import type { Issue } from "../../core/output/issue.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
 import { loadProject } from "./load-project.js";
-import { computeNextAction } from "../../workflow/next-action.js";
 import { workUnitCountsByStatus } from "../../workflow/statuses.js";
 import { resolveRoots } from "../../workflow/root-resolution.js";
 import { computeEffectiveReadinessForState } from "../../workflow/effective-readiness.js";
@@ -19,6 +18,10 @@ import type { StateModel } from "../../schema/state.schema.js";
 import { getActivePolicyRef } from "../../services/evidence-gate-policy-service.js";
 import { computeEvidenceAdvisoryTelemetry } from "../../workflow/evidence-advisory-telemetry.js";
 import { buildRequiredEvidenceVisibilitySummary } from "../../workflow/required-evidence-visibility.js";
+import { assessWorkflow } from "../../workflow/workflow-assessment.js";
+import { readAgentPacketIds } from "../../state/runlog-store.js";
+import { runReview } from "../../services/review-service.js";
+import { classifyFindings } from "../../services/manage-service.js";
 
 export interface RunStatusOptions {
   /** M24 §11: read-only advisory eligibility/batch reporting -- never mutates state or runlog. */
@@ -131,7 +134,19 @@ export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): 
       return buildParallelStatusResult(state, roots.implementationRoot);
     }
 
-    const next = computeNextAction(project, state);
+    const review = runReview(project, state, readAgentPacketIds(paths.runlogFile, state.lastAgentPacket));
+    const classification = classifyFindings(project, state, review);
+    const allWorkUnitStatusesDone =
+      state.workGraph.workUnits.length > 0 &&
+      state.workGraph.workUnits.every((wu) => wu.status === "done");
+    const assessment = assessWorkflow(project, state, {
+      productionReady: allWorkUnitStatusesDone ? classification.productionReady : null,
+    });
+    const next = {
+      nextRecommendedCommand: assessment.recommendedCommand,
+      reason: assessment.recommendationReason,
+      warnings: [] as Issue[],
+    };
     const workUnitCounts = workUnitCountsByStatus(state);
     const milestoneCount = state.workGraph.milestones.length;
     const workUnitCount = state.workGraph.workUnits.length;
@@ -177,7 +192,7 @@ export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): 
       : [];
     const allWarnings = [...warnings, ...next.warnings, ...rootWarnings];
 
-    const summary = `Project "${project.project.name}" is ${state.projectStatus} with ${milestoneCount} milestone(s) and ${workUnitCount} work unit(s). AIQT control root: ${roots.controlRoot}. Implementation root: ${roots.implementationRoot}.`;
+    const summary = `Project "${project.project.name}" is ${assessment.projectStatus} with ${milestoneCount} milestone(s) and ${workUnitCount} work unit(s). AIQT control root: ${roots.controlRoot}. Implementation root: ${roots.implementationRoot}.`;
 
     // M28 §6/M29 §6: read-only, additive. Only present when policy
     // configuration exists; never simulates implicitly -- the aggregate
@@ -199,7 +214,7 @@ export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): 
     return makeResult({
       status: allWarnings.length > 0 ? "warning" : "passed",
       action: "status",
-      projectStatus: state.projectStatus,
+      projectStatus: assessment.projectStatus,
       currentMilestoneId: state.currentMilestoneId,
       currentWorkUnitId: state.currentWorkUnitId,
       summary,
@@ -208,7 +223,7 @@ export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): 
       exitCode: ExitCode.Success,
       data: {
         projectName: project.project.name,
-        projectStatus: state.projectStatus,
+        projectStatus: assessment.projectStatus,
         milestoneCount,
         workUnitCount,
         workUnitCounts: workUnitCountsWithReadiness,

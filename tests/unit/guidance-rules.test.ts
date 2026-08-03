@@ -102,17 +102,17 @@ describe("computeGuidance", () => {
     expect(guidance.canProceedWithoutAgent).toBe(true);
   });
 
-  it("row 3: recommends aiqt prompt plan when context is ready and the graph is empty", () => {
+  it("row 3: recommends aiqt plan when context is ready and the graph is empty", () => {
     const guidance = computeGuidance({
       project: readyProject,
       state: baseState(),
       checkpointInputExists: false,
     });
     expect(guidance.stage).toBe("needs_plan");
-    expect(guidance.recommendedCommand).toBe("aiqt prompt plan");
+    expect(guidance.recommendedCommand).toBe("aiqt plan");
+    expect(guidance.promptCommand).toBe("aiqt prompt plan --out .aiqt/inputs/plan.prompt.md");
     expect(guidance.expectedInputPath).toBe(".aiqt/inputs/plan.json");
-    expect(guidance.followUpCommand).toBe("aiqt import plan --stdin");
-    expect(guidance.canProceedWithoutAgent).toBe(false);
+    expect(guidance.canProceedWithoutAgent).toBe(true);
   });
 
   it("row 4: recommends aiqt next when ready work exists and nothing is active", () => {
@@ -128,7 +128,7 @@ describe("computeGuidance", () => {
     expect(guidance.canProceedWithoutAgent).toBe(true);
   });
 
-  it("row 5: recommends aiqt prompt checkpoint when a work unit is in_progress", () => {
+  it("row 5: recommends aiqt checkpoint when a work unit is in_progress", () => {
     const guidance = computeGuidance({
       project: readyProject,
       state: baseState({
@@ -138,7 +138,8 @@ describe("computeGuidance", () => {
       checkpointInputExists: false,
     });
     expect(guidance.stage).toBe("awaiting_checkpoint");
-    expect(guidance.recommendedCommand).toBe("aiqt prompt checkpoint");
+    expect(guidance.recommendedCommand).toBe("aiqt checkpoint");
+    expect(guidance.promptCommand).toBe("aiqt prompt checkpoint --out .aiqt/inputs/checkpoint.prompt.md");
     expect(guidance.canProceedWithoutAgent).toBe(false);
   });
 
@@ -171,10 +172,10 @@ describe("computeGuidance", () => {
       checkpointInputExists: false,
     });
     expect(guidance.stage).toBe("awaiting_checkpoint");
-    expect(guidance.recommendedCommand).toBe("aiqt prompt checkpoint");
+    expect(guidance.recommendedCommand).toBe("aiqt checkpoint");
   });
 
-  it("row 6: recommends aiqt review when a work unit needs review", () => {
+  it("row 6: recommends aiqt checkpoint amend when a work unit needs review", () => {
     const guidance = computeGuidance({
       project: readyProject,
       state: baseState({
@@ -183,11 +184,11 @@ describe("computeGuidance", () => {
       checkpointInputExists: false,
     });
     expect(guidance.stage).toBe("needs_review");
-    expect(guidance.recommendedCommand).toBe("aiqt review");
+    expect(guidance.recommendedCommand).toBe("aiqt checkpoint amend");
     expect(guidance.canProceedWithoutAgent).toBe(true);
   });
 
-  it("row 7: recommends aiqt review then aiqt export all when all work is done", () => {
+  it("row 7: recommends release review when all work is done and production readiness is unknown", () => {
     const guidance = computeGuidance({
       project: readyProject,
       state: baseState({
@@ -196,9 +197,23 @@ describe("computeGuidance", () => {
       checkpointInputExists: false,
     });
     expect(guidance.stage).toBe("ready_for_export");
-    expect(guidance.recommendedCommand).toBe("aiqt review");
+    expect(guidance.recommendedCommand).toBe("aiqt review --mode release");
     expect(guidance.followUpCommand).toBe("aiqt export all");
     expect(guidance.canProceedWithoutAgent).toBe(true);
+  });
+
+  it("row 7: recommends export when all work is done and production readiness is true", () => {
+    const guidance = computeGuidance({
+      project: readyProject,
+      state: baseState({
+        workGraph: { milestones: [milestone], workUnits: [workUnit({ status: "done" })], dependencies: [] },
+      }),
+      checkpointInputExists: false,
+      productionReady: true,
+    });
+    expect(guidance.stage).toBe("ready_for_export");
+    expect(guidance.recommendedCommand).toBe("aiqt export all");
+    expect(guidance.followUpCommand).toBeNull();
   });
 
   it("falls back to the review next-command precedence for states no row matches", () => {
@@ -211,6 +226,6 @@ describe("computeGuidance", () => {
       }),
       checkpointInputExists: false,
     });
-    expect(guidance.recommendedCommand).toBe("aiqt review");
+    expect(guidance.recommendedCommand).toBeNull();
   });
 });

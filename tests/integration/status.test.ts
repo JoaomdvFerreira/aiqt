@@ -73,14 +73,14 @@ describe("aiqt status", () => {
     expect(result.warnings.some((w) => w.id === "NEXT-NOT-IMPLEMENTED")).toBe(false);
   });
 
-  it("M9: recommends aiqt manage with the replacement reason once all work units are done", async () => {
+  it("M32: recommends aiqt manage when all work is done but production is not ready", async () => {
     dir = makeTempDir();
     await buildDogfoodTerminalState(dir);
     const result = runStatus(contextFor(dir));
     expect(result.nextRecommendedCommand).toBe("aiqt manage");
     const data = result.data as { nextActionReason: string };
     expect(data.nextActionReason).toBe(
-      "All work units are done. Project is in review state. Run aiqt manage or aiqt export all.",
+      "Development is complete but production readiness still has release blockers or gaps.",
     );
     expect(result.warnings.some((w) => w.id === "NEXT-NOT-IMPLEMENTED")).toBe(false);
   });

@@ -97,7 +97,7 @@ describe("aiqt review", () => {
     expect(result.nextRecommendedCommand).toBe("aiqt checkpoint");
   });
 
-  it("recommends aiqt review when a needs_review work unit exists alongside a ready one", async () => {
+  it("recommends aiqt checkpoint amend when a needs_review work unit exists alongside a ready one", async () => {
     dir = makeTempDir();
     await makeInProgressProject(dir, "valid-plan-with-dependencies.json");
     const result1 = runCheckpoint(contextFor(dir), {
@@ -106,7 +106,7 @@ describe("aiqt review", () => {
     expect(result1.exitCode).toBe(ExitCode.Success);
     const result = runReviewCommand(contextFor(dir));
     expect(result.status).toBe("warning");
-    expect(result.nextRecommendedCommand).toBe("aiqt review");
+    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend");
     const data = result.data as Record<string, unknown>;
     expect(data.blockingFindingCount).toBe(0);
   });

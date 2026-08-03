@@ -75,11 +75,13 @@ function workUnit(overrides: Partial<WorkUnit>): WorkUnit {
 }
 
 describe("computeReviewNextCommand", () => {
-  it("recommends aiqt review when a blocking finding exists, overriding all other signals", () => {
+  it("keeps command choice delegated to workflow assessment when review findings exist", () => {
     const project = baseProject();
     const state = baseState({
       workGraph: {
-        milestones: [],
+        milestones: [
+          { id: "M001", title: "m", objective: "o", status: "ready", workUnitIds: ["WU001"] },
+        ],
         workUnits: [workUnit({ status: "ready" })],
         dependencies: [],
       },
@@ -97,7 +99,7 @@ describe("computeReviewNextCommand", () => {
         nextRecommendedCommand: "aiqt review",
       },
     ]);
-    expect(cmd).toBe("aiqt review");
+    expect(cmd).toBe("aiqt next");
   });
 
   it("recommends aiqt checkpoint when the current work unit is in_progress", () => {
@@ -105,7 +107,9 @@ describe("computeReviewNextCommand", () => {
     const state = baseState({
       currentWorkUnitId: "WU001",
       workGraph: {
-        milestones: [],
+        milestones: [
+          { id: "M001", title: "m", objective: "o", status: "in_progress", workUnitIds: ["WU001"] },
+        ],
         workUnits: [workUnit({ status: "in_progress" })],
         dependencies: [],
       },
