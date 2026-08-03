@@ -294,7 +294,7 @@ describe("buildManageReport", () => {
     // release" directly), so the terminal-state guidance loop does not just
     // point back at review and repeat the same blocker.
     expect(report.recommendedCommand).toBe("aiqt manage");
-    expect(report.reason).toBe("Resolve release blockers, then rerun aiqt review --mode release.");
+    expect(report.reason).toBe("Development is complete but production readiness still has release blockers or gaps.");
   });
 
   it("recommends aiqt export all once fully production ready", () => {
@@ -305,6 +305,6 @@ describe("buildManageReport", () => {
     expect(report.developmentComplete).toBe(true);
     expect(report.productionReady).toBe(true);
     expect(report.recommendedCommand).toBe("aiqt export all");
-    expect(report.reason).toBe("Development-complete export is available.");
+    expect(report.reason).toBe("Development and production readiness are complete; export/reporting is available.");
   });
 });

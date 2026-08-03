@@ -145,7 +145,7 @@ describe("aiqt next (packet generation)", () => {
     expect(readRunlogLines(dir)).toHaveLength(runlogBefore);
   });
 
-  it("fails with exit code 3 and no mutation when a dependency reference is broken", async () => {
+  it("blocks with exit code 2 and no mutation when a dependency reference is broken", async () => {
     dir = makeTempDir();
     await makePlannedProject(dir);
     const state = readState(dir);
@@ -154,7 +154,8 @@ describe("aiqt next (packet generation)", () => {
     const before = readState(dir);
 
     const result = runNext(contextFor(dir));
-    expect(result.exitCode).toBe(ExitCode.InvalidInput);
+    expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
+    expect(result.nextRecommendedCommand).toBe("aiqt graph validate");
     expect(readState(dir)).toEqual(before);
   });
 

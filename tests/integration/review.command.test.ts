@@ -106,7 +106,7 @@ describe("aiqt review", () => {
     expect(result1.exitCode).toBe(ExitCode.Success);
     const result = runReviewCommand(contextFor(dir));
     expect(result.status).toBe("warning");
-    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend");
+    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend --checkpoint C001");
     const data = result.data as Record<string, unknown>;
     expect(data.blockingFindingCount).toBe(0);
   });

@@ -180,11 +180,30 @@ describe("computeGuidance", () => {
       project: readyProject,
       state: baseState({
         workGraph: { milestones: [milestone], workUnits: [workUnit({ status: "needs_review" })], dependencies: [] },
+        checkpoints: [
+          {
+            id: "C001",
+            workUnitId: "WU001",
+            packetId: "PKT001",
+            summary: "Needs review.",
+            completed: [],
+            notCompleted: [],
+            filesChanged: [],
+            issues: [],
+            validationResult: "failed",
+            acceptanceCriteriaResult: "partial",
+            validationCommands: [],
+            acceptanceCriteria: [],
+            finalWorkUnitStatus: "needs_review",
+            nextRecommendation: "aiqt review",
+            createdAt: "2026-01-01T00:00:00.000Z",
+          },
+        ],
       }),
       checkpointInputExists: false,
     });
     expect(guidance.stage).toBe("needs_review");
-    expect(guidance.recommendedCommand).toBe("aiqt checkpoint amend");
+    expect(guidance.recommendedCommand).toBe("aiqt checkpoint amend --checkpoint C001");
     expect(guidance.canProceedWithoutAgent).toBe(true);
   });
 

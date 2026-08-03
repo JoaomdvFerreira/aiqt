@@ -6,6 +6,7 @@ import type { Milestone } from "../../src/schema/milestone.schema.js";
 import type { Dependency } from "../../src/schema/dependency.schema.js";
 import { buildManageReport } from "../../src/services/manage-service.js";
 import type { ReviewResult } from "../../src/services/review-service.js";
+import { applyWorkflowAssessmentToState } from "../../src/services/workflow-assessment-persistence.js";
 import { computeGuidance } from "../../src/workflow/guidance-rules.js";
 import { computeNextAction } from "../../src/workflow/next-action.js";
 import { computeReviewNextCommand } from "../../src/workflow/review-next-command.js";
@@ -163,31 +164,35 @@ function recommendations(project: ProjectModel, state: StateModel): Record<strin
     state.workGraph.workUnits.length > 0 &&
     state.workGraph.workUnits.every((wu) => wu.status === "done");
   const productionReady = allDone ? true : null;
+  const assessment = assessWorkflow(project, state, { productionReady });
   const reviewNext = computeReviewNextCommand(project, state, []);
+  const assessedState = applyWorkflowAssessmentToState(project, state, { productionReady });
   return {
+    assessment: assessment.recommendedCommand,
     status: productionReady === null
       ? computeNextAction(project, state).nextRecommendedCommand
       : assessWorkflow(project, state, { productionReady }).recommendedCommand,
     startContinue: computeGuidance({ project, state, checkpointInputExists: false, productionReady }).recommendedCommand,
     review: reviewNext,
     manage: buildManageReport(project, state, emptyReview(reviewNext)).recommendedCommand,
-    persisted: state.nextRecommendedCommand,
+    mutationPersistence: assessedState.nextRecommendedCommand,
   };
 }
 
-describe("WU32-02 workflow recommendation parity", () => {
-  it("aligns all-done owners on terminal export while persisted cache may lag", () => {
+describe("WU32-05 workflow recommendation parity", () => {
+  it("aligns all-done owners on terminal export", () => {
     const state = stateWithGraph([workUnit({ status: "done" })], {
       projectStatus: "review",
       nextRecommendedCommand: "aiqt review",
     });
 
     expect(recommendations(readyProject(), state)).toEqual({
+      assessment: "aiqt export all",
       status: "aiqt export all",
       startContinue: "aiqt export all",
       review: "aiqt export all",
       manage: "aiqt export all",
-      persisted: "aiqt review",
+      mutationPersistence: "aiqt export all",
     });
   });
 
@@ -199,11 +204,12 @@ describe("WU32-02 workflow recommendation parity", () => {
     });
 
     expect(recommendations(readyProject(), state)).toMatchObject({
+      assessment: "aiqt checkpoint",
       status: "aiqt checkpoint",
       startContinue: "aiqt checkpoint",
       review: "aiqt checkpoint",
       manage: "aiqt checkpoint",
-      persisted: "aiqt checkpoint",
+      mutationPersistence: "aiqt checkpoint",
     });
   });
 
@@ -211,34 +217,56 @@ describe("WU32-02 workflow recommendation parity", () => {
     const state = stateWithGraph([workUnit({ status: "needs_review" })], {
       projectStatus: "review",
       nextRecommendedCommand: "aiqt review",
+      checkpoints: [
+        {
+          id: "C001",
+          workUnitId: "WU001",
+          packetId: "PKT001",
+          summary: "Needs review.",
+          completed: [],
+          notCompleted: [],
+          filesChanged: [],
+          issues: [],
+          validationResult: "failed",
+          acceptanceCriteriaResult: "partial",
+          validationCommands: [],
+          acceptanceCriteria: [],
+          finalWorkUnitStatus: "needs_review",
+          nextRecommendation: "aiqt review",
+          createdAt: NOW,
+        },
+      ],
     });
 
     expect(recommendations(readyProject(), state)).toEqual({
-      status: "aiqt checkpoint amend",
-      startContinue: "aiqt checkpoint amend",
-      review: "aiqt checkpoint amend",
-      manage: "aiqt checkpoint amend",
-      persisted: "aiqt review",
+      assessment: "aiqt checkpoint amend --checkpoint C001",
+      status: "aiqt checkpoint amend --checkpoint C001",
+      startContinue: "aiqt checkpoint amend --checkpoint C001",
+      review: "aiqt checkpoint amend --checkpoint C001",
+      manage: "aiqt checkpoint amend --checkpoint C001",
+      mutationPersistence: "aiqt checkpoint amend --checkpoint C001",
     });
   });
 
   it("aligns planning-ready/no-graph on direct planning", () => {
     expect(recommendations(readyProject(), baseState({ nextRecommendedCommand: "aiqt plan" }))).toEqual({
+      assessment: "aiqt plan",
       status: "aiqt plan",
       startContinue: "aiqt plan",
       review: "aiqt plan",
       manage: "aiqt plan",
-      persisted: "aiqt plan",
+      mutationPersistence: "aiqt plan",
     });
   });
 
   it("keeps incomplete context consistent", () => {
     expect(recommendations(baseProject(), baseState({ nextRecommendedCommand: "aiqt update" }))).toEqual({
+      assessment: "aiqt update",
       status: "aiqt update",
       startContinue: "aiqt update",
       review: "aiqt update",
       manage: "aiqt update",
-      persisted: "aiqt update",
+      mutationPersistence: "aiqt update",
     });
   });
 
@@ -248,24 +276,28 @@ describe("WU32-02 workflow recommendation parity", () => {
     const state = stateWithGraph([blocked, staleReady], {}, [dependency({ fromId: "WU001", toId: "WU002" })]);
 
     expect(recommendations(readyProject(), state)).toMatchObject({
+      assessment: "aiqt graph repair --apply",
       status: "aiqt graph repair --apply",
       startContinue: "aiqt graph repair --apply",
       review: "aiqt graph repair --apply",
       manage: "aiqt graph repair --apply",
+      mutationPersistence: "aiqt graph repair --apply",
     });
   });
 
-  it("aligns dangling currentWorkUnitId owners on graph validation", () => {
+  it("aligns dangling currentWorkUnitId owners on deterministic graph repair", () => {
     const state = stateWithGraph([workUnit({ status: "planned" })], {
       currentWorkUnitId: "WU999",
       currentMilestoneId: "M001",
     });
 
     expect(recommendations(readyProject(), state)).toMatchObject({
-      status: "aiqt graph validate",
-      startContinue: "aiqt graph validate",
-      review: "aiqt graph validate",
-      manage: "aiqt graph validate",
+      assessment: "aiqt graph repair --apply",
+      status: "aiqt graph repair --apply",
+      startContinue: "aiqt graph repair --apply",
+      review: "aiqt graph repair --apply",
+      manage: "aiqt graph repair --apply",
+      mutationPersistence: "aiqt graph repair --apply",
     });
   });
 });

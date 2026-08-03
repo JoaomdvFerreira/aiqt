@@ -122,7 +122,7 @@
         "src/services/checkpoint-service.ts",
         "src/services/project-update-service.ts"
       ],
-      "notes": "M32-WU01 intended authoritative workflow assessment contract and owner inventory. Legacy command-specific recommendation owners remain operational until later WU32 migrations consolidate them behind assessWorkflow()."
+      "notes": "M32 establishes assessWorkflow() and WORKFLOW_RECOMMENDATION_RULES as the authoritative workflow-position, recommendation, integrity, and project-status owner. Legacy helpers remain only as compatibility adapters over assessWorkflow(); persisted nextRecommendedCommand is a recomputed compatibility cache."
     },
     "reviewCommand": {
       "primary": "src/cli/commands/review.command.ts",
