@@ -40,12 +40,14 @@ Policy:
 - Missing, non-string, or malformed versions are rejected before
   mutation.
 
-This is a narrow hybrid policy. WU31-02 establishes the authoritative
-version gate: older compatible state may proceed, while unsupported future
-or incompatible state cannot reach a write path. WU31-03 owns compatible
-unknown-field preservation during read-modify-write cycles; until that
-work lands, a newer writer must bump `AIQT_SCHEMA_VERSION` rather than
-expect older binaries to preserve newly written canonical sections.
+This is a narrow hybrid policy. Older compatible state may proceed, while
+unsupported future or incompatible state cannot reach a write path.
+Compatible unknown top-level sections in `project.json` and `state.json`
+are preserved semantically across read-modify-write cycles by the
+canonical stores. If a command rewrites a known section, that section is
+governed by the current typed schema; unknown nested fields inside known
+sections are not preserved unless they are promoted into the schema or
+stored as separate top-level compatible sections.
 
 `AIQT_SCHEMA_VERSION` changes when the persisted canonical schema contract
 changes in a way older binaries cannot safely read and rewrite, when a

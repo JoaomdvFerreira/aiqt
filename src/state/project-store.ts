@@ -13,6 +13,10 @@ import {
   type ProjectModel,
 } from "../schema/project.schema.js";
 import { assertCompatibleVersion } from "./versioning.js";
+import {
+  attachUnknownTopLevelFields,
+  mergeUnknownTopLevelFields,
+} from "./canonical-unknown-fields.js";
 
 const PROJECT_LABEL = "project.json";
 
@@ -66,7 +70,7 @@ export function buildInitialProjectModel(
 
 export function writeProjectModel(path: string, model: ProjectModel): void {
   assertCompatibleVersion(model.version, PROJECT_LABEL);
-  writeJsonFile(path, model);
+  writeJsonFile(path, mergeUnknownTopLevelFields(model));
 }
 
 function invalidStateIssue(message: string): Issue {
@@ -114,5 +118,5 @@ export function readProjectModel(path: string): ProjectModel {
     );
   }
 
-  return parsed.data;
+  return attachUnknownTopLevelFields(parsed.data, raw);
 }

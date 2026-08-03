@@ -10,6 +10,10 @@ import {
 } from "../core/filesystem/file-store.js";
 import { StateModelSchema, type StateModel } from "../schema/state.schema.js";
 import { assertCompatibleVersion } from "./versioning.js";
+import {
+  attachUnknownTopLevelFields,
+  mergeUnknownTopLevelFields,
+} from "./canonical-unknown-fields.js";
 
 const STATE_LABEL = "state.json";
 
@@ -34,7 +38,7 @@ export function buildInitialStateModel(createdAt: string): StateModel {
 
 export function writeStateModel(path: string, model: StateModel): void {
   assertCompatibleVersion(model.version, STATE_LABEL);
-  writeJsonFile(path, model);
+  writeJsonFile(path, mergeUnknownTopLevelFields(model));
 }
 
 function invalidStateIssue(message: string): Issue {
@@ -82,5 +86,5 @@ export function readStateModel(path: string): StateModel {
     );
   }
 
-  return parsed.data;
+  return attachUnknownTopLevelFields(parsed.data, raw);
 }
