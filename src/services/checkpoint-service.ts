@@ -3,9 +3,10 @@ import { recalculateDependencyReadiness } from "../workflow/dependency-readiness
 import {
   applyCheckpointWorkUnitTransition,
   recalculateMilestoneStatuses,
-  computeProjectStatus,
 } from "../workflow/checkpoint-status-transitions.js";
 import { selectNextReadyWorkUnit } from "../workflow/next-work-unit-selector.js";
+import { assessWorkflow } from "../workflow/workflow-assessment.js";
+import type { ProjectModel } from "../schema/project.schema.js";
 import type { StateModel } from "../schema/state.schema.js";
 import type { WorkUnit } from "../schema/work-unit.schema.js";
 import type { Milestone } from "../schema/milestone.schema.js";
@@ -31,6 +32,7 @@ export interface ApplyCheckpointResult {
  * mutation performed by the caller in that case.
  */
 export function applyCheckpoint(params: {
+  project: ProjectModel;
   state: StateModel;
   workUnit: WorkUnit;
   input: CheckpointInput;
@@ -39,7 +41,7 @@ export function applyCheckpoint(params: {
   /** M26 §5.1: advisory-only reference to this packet's (already-terminal, by precondition) execution sessions. Never rewrites session history. */
   executionSessionIds?: string[];
 }): ApplyCheckpointResult {
-  const { state, workUnit, input, checkpointId, timestamp, executionSessionIds } = params;
+  const { project, state, workUnit, input, checkpointId, timestamp, executionSessionIds } = params;
 
   const finalStatus = deriveFinalWorkUnitStatus(input);
 
@@ -62,7 +64,6 @@ export function applyCheckpoint(params: {
   }
 
   const milestones = recalculateMilestoneStatuses(workUnits, state.workGraph.milestones);
-  const projectStatus = computeProjectStatus(workUnits, finalStatus);
 
   const nextReady = selectNextReadyWorkUnit({
     ...state,
@@ -70,18 +71,16 @@ export function applyCheckpoint(params: {
   });
   const nextReadyWorkUnitId = nextReady.workUnit?.id ?? null;
 
-  let currentMilestoneId: string | null;
-  let nextRecommendedCommand: string;
-  if (finalStatus === "needs_review") {
-    currentMilestoneId = workUnit.milestoneId;
-    nextRecommendedCommand = "aiqt review";
-  } else if (nextReadyWorkUnitId !== null) {
-    currentMilestoneId = nextReady.milestone?.id ?? null;
-    nextRecommendedCommand = "aiqt next";
-  } else {
-    currentMilestoneId = null;
-    nextRecommendedCommand = "aiqt review";
-  }
+  const candidateState: StateModel = {
+    ...state,
+    currentMilestoneId: finalStatus === "needs_review" ? workUnit.milestoneId : (nextReady.milestone?.id ?? null),
+    currentWorkUnitId: null,
+    workGraph: { ...state.workGraph, workUnits, milestones },
+  };
+  const assessment = assessWorkflow(project, candidateState);
+  const projectStatus = assessment.projectStatus;
+  const currentMilestoneId = candidateState.currentMilestoneId;
+  const nextRecommendedCommand = assessment.recommendedCommand ?? "aiqt review";
 
   const checkpoint: Checkpoint = {
     id: checkpointId,

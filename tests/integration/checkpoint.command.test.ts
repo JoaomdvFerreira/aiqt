@@ -191,14 +191,14 @@ describe("aiqt checkpoint", () => {
     expect(state.checkpoints[0].id).toBe("C001");
   });
 
-  it("succeeds: valid needs_review checkpoint recommends aiqt review", async () => {
+  it("succeeds: valid needs_review checkpoint recommends checkpoint amend", async () => {
     dir = makeTempDir();
     await makeInProgressProject(dir);
     const result = runCheckpoint(contextFor(dir), {
       fromFile: join(CHECKPOINT_FIXTURES, "valid-needs-review.json"),
     });
     expect(result.exitCode).toBe(ExitCode.Success);
-    expect(result.nextRecommendedCommand).toBe("aiqt review");
+    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend");
     const state = readState(dir);
     expect(state.workGraph.workUnits[0].status).toBe("needs_review");
     expect(state.currentMilestoneId).toBe("M001");
@@ -240,7 +240,7 @@ describe("aiqt checkpoint", () => {
       fromFile: join(CHECKPOINT_FIXTURES, "valid-needs-review.json"),
     });
     expect(result.exitCode).toBe(ExitCode.Success);
-    expect(result.nextRecommendedCommand).toBe("aiqt review");
+    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend");
   });
 
   it("done checkpoint unlocks downstream planned work and recommends aiqt next", async () => {
@@ -265,7 +265,7 @@ describe("aiqt checkpoint", () => {
     });
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(result.projectStatus).toBe("review");
-    expect(result.nextRecommendedCommand).toBe("aiqt review");
+    expect(result.nextRecommendedCommand).toBe("aiqt review --mode release");
   });
 
   it("does not mutate project.json", async () => {

@@ -301,7 +301,13 @@ export function deriveAssessmentProjectStatus(
     return "review";
   }
   if (workflowPosition === "active_in_progress") return "in_progress";
-  if (state.workGraph.workUnits.length > 0) return "planned";
+  if (state.workGraph.workUnits.length > 0) {
+    return state.workGraph.workUnits.some((wu) =>
+      wu.status === "done" || wu.status === "replanned" || wu.status === "cancelled",
+    )
+      ? "in_progress"
+      : "planned";
+  }
   return "draft";
 }
 

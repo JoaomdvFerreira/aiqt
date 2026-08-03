@@ -11,7 +11,7 @@ import {
 } from "../../state/runlog-store.js";
 import { nextId } from "../../state/ids.js";
 import { runReview } from "../../services/review-service.js";
-import { computeReviewNextCommand } from "../../workflow/review-next-command.js";
+import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 import {
   buildNormalizedIssues,
   findNormalizedIssue,
@@ -183,14 +183,14 @@ export function runIssueUpdate(
     // Idempotent no-op: re-applying the same status+reason stores no second
     // record and appends no second runlog event.
     if (existing && existing.status === status && existing.reason === reason) {
-      const findingsForNextCommand = review.findings;
-      const nextRecommendedCommand = computeReviewNextCommand(project, state, findingsForNextCommand);
+      const assessedState = applyWorkflowAssessmentToState(project, state);
+      const nextRecommendedCommand = assessedState.nextRecommendedCommand ?? "aiqt review";
       return makeResult({
         status: "passed",
         action: "issue",
-        projectStatus: state.projectStatus,
-        currentMilestoneId: state.currentMilestoneId,
-        currentWorkUnitId: state.currentWorkUnitId,
+        projectStatus: assessedState.projectStatus,
+        currentMilestoneId: assessedState.currentMilestoneId,
+        currentWorkUnitId: assessedState.currentWorkUnitId,
         summary: `Issue "${issueKey}" is already set to ${status}.`,
         nextRecommendedCommand,
         exitCode: ExitCode.Success,
@@ -217,9 +217,8 @@ export function runIssueUpdate(
       lastUpdatedAt: timestamp,
     };
 
-    const nextReview = runReview(project, newState, knownPacketIds);
-    const nextRecommendedCommand = computeReviewNextCommand(project, newState, nextReview.findings);
-    const finalState: StateModel = { ...newState, nextRecommendedCommand };
+    const finalState: StateModel = applyWorkflowAssessmentToState(project, newState);
+    const nextRecommendedCommand = finalState.nextRecommendedCommand ?? "aiqt review";
     writeStateModel(paths.stateFile, finalState);
 
     const eventIds = readRunlogEventIds(paths.runlogFile);

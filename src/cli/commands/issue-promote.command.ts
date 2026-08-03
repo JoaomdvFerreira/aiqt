@@ -11,7 +11,7 @@ import {
 } from "../../state/runlog-store.js";
 import { nextId } from "../../state/ids.js";
 import { runReview } from "../../services/review-service.js";
-import { computeReviewNextCommand } from "../../workflow/review-next-command.js";
+import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 import {
   buildNormalizedIssues,
   findNormalizedIssue,
@@ -267,13 +267,8 @@ export function runIssuePromote(
       lastUpdatedAt: timestamp,
     };
 
-    const nextReview = runReview(project, stateWithPromotion, knownPacketIds);
-    const nextRecommendedCommand = computeReviewNextCommand(
-      project,
-      stateWithPromotion,
-      nextReview.findings,
-    );
-    const finalState: StateModel = { ...stateWithPromotion, nextRecommendedCommand };
+    const finalState: StateModel = applyWorkflowAssessmentToState(project, stateWithPromotion);
+    const nextRecommendedCommand = finalState.nextRecommendedCommand ?? "aiqt review";
     writeStateModel(paths.stateFile, finalState);
 
     const eventIds = readRunlogEventIds(paths.runlogFile);

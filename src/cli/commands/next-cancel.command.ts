@@ -11,12 +11,10 @@ import {
   appendRunlogEvent,
   buildPacketCancelledEvent,
   findPreviousAgentPacketMetadata,
-  readAgentPacketIds,
   readRunlogEventIds,
 } from "../../state/runlog-store.js";
 import { nextId } from "../../state/ids.js";
-import { runReview } from "../../services/review-service.js";
-import { computeReviewNextCommand } from "../../workflow/review-next-command.js";
+import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 import { applyWorkUnitCancelTransition } from "../../workflow/work-unit-cancel-transition.js";
 import { selectNextReadyWorkUnit } from "../../workflow/next-work-unit-selector.js";
 import type { StateModel, ProjectStatus } from "../../schema/state.schema.js";
@@ -181,20 +179,12 @@ export function runNextCancel(ctx: CommandContext): CommandResult {
     const nextReady = selectNextReadyWorkUnit(updatedState);
     const currentMilestoneId = nextReady.milestone?.id ?? null;
 
-    const knownPacketIds = readAgentPacketIds(paths.runlogFile, previousPacket);
     const stateForNextCommand: StateModel = { ...updatedState, currentMilestoneId };
-    const review = runReview(project, stateForNextCommand, knownPacketIds);
-    const nextRecommendedCommand = computeReviewNextCommand(
-      project,
-      stateForNextCommand,
-      review.findings,
-    );
-
     const newState: StateModel = {
-      ...stateForNextCommand,
-      nextRecommendedCommand,
+      ...applyWorkflowAssessmentToState(project, stateForNextCommand),
       lastUpdatedAt: timestamp,
     };
+    const nextRecommendedCommand = newState.nextRecommendedCommand ?? "aiqt review";
     writeStateModel(paths.stateFile, newState);
 
     const eventIds = readRunlogEventIds(paths.runlogFile);

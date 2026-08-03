@@ -6,12 +6,10 @@ import { writeStateModel } from "../../state/workflow-state-store.js";
 import {
   appendRunlogEvent,
   buildDependencyUpdatedEvent,
-  readAgentPacketIds,
   readRunlogEventIds,
 } from "../../state/runlog-store.js";
 import { nextId } from "../../state/ids.js";
-import { runReview } from "../../services/review-service.js";
-import { computeReviewNextCommand } from "../../workflow/review-next-command.js";
+import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 import { recalculateMilestoneStatuses } from "../../workflow/checkpoint-status-transitions.js";
 import {
   wouldIntroduceCycle,
@@ -146,17 +144,15 @@ export function runDependencyUpdate(
       });
     }
 
-    const knownPacketIds = readAgentPacketIds(paths.runlogFile, state.lastAgentPacket);
-
     if (dependency.type === newType) {
-      const review = runReview(project, state, knownPacketIds);
-      const nextRecommendedCommand = computeReviewNextCommand(project, state, review.findings);
+      const assessedState = applyWorkflowAssessmentToState(project, state);
+      const nextRecommendedCommand = assessedState.nextRecommendedCommand ?? "aiqt review";
       return makeResult({
         status: "passed",
         action: "dependency",
-        projectStatus: state.projectStatus,
-        currentMilestoneId: state.currentMilestoneId,
-        currentWorkUnitId: state.currentWorkUnitId,
+        projectStatus: assessedState.projectStatus,
+        currentMilestoneId: assessedState.currentMilestoneId,
+        currentWorkUnitId: assessedState.currentWorkUnitId,
         summary: `Dependency "${dependencyId}" already has type "${newType}".`,
         nextRecommendedCommand,
         exitCode: ExitCode.Success,
@@ -256,13 +252,8 @@ export function runDependencyUpdate(
       lastUpdatedAt: timestamp,
     };
 
-    const review = runReview(project, stateWithUpdate, knownPacketIds);
-    const nextRecommendedCommand = computeReviewNextCommand(
-      project,
-      stateWithUpdate,
-      review.findings,
-    );
-    const finalState: StateModel = { ...stateWithUpdate, nextRecommendedCommand };
+    const finalState: StateModel = applyWorkflowAssessmentToState(project, stateWithUpdate);
+    const nextRecommendedCommand = finalState.nextRecommendedCommand ?? "aiqt review";
     writeStateModel(paths.stateFile, finalState);
 
     const eventIds = readRunlogEventIds(paths.runlogFile);

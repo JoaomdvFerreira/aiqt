@@ -6,12 +6,10 @@ import { writeStateModel } from "../../state/workflow-state-store.js";
 import {
   appendRunlogEvent,
   buildCheckpointAmendedEvent,
-  readAgentPacketIds,
   readRunlogEventIds,
 } from "../../state/runlog-store.js";
 import { nextId } from "../../state/ids.js";
-import { runReview } from "../../services/review-service.js";
-import { computeReviewNextCommand } from "../../workflow/review-next-command.js";
+import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 import { selectNextReadyWorkUnit } from "../../workflow/next-work-unit-selector.js";
 import { applyCheckpointAmendment } from "../../services/checkpoint-amendment-service.js";
 import {
@@ -261,7 +259,6 @@ export function runCheckpointAmend(
     }
 
     const timestamp = new Date().toISOString();
-    const knownPacketIds = readAgentPacketIds(paths.runlogFile, state.lastAgentPacket);
 
     const amendmentIds = (state.checkpointAmendments ?? []).map((a) => a.amendmentId);
     const amendmentId = nextId("AMEND", amendmentIds, "-");
@@ -278,14 +275,14 @@ export function runCheckpointAmend(
     });
 
     if (!applied.changed) {
-      const review = runReview(project, state, knownPacketIds);
-      const nextRecommendedCommand = computeReviewNextCommand(project, state, review.findings);
+      const assessedState = applyWorkflowAssessmentToState(project, state);
+      const nextRecommendedCommand = assessedState.nextRecommendedCommand ?? "aiqt review";
       return makeResult({
         status: "passed",
         action: "checkpoint",
-        projectStatus: state.projectStatus,
-        currentMilestoneId: state.currentMilestoneId,
-        currentWorkUnitId: state.currentWorkUnitId,
+        projectStatus: assessedState.projectStatus,
+        currentMilestoneId: assessedState.currentMilestoneId,
+        currentWorkUnitId: assessedState.currentWorkUnitId,
         summary: `Checkpoint "${checkpointId}" already has the requested effective result.`,
         nextRecommendedCommand,
         exitCode: ExitCode.Success,
@@ -393,13 +390,8 @@ export function runCheckpointAmend(
         : {}),
     };
 
-    const review = runReview(project, stateWithAmendment, knownPacketIds);
-    const nextRecommendedCommand = computeReviewNextCommand(
-      project,
-      stateWithAmendment,
-      review.findings,
-    );
-    const finalState: StateModel = { ...stateWithAmendment, nextRecommendedCommand };
+    const finalState: StateModel = applyWorkflowAssessmentToState(project, stateWithAmendment);
+    const nextRecommendedCommand = finalState.nextRecommendedCommand ?? "aiqt review";
     writeStateModel(paths.stateFile, finalState);
 
     const eventIds = readRunlogEventIds(paths.runlogFile);

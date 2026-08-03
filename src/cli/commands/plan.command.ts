@@ -31,6 +31,7 @@ import {
 } from "../../schema/plan-extension-input.schema.js";
 import { buildWorkGraphFromPlanInput } from "../../services/planning-service.js";
 import { buildPlanAppend, buildPlanRefinement } from "../../services/plan-extension-service.js";
+import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 import { isPlanningContextReady } from "../../workflow/planning-readiness.js";
 import type { ProjectModel } from "../../schema/project.schema.js";
 import type { StateModel } from "../../schema/state.schema.js";
@@ -261,6 +262,7 @@ function runPlanRefine(
   let outcome;
   try {
     outcome = buildPlanRefinement({
+      project,
       state,
       targetWorkUnitId,
       input: refinementInput,
@@ -459,7 +461,7 @@ function runPlanAppendOp(
   const timestamp = new Date().toISOString();
   let outcome;
   try {
-    outcome = buildPlanAppend({ state, input: appendInput, timestamp });
+    outcome = buildPlanAppend({ project, state, input: appendInput, timestamp });
   } catch (err) {
     if (err instanceof AiqtError) {
       return makeResult({
@@ -663,9 +665,8 @@ export function runPlan(
 
     const { timestamp, result } = built;
 
-    const newState: StateModel = {
+    const candidateState: StateModel = {
       ...state,
-      projectStatus: "planned",
       currentMilestoneId: result.currentMilestoneId,
       currentWorkUnitId: null,
       workGraph: {
@@ -673,9 +674,10 @@ export function runPlan(
         workUnits: result.workUnits,
         dependencies: result.dependencies,
       },
-      nextRecommendedCommand: "aiqt next",
       lastUpdatedAt: timestamp,
     };
+    const newState = applyWorkflowAssessmentToState(project, candidateState);
+    const nextRecommendedCommand = newState.nextRecommendedCommand ?? "aiqt review";
 
     const affectedItems = [
       ...result.milestones.map((m) => m.id),
@@ -741,7 +743,7 @@ export function runPlan(
           workUnitCount: result.workUnits.length,
           dependencyCount: result.dependencies.length,
           readyWorkUnitId: result.readyWorkUnitId,
-          nextRecommendedCommand: "aiqt next",
+          nextRecommendedCommand,
         },
       }),
     );
@@ -749,8 +751,8 @@ export function runPlan(
     return makeResult({
       status: "passed",
       action: "plan",
-      projectStatus: "planned",
-      currentMilestoneId: result.currentMilestoneId,
+      projectStatus: newState.projectStatus,
+      currentMilestoneId: newState.currentMilestoneId,
       currentWorkUnitId: null,
       summary: "Work graph generated.",
       completedActions: [
@@ -760,7 +762,7 @@ export function runPlan(
       ],
       changedFiles: [paths.stateFile, paths.runlogFile],
       affectedItems,
-      nextRecommendedCommand: "aiqt next",
+      nextRecommendedCommand,
       exitCode: ExitCode.Success,
       data: { ...sharedData, preview: false, mutationPerformed: true },
     });

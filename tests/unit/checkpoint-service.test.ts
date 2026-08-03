@@ -7,9 +7,41 @@ import type { WorkUnit } from "../../src/schema/work-unit.schema.js";
 import type { Milestone } from "../../src/schema/milestone.schema.js";
 import type { Dependency } from "../../src/schema/dependency.schema.js";
 import type { CheckpointInput } from "../../src/schema/checkpoint-input.schema.js";
+import type { ProjectModel } from "../../src/schema/project.schema.js";
 
 const T1 = "2026-01-01T00:00:00.000Z";
 const T2 = "2026-01-02T00:00:00.000Z";
+
+const project: ProjectModel = {
+  version: "1.0.0",
+  project: {
+    id: "PROJECT-001",
+    name: "Test",
+    objective: "Ship it",
+    targetUsers: ["users"],
+    preferredAgent: null,
+    existingRepositoryPath: null,
+    createdAt: T1,
+    updatedAt: T1,
+  },
+  context: {
+    constraints: ["Use local files."],
+    nonGoals: [],
+    technologyPreferences: [],
+    businessRules: [],
+    architectureNotes: [],
+  },
+  requirements: [],
+  decisions: [],
+  risks: [],
+  assumptions: [],
+  openQuestions: [],
+  quality: {
+    acceptanceCriteriaRequired: true,
+    validationRequiredBeforeDone: true,
+    preferredValidationCommands: [],
+  },
+};
 
 function wu(overrides: Partial<WorkUnit> = {}): WorkUnit {
   return {
@@ -79,6 +111,7 @@ describe("applyCheckpoint: done outcome", () => {
   it("builds a checkpoint record referencing the work unit and packet", () => {
     const state = stateWith([wu()], [milestone()]);
     const result = applyCheckpoint({
+      project,
       state,
       workUnit: wu(),
       input: baseInput({ summary: "Finished it." }),
@@ -101,6 +134,7 @@ describe("applyCheckpoint: done outcome", () => {
     const milestones = [milestone({ id: "M001" }), milestone({ id: "M002", status: "ready", workUnitIds: ["WU002"] })];
     const state = stateWith(workUnits, milestones);
     const result = applyCheckpoint({
+      project,
       state,
       workUnit: workUnits[0],
       input: baseInput(),
@@ -112,16 +146,17 @@ describe("applyCheckpoint: done outcome", () => {
     expect(result.nextRecommendedCommand).toBe("aiqt next");
   });
 
-  it("recommends aiqt review when done and no ready work exists", () => {
+  it("recommends release review when done and no ready work exists", () => {
     const state = stateWith([wu()], [milestone()]);
     const result = applyCheckpoint({
+      project,
       state,
       workUnit: wu(),
       input: baseInput(),
       checkpointId: "C001",
       timestamp: T2,
     });
-    expect(result.nextRecommendedCommand).toBe("aiqt review");
+    expect(result.nextRecommendedCommand).toBe("aiqt review --mode release");
     expect(result.currentMilestoneId).toBeNull();
     expect(result.projectStatus).toBe("review");
   });
@@ -137,6 +172,7 @@ describe("applyCheckpoint: done outcome", () => {
     const milestones = [milestone({ id: "M001" }), milestone({ id: "M002", status: "planned", workUnitIds: ["WU002"] })];
     const state = stateWith(workUnits, milestones, dependencies);
     const result = applyCheckpoint({
+      project,
       state,
       workUnit: workUnits[0],
       input: baseInput(),
@@ -151,9 +187,10 @@ describe("applyCheckpoint: done outcome", () => {
 });
 
 describe("applyCheckpoint: needs_review outcome", () => {
-  it("sets currentMilestoneId to the checkpointed unit's milestone and recommends aiqt review", () => {
+  it("sets currentMilestoneId to the checkpointed unit's milestone and recommends checkpoint amend", () => {
     const state = stateWith([wu()], [milestone()]);
     const result = applyCheckpoint({
+      project,
       state,
       workUnit: wu(),
       input: baseInput({ validationResult: "failed" }),
@@ -162,7 +199,7 @@ describe("applyCheckpoint: needs_review outcome", () => {
     });
     expect(result.checkpoint.finalWorkUnitStatus).toBe("needs_review");
     expect(result.currentMilestoneId).toBe("M001");
-    expect(result.nextRecommendedCommand).toBe("aiqt review");
+    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend");
     expect(result.projectStatus).toBe("review");
   });
 
@@ -177,6 +214,7 @@ describe("applyCheckpoint: needs_review outcome", () => {
     const milestones = [milestone({ id: "M001" }), milestone({ id: "M002", status: "planned", workUnitIds: ["WU002"] })];
     const state = stateWith(workUnits, milestones, dependencies);
     const result = applyCheckpoint({
+      project,
       state,
       workUnit: workUnits[0],
       input: baseInput({ validationResult: "failed" }),
@@ -187,7 +225,7 @@ describe("applyCheckpoint: needs_review outcome", () => {
     expect(result.workUnits.find((w) => w.id === "WU002")?.status).toBe("planned");
   });
 
-  it("prioritizes aiqt review even when another unrelated ready work unit exists", () => {
+  it("prioritizes checkpoint amend even when another unrelated ready work unit exists", () => {
     const workUnits = [
       wu({ id: "WU001", status: "in_progress" }),
       wu({ id: "WU002", milestoneId: "M002", status: "ready" }),
@@ -195,6 +233,7 @@ describe("applyCheckpoint: needs_review outcome", () => {
     const milestones = [milestone({ id: "M001" }), milestone({ id: "M002", status: "ready", workUnitIds: ["WU002"] })];
     const state = stateWith(workUnits, milestones);
     const result = applyCheckpoint({
+      project,
       state,
       workUnit: workUnits[0],
       input: baseInput({ validationResult: "failed" }),
@@ -202,7 +241,7 @@ describe("applyCheckpoint: needs_review outcome", () => {
       timestamp: T2,
     });
     expect(result.checkpoint.finalWorkUnitStatus).toBe("needs_review");
-    expect(result.nextRecommendedCommand).toBe("aiqt review");
+    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend");
   });
 });
 
@@ -211,6 +250,7 @@ describe("applyCheckpoint: completion gate propagation", () => {
     const state = stateWith([wu()], [milestone()]);
     expect(() =>
       applyCheckpoint({
+      project,
         state,
         workUnit: wu(),
         input: baseInput({ targetStatus: "done", validationResult: "failed" }),

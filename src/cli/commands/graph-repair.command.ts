@@ -16,6 +16,7 @@ import {
   applyStaleReadinessRepair,
 } from "../../services/graph-repair-service.js";
 import type { StateModel } from "../../schema/state.schema.js";
+import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 
 export interface RunGraphRepairOptions {
   dryRun?: boolean;
@@ -193,7 +194,7 @@ export function runGraphRepair(
       });
     }
 
-    const finalState: StateModel = { ...repair.state, nextRecommendedCommand: "aiqt graph validate" };
+    const finalState: StateModel = applyWorkflowAssessmentToState(project, repair.state);
     writeStateModel(paths.stateFile, finalState);
 
     const eventIds = readRunlogEventIds(paths.runlogFile);
@@ -230,7 +231,7 @@ export function runGraphRepair(
       ],
       changedFiles: [paths.stateFile, paths.runlogFile],
       affectedItems: repair.repairedWorkUnitIds,
-      nextRecommendedCommand: "aiqt graph validate",
+      nextRecommendedCommand: finalState.nextRecommendedCommand,
       exitCode: ExitCode.Success,
       data: {
         wouldMutate: true,

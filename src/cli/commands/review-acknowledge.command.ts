@@ -11,8 +11,8 @@ import {
 } from "../../state/runlog-store.js";
 import { nextId } from "../../state/ids.js";
 import { runReview } from "../../services/review-service.js";
-import { getAcknowledgedFindings, findingsForMode } from "../../services/manage-service.js";
-import { computeReviewNextCommand } from "../../workflow/review-next-command.js";
+import { getAcknowledgedFindings } from "../../services/manage-service.js";
+import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 import type { StateModel } from "../../schema/state.schema.js";
 import type { AcknowledgedFinding } from "../../schema/review-acknowledgment.schema.js";
 
@@ -164,11 +164,13 @@ export function runReviewAcknowledge(
     };
     const updatedAcknowledged = [...existingAcknowledged, newAcknowledgment];
 
-    const newState: StateModel = {
+    const candidateState: StateModel = {
       ...state,
       review: { acknowledgedFindings: updatedAcknowledged },
       lastUpdatedAt: timestamp,
     };
+    const newState = applyWorkflowAssessmentToState(project, candidateState);
+    const nextRecommendedCommand = newState.nextRecommendedCommand ?? "aiqt review";
     writeStateModel(paths.stateFile, newState);
 
     const eventIds = readRunlogEventIds(paths.runlogFile);
@@ -182,13 +184,6 @@ export function runReviewAcknowledge(
         relatedIds,
         data: { findingKey, reason, sourceCommand: SOURCE_COMMAND },
       }),
-    );
-
-    const findingsForNextCommand = findingsForMode(review, updatedAcknowledged, "development");
-    const nextRecommendedCommand = computeReviewNextCommand(
-      project,
-      newState,
-      findingsForNextCommand,
     );
 
     return makeResult({

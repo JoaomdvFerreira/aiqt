@@ -26,6 +26,7 @@ import {
 } from "../../state/runlog-store.js";
 import { formatId } from "../../state/ids.js";
 import { resolveRoots } from "../../workflow/root-resolution.js";
+import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 
 function blocked(message: string, area: string): AiqtError {
   return new AiqtError(message, ExitCode.InvalidInput, {
@@ -64,6 +65,7 @@ export function runInit(
     const projectName = basename(root) || "aiqt-project";
     const now = new Date().toISOString();
     const projectId = "PROJECT-001";
+    let nextRecommendedCommand = "aiqt update";
 
     // 4-9. Create canonical files.
     try {
@@ -81,7 +83,8 @@ export function runInit(
       });
       writeProjectModel(paths.projectFile, projectModel);
 
-      const stateModel = buildInitialStateModel(now);
+      const stateModel = applyWorkflowAssessmentToState(projectModel, buildInitialStateModel(now));
+      nextRecommendedCommand = stateModel.nextRecommendedCommand ?? nextRecommendedCommand;
       writeStateModel(paths.stateFile, stateModel);
 
       // runlog.jsonl must exist before appending the event.
@@ -125,7 +128,7 @@ export function runInit(
         paths.stateFile,
         paths.runlogFile,
       ],
-      nextRecommendedCommand: "aiqt update",
+      nextRecommendedCommand,
       data: {
         projectId,
         projectName,

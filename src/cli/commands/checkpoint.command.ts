@@ -325,6 +325,7 @@ export function runCheckpoint(
       const checkpointId = nextId("C", state.checkpoints.map((c) => c.id), "");
 
       let applied = applyCheckpoint({
+        project,
         state,
         workUnit,
         input,
@@ -369,6 +370,7 @@ export function runCheckpoint(
           // recalculating readiness) is used -- no second readiness or
           // completion engine.
           applied = applyCheckpoint({
+            project,
             state,
             workUnit,
             input: { ...input, targetStatus: "needs_review" },

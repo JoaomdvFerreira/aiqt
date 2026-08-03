@@ -7,11 +7,44 @@ import { recalculateReadinessAfterDependencyUpdate } from "../workflow/dependenc
 import { recalculateMilestoneStatuses } from "../workflow/checkpoint-status-transitions.js";
 import { validateIsolatedAssignmentKeyUniqueness } from "../workflow/workspace-assignment.js";
 import { findDuplicate } from "./planning-service.js";
+import { applyWorkflowAssessmentToState } from "./workflow-assessment-persistence.js";
 import type { PlanExtensionInput, PlanAppendInput } from "../schema/plan-extension-input.schema.js";
+import type { ProjectModel } from "../schema/project.schema.js";
 import type { StateModel } from "../schema/state.schema.js";
 import type { Milestone } from "../schema/milestone.schema.js";
 import type { WorkUnit, WorkUnitStatus } from "../schema/work-unit.schema.js";
 import type { Dependency } from "../schema/dependency.schema.js";
+
+const DEFAULT_ASSESSMENT_PROJECT: ProjectModel = {
+  version: "1.0.0",
+  project: {
+    id: "PROJECT-001",
+    name: "Project",
+    objective: "Maintain the work graph.",
+    targetUsers: ["maintainers"],
+    preferredAgent: null,
+    existingRepositoryPath: null,
+    createdAt: "1970-01-01T00:00:00.000Z",
+    updatedAt: "1970-01-01T00:00:00.000Z",
+  },
+  context: {
+    constraints: ["Use canonical state."],
+    nonGoals: [],
+    technologyPreferences: [],
+    businessRules: [],
+    architectureNotes: [],
+  },
+  requirements: [],
+  decisions: [],
+  risks: [],
+  assumptions: [],
+  openQuestions: [],
+  quality: {
+    acceptanceCriteriaRequired: true,
+    validationRequiredBeforeDone: true,
+    preferredValidationCommands: [],
+  },
+};
 
 /**
  * M17/M17-RC1: incremental work-graph mutation over an existing, non-empty
@@ -168,11 +201,13 @@ export interface PlanAppendOutcome {
  * changes wiring new and/or existing work together.
  */
 export function buildPlanAppend(params: {
+  project?: ProjectModel;
   state: StateModel;
   input: PlanAppendInput;
   timestamp: string;
 }): PlanAppendOutcome {
   const { state, input, timestamp } = params;
+  const project = params.project ?? DEFAULT_ASSESSMENT_PROJECT;
 
   const dupMilestone = findDuplicate(input.milestones, (m) => m.clientKey);
   if (dupMilestone) {
@@ -404,18 +439,17 @@ export function buildPlanAppend(params: {
   ]);
   const candidateMilestones = protectCompletedMilestones(state.workGraph.milestones, recomputedMilestones);
 
-  const nextRecommendedCommand = "aiqt next";
-
-  const candidateState: StateModel = {
+  const candidateStateUnassessed: StateModel = {
     ...state,
     workGraph: {
       milestones: candidateMilestones,
       workUnits: finalWorkUnits,
       dependencies: candidateDependencies,
     },
-    nextRecommendedCommand,
     lastUpdatedAt: timestamp,
   };
+  const candidateState = applyWorkflowAssessmentToState(project, candidateStateUnassessed);
+  const nextRecommendedCommand = candidateState.nextRecommendedCommand ?? "aiqt review";
 
   return {
     state: candidateState,
@@ -462,12 +496,14 @@ export interface PlanRefinementOutcome {
  * persist the returned candidate state (apply) or discard it (--preview).
  */
 export function buildPlanRefinement(params: {
+  project?: ProjectModel;
   state: StateModel;
   targetWorkUnitId: string;
   input: PlanExtensionInput;
   timestamp: string;
 }): PlanRefinementOutcome {
   const { state, targetWorkUnitId, input, timestamp } = params;
+  const project = params.project ?? DEFAULT_ASSESSMENT_PROJECT;
 
   const target = findTargetWorkUnit(state, targetWorkUnitId);
   if (!target) {
@@ -753,18 +789,17 @@ export function buildPlanRefinement(params: {
   ]);
   const candidateMilestones = protectCompletedMilestones(state.workGraph.milestones, recomputedMilestones);
 
-  const nextRecommendedCommand = "aiqt next";
-
-  const candidateState: StateModel = {
+  const candidateStateUnassessed: StateModel = {
     ...state,
     workGraph: {
       milestones: candidateMilestones,
       workUnits: readiness.workUnits,
       dependencies: candidateDependencies,
     },
-    nextRecommendedCommand,
     lastUpdatedAt: timestamp,
   };
+  const candidateState = applyWorkflowAssessmentToState(project, candidateStateUnassessed);
+  const nextRecommendedCommand = candidateState.nextRecommendedCommand ?? "aiqt review";
 
   return {
     state: candidateState,

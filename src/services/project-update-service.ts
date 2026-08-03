@@ -3,6 +3,7 @@ import { ExitCode } from "../core/output/exit-codes.js";
 import { dedupeAppend, deepEqual } from "../core/util/merge.js";
 import { nextId } from "../state/ids.js";
 import { isPlanningContextReady } from "../workflow/planning-readiness.js";
+import { applyWorkflowAssessmentToState } from "./workflow-assessment-persistence.js";
 import type { ProjectModel } from "../schema/project.schema.js";
 import type { StateModel } from "../schema/state.schema.js";
 import type {
@@ -750,11 +751,12 @@ export function applyUpdatePatch(
     : project;
 
   const planningContextReady = isPlanningContextReady(newProject);
-  const nextRecommendedCommand = planningContextReady ? "aiqt plan" : "aiqt update";
-  const stateChanged = state.nextRecommendedCommand !== nextRecommendedCommand;
-
+  const assessedState = applyWorkflowAssessmentToState(newProject, state);
+  const stateChanged =
+    state.nextRecommendedCommand !== assessedState.nextRecommendedCommand ||
+    state.projectStatus !== assessedState.projectStatus;
   const newState: StateModel = stateChanged
-    ? { ...state, nextRecommendedCommand, lastUpdatedAt: timestamp }
+    ? { ...assessedState, lastUpdatedAt: timestamp }
     : state;
 
   return {

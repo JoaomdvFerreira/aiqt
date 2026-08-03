@@ -42,6 +42,7 @@ import { buildSkillsPlan } from "../../services/skills-detection-service.js";
 import { detectUiHeavyForProject } from "../../workflow/design/ui-heavy-detection.js";
 import { detectComponentSystemPreference } from "../../workflow/component-system-preferences.js";
 import type { StateModel } from "../../schema/state.schema.js";
+import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 import type { AgentPacketMetadata } from "../../schema/agent-packet.schema.js";
 
 function blockedOnState(
@@ -235,9 +236,8 @@ export function runNext(ctx: CommandContext, options: RunNextOptions = {}): Comm
       timestamp,
     );
 
-    const newState: StateModel = {
+    const candidateState: StateModel = {
       ...state,
-      projectStatus: "in_progress",
       currentMilestoneId: selectedMilestone.id,
       currentWorkUnitId: workUnit.id,
       workGraph: {
@@ -246,9 +246,10 @@ export function runNext(ctx: CommandContext, options: RunNextOptions = {}): Comm
         milestones: transition.milestones,
       },
       lastAgentPacket: packetMetadata,
-      nextRecommendedCommand: "aiqt checkpoint",
       lastUpdatedAt: timestamp,
     };
+    const newState = applyWorkflowAssessmentToState(project, candidateState);
+    const nextRecommendedCommand = newState.nextRecommendedCommand ?? "aiqt review";
 
     writeStateModel(paths.stateFile, newState);
 
@@ -272,7 +273,7 @@ export function runNext(ctx: CommandContext, options: RunNextOptions = {}): Comm
           milestoneId: selectedMilestone.id,
           format: "markdown",
           contentHash,
-          nextRecommendedCommand: "aiqt checkpoint",
+          nextRecommendedCommand,
           renderedSections: auditMetadata.renderedSections,
           guidanceFlags: auditMetadata.guidanceFlags,
         },
@@ -300,7 +301,7 @@ export function runNext(ctx: CommandContext, options: RunNextOptions = {}): Comm
     return makeResult({
       status: warnings.length > 0 ? "warning" : "passed",
       action: "next",
-      projectStatus: "in_progress",
+      projectStatus: newState.projectStatus,
       currentMilestoneId: selectedMilestone.id,
       currentWorkUnitId: workUnit.id,
       summary: `Agent packet created for ${workUnit.id}.${alternativeGuidance ? ` ${alternativeGuidance}` : ""}`,
@@ -315,7 +316,7 @@ export function runNext(ctx: CommandContext, options: RunNextOptions = {}): Comm
       changedFiles: [paths.stateFile, paths.runlogFile],
       affectedItems: [project.project.id, selectedMilestone.id, workUnit.id, packetId],
       warnings,
-      nextRecommendedCommand: "aiqt checkpoint",
+      nextRecommendedCommand,
       exitCode: ExitCode.Success,
       data: {
         packetId,
