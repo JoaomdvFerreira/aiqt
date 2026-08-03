@@ -26,6 +26,8 @@ import {
   type CheckpointInput,
 } from "../../schema/checkpoint-input.schema.js";
 import { applyCheckpoint } from "../../services/checkpoint-service.js";
+import { assessWorkflow } from "../../workflow/workflow-assessment.js";
+import { buildWorkflowIntegrityBlockedResult } from "./workflow-integrity-gate.js";
 import { isPlanningContextReady } from "../../workflow/planning-readiness.js";
 import type { StateModel } from "../../schema/state.schema.js";
 import type { WorkUnit } from "../../schema/work-unit.schema.js";
@@ -221,6 +223,10 @@ export function runCheckpoint(
     }
 
     const { paths, project, state } = loadProject(ctx);
+    const assessment = assessWorkflow(project, state);
+    if (assessment.integrityStatus === "invalid") {
+      return buildWorkflowIntegrityBlockedResult("checkpoint", state, assessment);
+    }
 
     const hasWorkGraph = state.workGraph.milestones.length > 0;
     if (!hasWorkGraph) {

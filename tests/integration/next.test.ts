@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runInit } from "../../src/cli/commands/init.command.js";
 import { runNext } from "../../src/cli/commands/next.command.js";
@@ -57,5 +57,42 @@ describe("aiqt next (preconditions)", () => {
     runNext(contextFor(dir));
     const after = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     expect(after).toBe(before);
+  });
+
+  it("M32: blocks unsafe mutation when currentWorkUnitId is dangling", async () => {
+    dir = makeTempDir();
+    runInit(contextFor(dir), normalizeInitOptions({ objective: "Ship it", targetUser: "devs" }));
+    const statePath = join(dir, ".aiqt", "state.json");
+    const state = JSON.parse(readFileSync(statePath, "utf8"));
+    state.workGraph.milestones = [
+      { id: "M001", title: "Milestone", objective: "Do it", status: "ready", workUnitIds: ["WU001"] },
+    ];
+    state.workGraph.workUnits = [
+      {
+        id: "WU001",
+        milestoneId: "M001",
+        title: "Work",
+        objective: "Do it",
+        scope: ["s"],
+        outOfScope: [],
+        acceptanceCriteria: ["a"],
+        agentContextRefs: [],
+        suggestedFiles: [],
+        validationCommands: ["pnpm test"],
+        status: "ready",
+        dependencies: [],
+        createdAt: state.lastUpdatedAt,
+        updatedAt: state.lastUpdatedAt,
+      },
+    ];
+    state.currentWorkUnitId = "WU999";
+    writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+    const before = readFileSync(statePath, "utf8");
+    const result = runNext(contextFor(dir));
+
+    expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
+    expect(result.nextRecommendedCommand).toBe("aiqt graph repair --apply");
+    expect(readFileSync(statePath, "utf8")).toBe(before);
   });
 });

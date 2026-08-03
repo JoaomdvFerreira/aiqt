@@ -198,7 +198,7 @@ describe("assessWorkflow contract", () => {
     expect(assessment.integrityStatus).toBe("invalid");
     expect(assessment.recommendationRuleId).toBe("invalid-state");
     expect(assessment.workflowPosition).toBe("invalid_state");
-    expect(assessment.recommendedCommand).toBe("aiqt graph validate");
+    expect(assessment.recommendedCommand).toBe("aiqt graph repair --apply");
     expect(assessment.canMutate).toBe(false);
     expect(assessment.findings.map((f) => f.id)).toContain("WORKFLOW-CURRENT-WORK-UNIT-DANGLING");
   });
@@ -220,7 +220,7 @@ describe("assessWorkflow contract", () => {
     });
   });
 
-  it("needs_review beats ready work", () => {
+  it("needs_review beats ready work and falls back when no checkpoint context exists", () => {
     const state = stateWithGraph([
       workUnit({ id: "WU001", status: "needs_review" }),
       workUnit({ id: "WU002", status: "ready" }),
@@ -228,7 +228,53 @@ describe("assessWorkflow contract", () => {
 
     expect(assessWorkflow(readyProject(), state)).toMatchObject({
       recommendationRuleId: "needs-review",
-      recommendedCommand: "aiqt checkpoint amend",
+      recommendedCommand: "aiqt review",
+    });
+  });
+
+  it("routes needs_review to the latest amendable checkpoint when checkpoint context exists", () => {
+    const state = stateWithGraph([
+      workUnit({ id: "WU001", status: "needs_review" }),
+      workUnit({ id: "WU002", status: "ready" }),
+    ], {
+      checkpoints: [
+        {
+          id: "C001",
+          workUnitId: "WU001",
+          packetId: "PKT001",
+          summary: "Needs follow-up.",
+          completed: [],
+          notCompleted: [],
+          filesChanged: [],
+          issues: [],
+          validationResult: "failed",
+          acceptanceCriteriaResult: "partial",
+          validationCommands: [],
+          acceptanceCriteria: [],
+          finalWorkUnitStatus: "needs_review",
+          nextRecommendation: "aiqt review",
+          createdAt: NOW,
+        },
+      ],
+    });
+
+    expect(assessWorkflow(readyProject(), state)).toMatchObject({
+      recommendationRuleId: "needs-review",
+      recommendedCommand: "aiqt checkpoint amend --checkpoint C001",
+    });
+  });
+
+  it("recommends deterministic graph repair for safe dangling current pointers", () => {
+    const state = stateWithGraph([workUnit({ status: "ready" })], {
+      currentWorkUnitId: "WU999",
+      currentMilestoneId: "M999",
+    });
+
+    expect(assessWorkflow(readyProject(), state)).toMatchObject({
+      integrityStatus: "invalid",
+      recommendationRuleId: "invalid-state",
+      recommendedCommand: "aiqt graph repair --apply",
+      canMutate: false,
     });
   });
 

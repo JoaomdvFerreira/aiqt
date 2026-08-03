@@ -114,8 +114,8 @@ describe("aiqt checkpoint", () => {
     state.currentWorkUnitId = "WU999";
     writeState(dir, state);
     const result = runCheckpoint(contextFor(dir), {});
-    expect(result.exitCode).toBe(ExitCode.InvalidInput);
-    expect(result.nextRecommendedCommand).toBe("aiqt next");
+    expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
+    expect(result.nextRecommendedCommand).toBe("aiqt graph repair --apply");
   });
 
   it("fails with exit code 3 when the current work unit is not in_progress", async () => {
@@ -198,7 +198,7 @@ describe("aiqt checkpoint", () => {
       fromFile: join(CHECKPOINT_FIXTURES, "valid-needs-review.json"),
     });
     expect(result.exitCode).toBe(ExitCode.Success);
-    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend");
+    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend --checkpoint C001");
     const state = readState(dir);
     expect(state.workGraph.workUnits[0].status).toBe("needs_review");
     expect(state.currentMilestoneId).toBe("M001");
@@ -240,7 +240,7 @@ describe("aiqt checkpoint", () => {
       fromFile: join(CHECKPOINT_FIXTURES, "valid-needs-review.json"),
     });
     expect(result.exitCode).toBe(ExitCode.Success);
-    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend");
+    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend --checkpoint C001");
   });
 
   it("done checkpoint unlocks downstream planned work and recommends aiqt next", async () => {

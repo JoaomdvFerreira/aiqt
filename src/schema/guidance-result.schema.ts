@@ -21,5 +21,7 @@ export const GuidanceResultDataSchema = z.object({
   expectedInputPath: z.string().nullable(),
   followUpCommand: z.string().nullable(),
   canProceedWithoutAgent: z.boolean(),
+  planningMissingConditions: z.array(z.string()).optional(),
+  planningUpdateInputPath: z.string().nullable().optional(),
 });
 export type GuidanceResultData = z.infer<typeof GuidanceResultDataSchema>;

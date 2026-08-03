@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runGraphRepair } from "../../src/cli/commands/graph-repair.command.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
@@ -76,5 +76,39 @@ describe("aiqt graph repair --dry-run", () => {
     const first = runGraphRepair(contextFor(dir), { dryRun: true });
     const second = runGraphRepair(contextFor(dir), { dryRun: true });
     expect(first.data).toEqual(second.data);
+  });
+
+  it("M32: proposes deterministic repair for dangling current pointers", async () => {
+    dir = makeTempDir();
+    await buildDependencyFixtureState(dir);
+    const statePath = join(dir, ".aiqt", "state.json");
+    const state = JSON.parse(readFileSync(statePath, "utf8"));
+    state.currentWorkUnitId = "WU999";
+    writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+    const result = runGraphRepair(contextFor(dir), { dryRun: true });
+
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const data = result.data as { pointerRepairs: Array<{ pointerName: string; currentValue: string }> };
+    expect(data.pointerRepairs).toContainEqual(
+      expect.objectContaining({ pointerName: "currentWorkUnitId", currentValue: "WU999" }),
+    );
+  });
+
+  it("M32: applies deterministic repair for dangling current pointers", async () => {
+    dir = makeTempDir();
+    await buildDependencyFixtureState(dir);
+    const statePath = join(dir, ".aiqt", "state.json");
+    const state = JSON.parse(readFileSync(statePath, "utf8"));
+    state.currentWorkUnitId = "WU999";
+    writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+    const result = runGraphRepair(contextFor(dir), { apply: true });
+
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const after = JSON.parse(readFileSync(statePath, "utf8"));
+    expect(after.currentWorkUnitId).toBeNull();
+    const data = result.data as { repairedPointers: Array<{ pointerName: string; from: string; to: null }> };
+    expect(data.repairedPointers).toContainEqual({ pointerName: "currentWorkUnitId", from: "WU999", to: null });
   });
 });

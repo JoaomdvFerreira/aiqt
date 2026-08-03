@@ -82,6 +82,10 @@ describe("aiqt plan", () => {
     expect(result.exitCode).toBe(ExitCode.WorkflowBlocked);
     expect(result.status).toBe("blocked");
     expect(result.nextRecommendedCommand).toBe("aiqt update");
+    expect(result.summary).toContain("project objective");
+    expect(result.summary).toContain("target user");
+    expect(result.summary).toContain("implementation-shaping context");
+    expect(result.summary).toContain("aiqt update --from-file <path>");
     expect(readState(dir).workGraph.milestones).toHaveLength(0);
   });
 

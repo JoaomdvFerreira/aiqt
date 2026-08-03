@@ -23,11 +23,21 @@ export interface StaleReadinessRepairProposal {
   wouldMutate: true;
 }
 
+export interface PointerRepairProposal {
+  pointerName: "currentMilestoneId" | "currentWorkUnitId";
+  currentValue: string;
+  proposedValue: null;
+  reason: string;
+  wouldMutate: true;
+}
+
 export interface GraphRepairPlan {
   wouldMutate: false;
   suggestions: GraphRepairSuggestion[];
   /** M18 §11.1: deterministic ready -> planned proposals for stale-ready work units. */
   staleReadinessRepairs: StaleReadinessRepairProposal[];
+  /** M32 §5.6: deterministic dangling current-pointer repairs. */
+  pointerRepairs: PointerRepairProposal[];
   investigationGuidance: string[];
 }
 
@@ -87,14 +97,48 @@ export function buildGraphRepairPlan(
   }
 
   const staleReadinessRepairs = buildStaleReadinessRepairProposals(state);
+  const pointerRepairs = buildPointerRepairProposals(state);
 
-  return { wouldMutate: false, suggestions, staleReadinessRepairs, investigationGuidance };
+  return { wouldMutate: false, suggestions, staleReadinessRepairs, pointerRepairs, investigationGuidance };
+}
+
+export function buildPointerRepairProposals(state: StateModel): PointerRepairProposal[] {
+  const proposals: PointerRepairProposal[] = [];
+  const milestoneIds = new Set(state.workGraph.milestones.map((m) => m.id));
+  const workUnitIds = new Set(state.workGraph.workUnits.map((wu) => wu.id));
+
+  if (state.currentMilestoneId !== null && !milestoneIds.has(state.currentMilestoneId)) {
+    proposals.push({
+      pointerName: "currentMilestoneId",
+      currentValue: state.currentMilestoneId,
+      proposedValue: null,
+      reason: `currentMilestoneId "${state.currentMilestoneId}" does not reference an existing milestone; clearing it is deterministic and does not alter work history.`,
+      wouldMutate: true,
+    });
+  }
+
+  if (state.currentWorkUnitId !== null && !workUnitIds.has(state.currentWorkUnitId)) {
+    proposals.push({
+      pointerName: "currentWorkUnitId",
+      currentValue: state.currentWorkUnitId,
+      proposedValue: null,
+      reason: `currentWorkUnitId "${state.currentWorkUnitId}" does not reference an existing work unit; clearing it is deterministic and does not alter work history.`,
+      wouldMutate: true,
+    });
+  }
+
+  return proposals;
 }
 
 export interface StaleReadinessRepairApplyResult {
   state: StateModel;
   repairedWorkUnitIds: string[];
   changes: Array<{ workUnitId: string; from: "ready"; to: "planned" }>;
+}
+
+export interface PointerRepairApplyResult {
+  state: StateModel;
+  repairedPointers: Array<{ pointerName: "currentMilestoneId" | "currentWorkUnitId"; from: string; to: null }>;
 }
 
 /**
@@ -127,5 +171,31 @@ export function applyStaleReadinessRepair(
     },
     repairedWorkUnitIds: proposals.map((p) => p.workUnitId),
     changes: proposals.map((p) => ({ workUnitId: p.workUnitId, from: "ready" as const, to: "planned" as const })),
+  };
+}
+
+export function applyPointerRepairs(
+  state: StateModel,
+  timestamp: string,
+): PointerRepairApplyResult {
+  const proposals = buildPointerRepairProposals(state);
+  const repairedPointers = proposals.map((proposal) => ({
+    pointerName: proposal.pointerName,
+    from: proposal.currentValue,
+    to: null,
+  }));
+
+  return {
+    state: {
+      ...state,
+      currentMilestoneId: proposals.some((proposal) => proposal.pointerName === "currentMilestoneId")
+        ? null
+        : state.currentMilestoneId,
+      currentWorkUnitId: proposals.some((proposal) => proposal.pointerName === "currentWorkUnitId")
+        ? null
+        : state.currentWorkUnitId,
+      lastUpdatedAt: proposals.length > 0 ? timestamp : state.lastUpdatedAt,
+    },
+    repairedPointers,
   };
 }

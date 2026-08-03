@@ -199,7 +199,7 @@ describe("applyCheckpoint: needs_review outcome", () => {
     });
     expect(result.checkpoint.finalWorkUnitStatus).toBe("needs_review");
     expect(result.currentMilestoneId).toBe("M001");
-    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend");
+    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend --checkpoint C001");
     expect(result.projectStatus).toBe("review");
   });
 
@@ -241,7 +241,7 @@ describe("applyCheckpoint: needs_review outcome", () => {
       timestamp: T2,
     });
     expect(result.checkpoint.finalWorkUnitStatus).toBe("needs_review");
-    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend");
+    expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend --checkpoint C001");
   });
 });
 

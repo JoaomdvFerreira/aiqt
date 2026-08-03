@@ -164,7 +164,7 @@ for (const [label, run] of [
       const result = run(contextFor(dir));
       expect(result.exitCode).toBe(ExitCode.Success);
       expect(result.status).toBe("warning");
-      expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend");
+      expect(result.nextRecommendedCommand).toBe("aiqt checkpoint amend --checkpoint C001");
       const data = result.data as { stage: string };
       expect(data.stage).toBe("needs_review");
     });

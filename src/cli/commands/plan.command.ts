@@ -32,10 +32,12 @@ import {
 import { buildWorkGraphFromPlanInput } from "../../services/planning-service.js";
 import { buildPlanAppend, buildPlanRefinement } from "../../services/plan-extension-service.js";
 import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
+import { assessWorkflow, formatPlanningReadinessMissingConditions } from "../../workflow/workflow-assessment.js";
 import { isPlanningContextReady } from "../../workflow/planning-readiness.js";
 import type { ProjectModel } from "../../schema/project.schema.js";
 import type { StateModel } from "../../schema/state.schema.js";
 import type { AiqtPaths } from "../../core/filesystem/paths.js";
+import { buildWorkflowIntegrityBlockedResult } from "./workflow-integrity-gate.js";
 
 function validatePlanInput(raw: unknown): PlanInput {
   const parsed = PlanInputSchema.safeParse(raw);
@@ -587,6 +589,10 @@ export function runPlan(
     }
 
     const { paths, project, state } = loadProject(ctx);
+    const assessment = assessWorkflow(project, state);
+    if (assessment.integrityStatus === "invalid") {
+      return buildWorkflowIntegrityBlockedResult("plan", state, assessment);
+    }
 
     if (options.extend) {
       const warnings = usedDeprecatedAlias ? [DEPRECATED_ALIAS_WARNING] : [];
@@ -622,9 +628,14 @@ export function runPlan(
     }
 
     if (!isPlanningContextReady(project)) {
+      const missing = formatPlanningReadinessMissingConditions(assessment.planningContext.missingConditions);
+      const summary =
+        missing.length > 0
+          ? `Project context is not ready for planning. Missing: ${missing}. Provide structured context with aiqt update --from-file <path>.`
+          : "Project context is not ready for planning. Provide structured context with aiqt update --from-file <path>.";
       return blockedOnState(
         state,
-        "Project context is not ready for planning. Run aiqt update to capture more context.",
+        summary,
         "aiqt update",
         "PLAN-CONTEXT-NOT-READY",
       );

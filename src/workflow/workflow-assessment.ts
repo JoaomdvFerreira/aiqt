@@ -77,6 +77,19 @@ export interface WorkflowAssessmentOptions {
   productionReady?: boolean | null;
 }
 
+export const PLANNING_READINESS_CONDITION_LABELS: Record<PlanningReadinessMissingCondition, string> = {
+  objective: "project objective",
+  target_user: "target user",
+  implementation_context: "implementation-shaping context",
+  blocking_open_question: "resolution for blocking open questions",
+};
+
+export function formatPlanningReadinessMissingConditions(
+  missingConditions: readonly PlanningReadinessMissingCondition[],
+): string {
+  return missingConditions.map((condition) => PLANNING_READINESS_CONDITION_LABELS[condition]).join(", ");
+}
+
 export const WORKFLOW_RECOMMENDATION_RULES: readonly WorkflowRecommendationRule[] = [
   {
     id: "invalid-state",
@@ -318,6 +331,7 @@ function buildAssessment(
   developmentComplete: boolean,
   productionReady: boolean | null,
   selectedRule: WorkflowRecommendationRule,
+  overrides: Partial<Pick<WorkflowAssessment, "recommendedCommand" | "recommendationReason" | "canMutate">> = {},
 ): WorkflowAssessment {
   return {
     integrityStatus: findings.some((f) => f.severity === "critical" || f.severity === "high") ? "invalid" : "valid",
@@ -328,12 +342,34 @@ function buildAssessment(
     currentWorkUnitId: state.currentWorkUnitId,
     developmentComplete,
     productionReady,
-    recommendedCommand: selectedRule.recommendedCommand,
-    recommendationReason: selectedRule.reason,
+    recommendedCommand: overrides.recommendedCommand ?? selectedRule.recommendedCommand,
+    recommendationReason: overrides.recommendationReason ?? selectedRule.reason,
     recommendationRuleId: selectedRule.id,
-    canMutate: selectedRule.canMutate,
+    canMutate: overrides.canMutate ?? selectedRule.canMutate,
     planningContext,
   };
+}
+
+function allFindingsAreSafelyRepairablePointers(findings: readonly Issue[]): boolean {
+  return (
+    findings.length > 0 &&
+    findings.every(
+      (finding) =>
+        finding.id === "WORKFLOW-CURRENT-WORK-UNIT-DANGLING" ||
+        finding.id === "WORKFLOW-CURRENT-MILESTONE-DANGLING",
+    )
+  );
+}
+
+function latestNeedsReviewCheckpointCommand(state: StateModel): string | null {
+  for (let i = state.checkpoints.length - 1; i >= 0; i -= 1) {
+    const checkpoint = state.checkpoints[i];
+    const workUnit = state.workGraph.workUnits.find((wu) => wu.id === checkpoint.workUnitId);
+    if (workUnit?.status === "needs_review") {
+      return `aiqt checkpoint amend --checkpoint ${checkpoint.id}`;
+    }
+  }
+  return null;
 }
 
 export function assessWorkflow(
@@ -348,7 +384,13 @@ export function assessWorkflow(
   const productionReady = options.productionReady ?? null;
 
   if (integrityFindings.length > 0) {
-    return buildAssessment(state, planningContext, integrityFindings, developmentComplete, productionReady, rule("invalid-state"));
+    const pointerOnlyRepair = allFindingsAreSafelyRepairablePointers(integrityFindings);
+    return buildAssessment(state, planningContext, integrityFindings, developmentComplete, productionReady, rule("invalid-state"), {
+      recommendedCommand: pointerOnlyRepair ? "aiqt graph repair --apply" : undefined,
+      recommendationReason: pointerOnlyRepair
+        ? "Workflow current pointers reference missing graph items; apply the deterministic graph repair before mutating workflow state."
+        : undefined,
+    });
   }
 
   const currentWorkUnit = state.currentWorkUnitId
@@ -359,7 +401,13 @@ export function assessWorkflow(
   }
 
   if (workUnits.some((wu) => wu.status === "needs_review")) {
-    return buildAssessment(state, planningContext, [], developmentComplete, productionReady, rule("needs-review"));
+    const command = latestNeedsReviewCheckpointCommand(state);
+    return buildAssessment(state, planningContext, [], developmentComplete, productionReady, rule("needs-review"), {
+      recommendedCommand: command ?? "aiqt review",
+      recommendationReason: command
+        ? "A work unit needs review resolution; amend the latest needs_review checkpoint before workflow handoff continues."
+        : "A work unit needs review resolution, but no amendable checkpoint context was found; run review to inspect the missing recovery context.",
+    });
   }
 
   const hasGraph = state.workGraph.milestones.length > 0;

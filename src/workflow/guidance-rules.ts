@@ -90,5 +90,7 @@ export function computeGuidance(ctx: GuidanceContext): GuidanceResultData {
       assessment.recommendedCommand === "aiqt checkpoint"
         ? ctx.checkpointInputExists
         : assessment.recommendedCommand !== null,
+    planningMissingConditions: assessment.planningContext.missingConditions,
+    planningUpdateInputPath: assessment.planningContext.ready ? null : ".aiqt/inputs/update.json",
   };
 }

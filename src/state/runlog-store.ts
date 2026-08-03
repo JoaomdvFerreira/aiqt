@@ -462,8 +462,9 @@ export interface GraphRepairedChange {
 }
 
 export interface GraphRepairedEventData {
-  repairType: "stale_readiness";
+  repairType: "stale_readiness" | "workflow_integrity";
   workUnitIds: string[];
+  repairedPointers?: Array<{ pointerName: "currentMilestoneId" | "currentWorkUnitId"; from: string; to: null }>;
   changes: GraphRepairedChange[];
 }
 

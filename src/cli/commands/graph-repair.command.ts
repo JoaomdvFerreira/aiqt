@@ -13,6 +13,7 @@ import { nextId } from "../../state/ids.js";
 import { validateGraph } from "../../services/graph-validation-service.js";
 import {
   buildGraphRepairPlan,
+  applyPointerRepairs,
   applyStaleReadinessRepair,
 } from "../../services/graph-repair-service.js";
 import type { StateModel } from "../../schema/state.schema.js";
@@ -22,6 +23,10 @@ export interface RunGraphRepairOptions {
   dryRun?: boolean;
   /** M18 §11.2: atomically apply deterministic stale-readiness repairs. */
   apply?: boolean;
+}
+
+function hasBlockingErrorsOutsideDeterministicRepair(validation: ReturnType<typeof validateGraph>): boolean {
+  return validation.blockingErrors.some((error) => error.rule !== "broken-current-work-unit-reference");
 }
 
 /**
@@ -102,8 +107,9 @@ export function runGraphRepair(
     const { paths, project, state } = loadProject(ctx);
     const knownPacketIds = readAgentPacketIds(paths.runlogFile, state.lastAgentPacket);
     const validation = validateGraph(project, state, knownPacketIds);
+    const plan = buildGraphRepairPlan(validation, state);
 
-    if (options.apply && validation.blockingErrors.length > 0) {
+    if (options.apply && hasBlockingErrorsOutsideDeterministicRepair(validation)) {
       const message =
         "aiqt graph repair --apply cannot safely execute: the graph has blocking structural errors. Run aiqt graph validate first.";
       return makeResult({
@@ -127,13 +133,11 @@ export function runGraphRepair(
       });
     }
 
-    const plan = buildGraphRepairPlan(validation, state);
-
     if (options.dryRun) {
       // M18 §14: dry-run always succeeds (with or without proposed changes)
       // -- it is read-only, so an empty plan is not a workflow-blocked
       // condition the way "nothing to repair" once was pre-M18.
-      const totalProposals = plan.suggestions.length + plan.staleReadinessRepairs.length;
+      const totalProposals = plan.suggestions.length + plan.staleReadinessRepairs.length + plan.pointerRepairs.length;
       return makeResult({
         status: totalProposals > 0 ? "warning" : "passed",
         action: "graph",
@@ -151,7 +155,7 @@ export function runGraphRepair(
     }
 
     // --apply.
-    if (plan.staleReadinessRepairs.length === 0) {
+    if (plan.staleReadinessRepairs.length === 0 && plan.pointerRepairs.length === 0) {
       return makeResult({
         status: "passed",
         action: "graph",
@@ -161,12 +165,13 @@ export function runGraphRepair(
         summary: "No deterministic stale-readiness repairs to apply. Graph is already normalized.",
         nextRecommendedCommand: "aiqt graph validate",
         exitCode: ExitCode.Success,
-        data: { wouldMutate: false, mutationPerformed: false, repairedWorkUnitIds: [], changes: [] },
+        data: { wouldMutate: false, mutationPerformed: false, repairedWorkUnitIds: [], repairedPointers: [], changes: [] },
       });
     }
 
     const timestamp = new Date().toISOString();
-    const repair = applyStaleReadinessRepair(state, timestamp);
+    const pointerRepair = applyPointerRepairs(state, timestamp);
+    const repair = applyStaleReadinessRepair(pointerRepair.state, timestamp);
 
     // M18 §12: candidate-state validation before persistence -- only status
     // fields changed, but this reuses the same shared validator rather than
@@ -204,14 +209,26 @@ export function runGraphRepair(
       buildGraphRepairedEvent({
         id: eventId,
         timestamp,
-        relatedIds: repair.repairedWorkUnitIds,
+        relatedIds: [
+          ...repair.repairedWorkUnitIds,
+          ...pointerRepair.repairedPointers.map((pointer) => pointer.from),
+        ],
         data: {
-          repairType: "stale_readiness",
+          repairType: pointerRepair.repairedPointers.length > 0 ? "workflow_integrity" : "stale_readiness",
           workUnitIds: repair.repairedWorkUnitIds,
+          repairedPointers: pointerRepair.repairedPointers,
           changes: repair.changes,
         },
       }),
     );
+
+    const repairedPointerNames = pointerRepair.repairedPointers.map((pointer) => pointer.pointerName);
+    const summary =
+      repair.repairedWorkUnitIds.length > 0 && repairedPointerNames.length > 0
+        ? `Repaired ${repair.repairedWorkUnitIds.length} stale-ready work unit(s) and cleared ${repairedPointerNames.length} dangling pointer(s).`
+        : repair.repairedWorkUnitIds.length > 0
+          ? `Repaired ${repair.repairedWorkUnitIds.length} stale-ready work unit(s): ${repair.repairedWorkUnitIds.join(", ")}.`
+          : `Cleared ${repairedPointerNames.length} dangling workflow pointer(s): ${repairedPointerNames.join(", ")}.`;
 
     return makeResult({
       status: "passed",
@@ -219,7 +236,7 @@ export function runGraphRepair(
       projectStatus: finalState.projectStatus,
       currentMilestoneId: finalState.currentMilestoneId,
       currentWorkUnitId: finalState.currentWorkUnitId,
-      summary: `Repaired ${repair.repairedWorkUnitIds.length} stale-ready work unit(s): ${repair.repairedWorkUnitIds.join(", ")}.`,
+      summary,
       completedActions: [
         "Read project.json",
         "Read state.json",
@@ -230,13 +247,17 @@ export function runGraphRepair(
         "Appended runlog event",
       ],
       changedFiles: [paths.stateFile, paths.runlogFile],
-      affectedItems: repair.repairedWorkUnitIds,
+      affectedItems: [
+        ...repair.repairedWorkUnitIds,
+        ...pointerRepair.repairedPointers.map((pointer) => pointer.from),
+      ],
       nextRecommendedCommand: finalState.nextRecommendedCommand,
       exitCode: ExitCode.Success,
       data: {
         wouldMutate: true,
         mutationPerformed: true,
         repairedWorkUnitIds: repair.repairedWorkUnitIds,
+        repairedPointers: pointerRepair.repairedPointers,
         changes: repair.changes,
       },
     });

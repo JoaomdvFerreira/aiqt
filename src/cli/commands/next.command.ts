@@ -43,6 +43,8 @@ import { detectUiHeavyForProject } from "../../workflow/design/ui-heavy-detectio
 import { detectComponentSystemPreference } from "../../workflow/component-system-preferences.js";
 import type { StateModel } from "../../schema/state.schema.js";
 import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
+import { assessWorkflow } from "../../workflow/workflow-assessment.js";
+import { buildWorkflowIntegrityBlockedResult } from "./workflow-integrity-gate.js";
 import type { AgentPacketMetadata } from "../../schema/agent-packet.schema.js";
 
 function blockedOnState(
@@ -104,6 +106,10 @@ export function runNext(ctx: CommandContext, options: RunNextOptions = {}): Comm
     }
 
     const { paths, project, state } = loadProject(ctx);
+    const assessment = assessWorkflow(project, state);
+    if (assessment.integrityStatus === "invalid") {
+      return buildWorkflowIntegrityBlockedResult("next", state, assessment);
+    }
 
     const hasWorkGraph = state.workGraph.milestones.length > 0;
     if (!hasWorkGraph) {

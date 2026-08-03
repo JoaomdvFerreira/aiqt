@@ -71,18 +71,7 @@ export function applyCheckpoint(params: {
   });
   const nextReadyWorkUnitId = nextReady.workUnit?.id ?? null;
 
-  const candidateState: StateModel = {
-    ...state,
-    currentMilestoneId: finalStatus === "needs_review" ? workUnit.milestoneId : (nextReady.milestone?.id ?? null),
-    currentWorkUnitId: null,
-    workGraph: { ...state.workGraph, workUnits, milestones },
-  };
-  const assessment = assessWorkflow(project, candidateState);
-  const projectStatus = assessment.projectStatus;
-  const currentMilestoneId = candidateState.currentMilestoneId;
-  const nextRecommendedCommand = assessment.recommendedCommand ?? "aiqt review";
-
-  const checkpoint: Checkpoint = {
+  const checkpointBase: Omit<Checkpoint, "nextRecommendation"> = {
     id: checkpointId,
     workUnitId: workUnit.id,
     packetId: state.lastAgentPacket?.id ?? null,
@@ -110,9 +99,25 @@ export function applyCheckpoint(params: {
       evidence: c.evidence ?? null,
     })),
     finalWorkUnitStatus: finalStatus,
-    nextRecommendation: nextRecommendedCommand,
     createdAt: timestamp,
     ...(executionSessionIds && executionSessionIds.length > 0 ? { executionSessionIds } : {}),
+  };
+
+  const candidateState: StateModel = {
+    ...state,
+    currentMilestoneId: finalStatus === "needs_review" ? workUnit.milestoneId : (nextReady.milestone?.id ?? null),
+    currentWorkUnitId: null,
+    workGraph: { ...state.workGraph, workUnits, milestones },
+    checkpoints: [...state.checkpoints, { ...checkpointBase, nextRecommendation: "aiqt checkpoint amend" }],
+  };
+  const assessment = assessWorkflow(project, candidateState);
+  const projectStatus = assessment.projectStatus;
+  const currentMilestoneId = candidateState.currentMilestoneId;
+  const nextRecommendedCommand = assessment.recommendedCommand ?? "aiqt review";
+
+  const checkpoint: Checkpoint = {
+    ...checkpointBase,
+    nextRecommendation: nextRecommendedCommand,
   };
 
   return {
