@@ -1,7 +1,10 @@
 import { describe, it, expect, afterEach } from "vitest";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { runStatus } from "../../src/cli/commands/status.command.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
-import { removeDir, contextFor, copyFixture } from "../helpers.js";
+import { readRunlogEventIds } from "../../src/state/runlog-store.js";
+import { removeDir, contextFor, copyFixture, makeTempDir } from "../helpers.js";
 
 describe("runlog health", () => {
   let dir: string | null = null;
@@ -43,5 +46,27 @@ describe("runlog health", () => {
     dir = copyFixture("initialized-project");
     const result = runStatus(contextFor(dir));
     expect(result.exitCode).toBe(ExitCode.Success);
+  });
+
+  it("reserves event ids found in malformed final lines so the next id cannot collide", () => {
+    dir = makeTempDir();
+    const runlogPath = join(dir, "runlog.jsonl");
+    writeFileSync(
+      runlogPath,
+      [
+        JSON.stringify({
+          id: "EVT-001",
+          type: "project.initialized",
+          timestamp: "2026-01-01T00:00:00.000Z",
+          actor: "aiqt",
+          summary: "ok",
+          relatedIds: ["PROJECT-001"],
+          data: {},
+        }),
+        '{"id":"EVT-999","type":"checkpoint.created"',
+      ].join("\n") + "\n",
+    );
+
+    expect(readRunlogEventIds(runlogPath)).toEqual(["EVT-001", "EVT-999"]);
   });
 });

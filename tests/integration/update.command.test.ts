@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +7,7 @@ import { runUpdate } from "../../src/cli/commands/update.command.js";
 import { normalizeInitOptions } from "../../src/cli/options.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
 import { RunlogEventSchema } from "../../src/schema/runlog-event.schema.js";
+import * as runlogStore from "../../src/state/runlog-store.js";
 import { makeTempDir, removeDir, contextFor } from "../helpers.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -266,6 +267,41 @@ describe("aiqt update", () => {
     expect(result.exitCode).toBe(ExitCode.Success);
     expect((result.data as Record<string, unknown>).noOp).toBe(true);
     expect(readRunlogLines(dir).length).toBe(before);
+  });
+
+  it("surfaces a runlog-gap diagnostic after state is written and retry does not duplicate records", async () => {
+    dir = makeTempDir();
+    runInit(contextFor(dir), normalizeInitOptions({}));
+    const patchPath = join(dir, "prompt-shape-update.json");
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(patchPath, JSON.stringify(PROMPT_SHAPE_PATCH, null, 2));
+    const runlogBefore = readRunlogLines(dir).length;
+    const spy = vi.spyOn(runlogStore, "appendRunlogEvent").mockImplementationOnce(() => {
+      throw new Error("simulated append failure");
+    });
+
+    const failed = await runUpdate(contextFor(dir), { fromFile: patchPath });
+    spy.mockRestore();
+
+    expect(failed.exitCode).toBe(ExitCode.InvalidInput);
+    expect(failed.status).toBe("failed");
+    expect(failed.summary).toContain("runlog append failed");
+    const afterFailure = readProject(dir);
+    expect(recordCounts(afterFailure)).toEqual({
+      requirements: 1,
+      decisions: 1,
+      assumptions: 1,
+      risks: 1,
+      openQuestions: 1,
+    });
+    expect(readRunlogLines(dir)).toHaveLength(runlogBefore);
+
+    const retry = await runUpdate(contextFor(dir), { fromFile: patchPath });
+
+    expect(retry.exitCode).toBe(ExitCode.Success);
+    expect((retry.data as Record<string, unknown>).noOp).toBe(true);
+    expect(recordCounts(readProject(dir))).toEqual(recordCounts(afterFailure));
+    expect(readRunlogLines(dir)).toHaveLength(runlogBefore);
   });
 
   it("returns requiresHumanInput and exit code 10 with no flags in non-TTY", async () => {

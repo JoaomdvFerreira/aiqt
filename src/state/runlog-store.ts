@@ -678,9 +678,17 @@ export function readRunlogEventIds(path: string): string[] {
     try {
       const parsed = JSON.parse(line);
       const result = RunlogEventSchema.safeParse(parsed);
-      if (result.success) ids.push(result.data.id);
+      if (result.success) {
+        ids.push(result.data.id);
+        continue;
+      }
     } catch {
-      // skip malformed lines
+      // fall through to best-effort id reservation below
+    }
+
+    const idMatch = line.match(/"id"\s*:\s*"([^"]+)"/);
+    if (idMatch?.[1]) {
+      ids.push(idMatch[1]);
     }
   }
   return ids;

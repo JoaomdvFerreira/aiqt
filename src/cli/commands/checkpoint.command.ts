@@ -15,11 +15,11 @@ import {
 } from "../../core/filesystem/file-store.js";
 import { writeStateModel } from "../../state/workflow-state-store.js";
 import {
-  appendRunlogEvent,
   buildCheckpointCreatedEvent,
   buildWorkUnitStatusChangedEvent,
   readRunlogEventIds,
 } from "../../state/runlog-store.js";
+import { persistCoordinatedMutation } from "../../state/coordinated-persistence.js";
 import { nextId } from "../../state/ids.js";
 import {
   CheckpointInputSchema,
@@ -434,8 +434,6 @@ export function runCheckpoint(
         : {}),
     };
 
-    writeStateModel(paths.stateFile, newState);
-
     let eventIds = readRunlogEventIds(paths.runlogFile);
     const checkpointEventId = nextId("EVT", eventIds);
     eventIds = [...eventIds, checkpointEventId];
@@ -449,8 +447,7 @@ export function runCheckpoint(
       ...(applied.checkpoint.packetId ? [applied.checkpoint.packetId] : []),
     ];
 
-    appendRunlogEvent(
-      paths.runlogFile,
+    const runlogEvents = [
       buildCheckpointCreatedEvent({
         id: checkpointEventId,
         timestamp,
@@ -465,12 +462,11 @@ export function runCheckpoint(
           nextRecommendedCommand: applied.nextRecommendedCommand,
         },
       }),
-    );
+    ];
 
     const selectedEventId = nextId("EVT", eventIds);
     eventIds = [...eventIds, selectedEventId];
-    appendRunlogEvent(
-      paths.runlogFile,
+    runlogEvents.push(
       buildWorkUnitStatusChangedEvent({
         id: selectedEventId,
         timestamp,
@@ -493,8 +489,7 @@ export function runCheckpoint(
       const readyWorkUnit = applied.workUnits.find((wu) => wu.id === readyId)!;
       const eventId = nextId("EVT", eventIds);
       eventIds = [...eventIds, eventId];
-      appendRunlogEvent(
-        paths.runlogFile,
+      runlogEvents.push(
         buildWorkUnitStatusChangedEvent({
           id: eventId,
           timestamp,
@@ -519,8 +514,7 @@ export function runCheckpoint(
     if (requiredGateDecision) {
       const decisionEventId = nextId("EVT", eventIds);
       eventIds = [...eventIds, decisionEventId];
-      appendRunlogEvent(
-        paths.runlogFile,
+      runlogEvents.push(
         buildRequiredDecisionRecordedEvent({
           id: decisionEventId,
           timestamp,
@@ -539,8 +533,7 @@ export function runCheckpoint(
       for (const exceptionId of requiredGateDecision.consumedExceptionIds) {
         const consumedEventId = nextId("EVT", eventIds);
         eventIds = [...eventIds, consumedEventId];
-        appendRunlogEvent(
-          paths.runlogFile,
+        runlogEvents.push(
           buildExceptionConsumedEvent({
             id: consumedEventId,
             timestamp,
@@ -553,8 +546,7 @@ export function runCheckpoint(
       for (const createdIssue of requiredGateDecision.createdProjectIssues) {
         const issueEventId = nextId("EVT", eventIds);
         eventIds = [...eventIds, issueEventId];
-        appendRunlogEvent(
-          paths.runlogFile,
+        runlogEvents.push(
           buildProjectIssueCreatedEvent({
             id: issueEventId,
             timestamp,
@@ -568,6 +560,20 @@ export function runCheckpoint(
     // M29 §3.1: advisory evaluation is attempted only after every step above
     // (the checkpoint's own state write and all its runlog events) has
     // already succeeded. `newState` is the durable post-checkpoint state.
+    persistCoordinatedMutation({
+      operation: "aiqt checkpoint",
+      writes: [
+        {
+          label: "state.json",
+          write: () => writeStateModel(paths.stateFile, newState),
+        },
+      ],
+      runlogFile: paths.runlogFile,
+      runlogEvents,
+      recoveryHint:
+        "Inspect aiqt status/review for the runlog warning before continuing; rerunning the same checkpoint will not create duplicate checkpoint state.",
+    });
+
     const evidenceAdvisory = evaluateAndPersistCheckpointAdvisory({
       stateFile: paths.stateFile,
       runlogFile: paths.runlogFile,

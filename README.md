@@ -66,6 +66,11 @@ content fingerprint over the record's semantic fields. Reapplying the same
 prompt-generated update JSON is therefore a no-op; changing content without
 an `id` or `clientKey` creates an intentionally distinct record.
 
+When a command writes canonical state and appends runlog events, state is
+written first and remains authoritative. If the runlog append fails, AIQT
+returns a `CANONICAL-RUNLOG-GAP` diagnostic instead of a generic failure; the
+retry path is deterministic and must not duplicate already-persisted state.
+
 ## Command surface (selected)
 
 ```

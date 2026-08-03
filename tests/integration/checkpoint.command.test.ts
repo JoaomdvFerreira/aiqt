@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +10,7 @@ import { runCheckpoint } from "../../src/cli/commands/checkpoint.command.js";
 import { normalizeInitOptions } from "../../src/cli/options.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
 import { RunlogEventSchema } from "../../src/schema/runlog-event.schema.js";
+import * as runlogStore from "../../src/state/runlog-store.js";
 import { makeTempDir, removeDir, contextFor } from "../helpers.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -314,6 +315,33 @@ describe("aiqt checkpoint", () => {
       fromFile: join(CHECKPOINT_FIXTURES, "invalid-completion-claim.json"),
     });
     expect(readState(dir)).toEqual(stateBefore);
+    expect(readRunlogLines(dir)).toHaveLength(runlogBefore);
+  });
+
+  it("surfaces a runlog-gap diagnostic after checkpoint state is written and retry does not duplicate checkpoint state", async () => {
+    dir = makeTempDir();
+    await makeInProgressProject(dir);
+    const checkpointPath = join(CHECKPOINT_FIXTURES, "valid-done.json");
+    const runlogBefore = readRunlogLines(dir).length;
+    const spy = vi.spyOn(runlogStore, "appendRunlogEvent").mockImplementationOnce(() => {
+      throw new Error("simulated append failure");
+    });
+
+    const failed = runCheckpoint(contextFor(dir), { fromFile: checkpointPath });
+    spy.mockRestore();
+
+    expect(failed.exitCode).toBe(ExitCode.InvalidInput);
+    expect(failed.status).toBe("failed");
+    expect(failed.summary).toContain("runlog append failed");
+    const stateAfterFailure = readState(dir);
+    expect(stateAfterFailure.checkpoints).toHaveLength(1);
+    expect(stateAfterFailure.currentWorkUnitId).toBeNull();
+    expect(readRunlogLines(dir)).toHaveLength(runlogBefore);
+
+    const retry = runCheckpoint(contextFor(dir), { fromFile: checkpointPath });
+
+    expect(retry.exitCode).toBe(ExitCode.WorkflowBlocked);
+    expect(readState(dir).checkpoints).toHaveLength(1);
     expect(readRunlogLines(dir)).toHaveLength(runlogBefore);
   });
 

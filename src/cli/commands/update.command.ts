@@ -16,11 +16,11 @@ import {
 import { writeProjectModel } from "../../state/project-store.js";
 import { writeStateModel } from "../../state/workflow-state-store.js";
 import {
-  appendRunlogEvent,
   buildProjectUpdatedEvent,
   buildDecisionRecordedEvent,
   readRunlogEventIds,
 } from "../../state/runlog-store.js";
+import { persistCoordinatedMutation } from "../../state/coordinated-persistence.js";
 import { nextId } from "../../state/ids.js";
 import { UpdateInputSchema, type UpdateInput } from "../../schema/update-input.schema.js";
 import {
@@ -178,16 +178,6 @@ export async function runUpdate(
       });
     }
 
-    const changedFiles: string[] = [];
-    if (result.projectChanged) {
-      writeProjectModel(paths.projectFile, result.project);
-      changedFiles.push(paths.projectFile);
-    }
-    if (result.stateChanged) {
-      writeStateModel(paths.stateFile, result.state);
-      changedFiles.push(paths.stateFile);
-    }
-
     let eventIds = readRunlogEventIds(paths.runlogFile);
     const relatedIds = [
       result.project.project.id,
@@ -197,8 +187,7 @@ export async function runUpdate(
 
     const projectUpdatedEventId = nextId("EVT", eventIds);
     eventIds = [...eventIds, projectUpdatedEventId];
-    appendRunlogEvent(
-      paths.runlogFile,
+    const runlogEvents = [
       buildProjectUpdatedEvent({
         id: projectUpdatedEventId,
         timestamp,
@@ -212,16 +201,14 @@ export async function runUpdate(
           nextRecommendedCommand: result.state.nextRecommendedCommand,
         },
       }),
-    );
-    changedFiles.push(paths.runlogFile);
+    ];
 
     for (const decisionId of result.createdDecisionIds) {
       const decision = result.project.decisions.find((d) => d.id === decisionId);
       if (!decision) continue;
       const decisionEventId = nextId("EVT", eventIds);
       eventIds = [...eventIds, decisionEventId];
-      appendRunlogEvent(
-        paths.runlogFile,
+      runlogEvents.push(
         buildDecisionRecordedEvent({
           id: decisionEventId,
           timestamp,
@@ -233,6 +220,33 @@ export async function runUpdate(
         }),
       );
     }
+
+    const writes = [];
+    const changedFiles: string[] = [];
+    if (result.projectChanged) {
+      writes.push({
+        label: "project.json",
+        write: () => writeProjectModel(paths.projectFile, result.project),
+      });
+      changedFiles.push(paths.projectFile);
+    }
+    if (result.stateChanged) {
+      writes.push({
+        label: "state.json",
+        write: () => writeStateModel(paths.stateFile, result.state),
+      });
+      changedFiles.push(paths.stateFile);
+    }
+
+    persistCoordinatedMutation({
+      operation: "aiqt update",
+      writes,
+      runlogFile: paths.runlogFile,
+      runlogEvents,
+      recoveryHint:
+        "Retry the same aiqt update input; record identity is idempotent and will not duplicate project records.",
+    });
+    changedFiles.push(paths.runlogFile);
 
     return makeResult({
       status: "passed",
