@@ -4,7 +4,6 @@ import type { StateModel } from "../../src/schema/state.schema.js";
 import type { WorkUnit } from "../../src/schema/work-unit.schema.js";
 import type { Milestone } from "../../src/schema/milestone.schema.js";
 import { buildInitialStateModel } from "../../src/state/workflow-state-store.js";
-import { AIQT_SCHEMA_VERSION } from "../../src/core/constants/schema-version.js";
 import { getManagedWorkspaces, getWorkspaceBindings, getPendingWorkspaceOperations } from "../../src/services/workspace-state-service.js";
 import { getExecutionSessions } from "../../src/services/execution-session-service.js";
 import { buildParallelBatch } from "../../src/workflow/parallel-batch.js";
@@ -46,10 +45,6 @@ function preM25State(workUnits: WorkUnit[] = [historicalWorkUnit()]): StateModel
 }
 
 describe("M25 historical compatibility", () => {
-  it("schema_version remains 0.5.0", () => {
-    expect(AIQT_SCHEMA_VERSION).toBe("0.5.0");
-  });
-
   it("a pre-M25 state (no workspace field) parses via StateModelSchema", () => {
     const state = preM25State();
     const parsed = StateModelSchema.safeParse(state);

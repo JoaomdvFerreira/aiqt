@@ -9,6 +9,14 @@ interface Semver {
   patch: number;
 }
 
+export type CanonicalVersionCompatibility =
+  | "current"
+  | "older_compatible"
+  | "older_incompatible"
+  | "unsupported_future";
+
+const MINIMUM_COMPATIBLE_SCHEMA_VERSION = "0.1.0";
+
 function parseSemver(value: string): Semver | null {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(value.trim());
   if (!match) return null;
@@ -33,6 +41,14 @@ export const UNSUPPORTED_VERSION_MESSAGE = [
   "Upgrade AIQT to the latest version.",
 ].join("\n");
 
+const INCOMPATIBLE_OLDER_VERSION_MESSAGE = [
+  "AIQT cannot continue.",
+  "Reason:",
+  "This project uses an unsupported older canonical schema version.",
+  "Suggested action:",
+  "Migrate the project with an AIQT version that supports that schema.",
+].join("\n");
+
 function versionIssue(id: string, message: string): Issue {
   return {
     id,
@@ -44,10 +60,57 @@ function versionIssue(id: string, message: string): Issue {
   };
 }
 
+function currentSchemaVersion(): Semver {
+  const current = parseSemver(AIQT_SCHEMA_VERSION);
+  if (!current) {
+    throw new Error(`Invalid AIQT_SCHEMA_VERSION constant: ${AIQT_SCHEMA_VERSION}`);
+  }
+  return current;
+}
+
+function minimumCompatibleSchemaVersion(): Semver {
+  const minimum = parseSemver(MINIMUM_COMPATIBLE_SCHEMA_VERSION);
+  if (!minimum) {
+    throw new Error(`Invalid minimum compatible schema version: ${MINIMUM_COMPATIBLE_SCHEMA_VERSION}`);
+  }
+  return minimum;
+}
+
+export function classifyCanonicalVersion(version: string): CanonicalVersionCompatibility {
+  const parsed = parseSemver(version);
+  if (!parsed) {
+    throw new AiqtError(
+      `Invalid version "${version}".`,
+      ExitCode.InvalidInput,
+      versionIssue(
+        "VERSION-INVALID",
+        `The canonical version "${version}" is not a valid semantic version.`,
+      ),
+    );
+  }
+
+  const current = currentSchemaVersion();
+  if (compareSemver(parsed, current) > 0) {
+    return "unsupported_future";
+  }
+
+  const minimum = minimumCompatibleSchemaVersion();
+  if (compareSemver(parsed, minimum) < 0) {
+    return "older_incompatible";
+  }
+
+  if (compareSemver(parsed, current) === 0) {
+    return "current";
+  }
+
+  return "older_compatible";
+}
+
 /**
  * Validate a canonical file's `version` field against AIQT_SCHEMA_VERSION.
- * Missing, wrong-typed, malformed, or future versions block with exit code 3.
- * Equal or older versions proceed (schema validation is the further gate).
+ * Missing, wrong-typed, malformed, incompatible older, or future versions
+ * block with exit code 3. Current and compatible older versions proceed
+ * (schema validation is the further gate).
  */
 export function assertCompatibleVersion(
   version: unknown,
@@ -64,27 +127,25 @@ export function assertCompatibleVersion(
     );
   }
 
-  const parsed = parseSemver(version);
-  if (!parsed) {
-    throw new AiqtError(
-      `Invalid version "${version}" in ${fileLabel}.`,
-      ExitCode.InvalidInput,
-      versionIssue(
-        "VERSION-INVALID",
-        `The ${fileLabel} version "${version}" is not a valid semantic version.`,
-      ),
-    );
-  }
-
-  const current = parseSemver(AIQT_SCHEMA_VERSION);
-  // AIQT_SCHEMA_VERSION is a compile-time constant known to be valid.
-  if (current && compareSemver(parsed, current) > 0) {
+  const compatibility = classifyCanonicalVersion(version);
+  if (compatibility === "unsupported_future") {
     throw new AiqtError(
       UNSUPPORTED_VERSION_MESSAGE,
       ExitCode.InvalidInput,
       versionIssue(
         "VERSION-UNSUPPORTED",
         `The ${fileLabel} version "${version}" is newer than the supported schema version ${AIQT_SCHEMA_VERSION}.`,
+      ),
+    );
+  }
+
+  if (compatibility === "older_incompatible") {
+    throw new AiqtError(
+      INCOMPATIBLE_OLDER_VERSION_MESSAGE,
+      ExitCode.InvalidInput,
+      versionIssue(
+        "VERSION-OLDER-INCOMPATIBLE",
+        `The ${fileLabel} version "${version}" is older than the minimum supported schema version ${MINIMUM_COMPATIBLE_SCHEMA_VERSION}.`,
       ),
     );
   }

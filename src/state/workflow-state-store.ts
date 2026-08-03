@@ -33,6 +33,7 @@ export function buildInitialStateModel(createdAt: string): StateModel {
 }
 
 export function writeStateModel(path: string, model: StateModel): void {
+  assertCompatibleVersion(model.version, STATE_LABEL);
   writeJsonFile(path, model);
 }
 

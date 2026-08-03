@@ -65,6 +65,7 @@ export function buildInitialProjectModel(
 }
 
 export function writeProjectModel(path: string, model: ProjectModel): void {
+  assertCompatibleVersion(model.version, PROJECT_LABEL);
   writeJsonFile(path, model);
 }
 

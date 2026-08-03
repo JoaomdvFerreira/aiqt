@@ -20,6 +20,41 @@ This is unrelated to `AIQT_SCHEMA_VERSION`
 `.aiqt` project-state schema independently of CLI releases and is never
 changed by a version-governance milestone.
 
+## Canonical Schema Compatibility Policy
+
+AIQT applies a centralized compatibility gate to every canonical
+`project.json` and `state.json` read and write. The gate is implemented in
+`src/state/versioning.ts`; command code must not implement private
+version rules.
+
+Policy:
+
+- The current `AIQT_SCHEMA_VERSION` is accepted.
+- Older canonical versions from `0.1.0` through the current version are
+  accepted as compatible; schema validation and command-specific logic
+  remain the next gates.
+- Versions older than `0.1.0` are treated as pre-canonical or otherwise
+  incompatible and are rejected before mutation.
+- Any version newer than `AIQT_SCHEMA_VERSION` is rejected before
+  mutation, including newer `0.x` versions and future major versions.
+- Missing, non-string, or malformed versions are rejected before
+  mutation.
+
+This is a narrow hybrid policy. WU31-02 establishes the authoritative
+version gate: older compatible state may proceed, while unsupported future
+or incompatible state cannot reach a write path. WU31-03 owns compatible
+unknown-field preservation during read-modify-write cycles; until that
+work lands, a newer writer must bump `AIQT_SCHEMA_VERSION` rather than
+expect older binaries to preserve newly written canonical sections.
+
+`AIQT_SCHEMA_VERSION` changes when the persisted canonical schema contract
+changes in a way older binaries cannot safely read and rewrite, when a
+new canonical section is intentionally introduced without unknown-field
+preservation support, or when the supported compatibility range changes.
+Pure runtime behavior changes, validation fixes, test additions, and
+optional in-memory helper fields do not by themselves require a schema
+version change.
+
 ## SemVer policy
 
 AIQT follows [SemVer 2.0.0](https://semver.org). Given a version

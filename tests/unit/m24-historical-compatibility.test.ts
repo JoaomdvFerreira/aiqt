@@ -7,7 +7,6 @@ import type { StateModel } from "../../src/schema/state.schema.js";
 import type { WorkUnit } from "../../src/schema/work-unit.schema.js";
 import type { Milestone } from "../../src/schema/milestone.schema.js";
 import { buildInitialStateModel } from "../../src/state/workflow-state-store.js";
-import { AIQT_SCHEMA_VERSION } from "../../src/core/constants/schema-version.js";
 
 const T1 = "2026-01-01T00:00:00.000Z";
 
@@ -45,10 +44,6 @@ function preM24State(workUnits: WorkUnit[] = [historicalWorkUnit()]): StateModel
 }
 
 describe("M24 historical compatibility", () => {
-  it("schema_version remains 0.5.0", () => {
-    expect(AIQT_SCHEMA_VERSION).toBe("0.5.0");
-  });
-
   it("a pre-M24 Work Unit (no executionMetadata field) parses via StateModelSchema", () => {
     const state = preM24State();
     const parsed = StateModelSchema.safeParse(state);

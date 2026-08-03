@@ -16,7 +16,7 @@
     "candidateStateValidation": {
       "primary": "src/state/workflow-state-store.ts",
       "supporting": ["src/schema/state.schema.ts", "src/state/versioning.ts"],
-      "notes": "readStateModel() runs StateModelSchema.safeParse plus assertCompatibleVersion; there is no separate pre-write candidate validator -- commands build the next state in memory and the schema gate is enforced on the next read/write cycle."
+      "notes": "readStateModel() runs assertCompatibleVersion before StateModelSchema.safeParse; writeStateModel() also gates the candidate model version before persistence. Project/store behavior mirrors this in src/state/project-store.ts."
     },
     "atomicStateWrite": {
       "primary": "src/core/filesystem/atomic-write.ts",

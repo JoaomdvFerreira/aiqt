@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { assertCompatibleVersion } from "../../src/state/versioning.js";
+import {
+  assertCompatibleVersion,
+  classifyCanonicalVersion,
+} from "../../src/state/versioning.js";
 import { AiqtError } from "../../src/core/output/aiqt-error.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
 
@@ -15,19 +18,28 @@ function expectBlock(fn: () => void): AiqtError {
 }
 
 describe("version compatibility", () => {
-  it("proceeds for the current schema version", () => {
+  it("classifies the current schema version", () => {
+    expect(classifyCanonicalVersion("0.5.0")).toBe("current");
     expect(() => assertCompatibleVersion("0.5.0", "state.json")).not.toThrow();
   });
 
-  it("proceeds for an older compatible version", () => {
+  it("classifies and proceeds for an older compatible version", () => {
+    expect(classifyCanonicalVersion("0.4.0")).toBe("older_compatible");
     expect(() => assertCompatibleVersion("0.4.0", "state.json")).not.toThrow();
   });
 
-  it("blocks a future unsupported version with exit code 3", () => {
+  it("classifies and blocks a future unsupported version with exit code 3", () => {
+    expect(classifyCanonicalVersion("9.9.9")).toBe("unsupported_future");
     const err = expectBlock(() =>
       assertCompatibleVersion("9.9.9", "state.json"),
     );
     expect(err.message).toContain("AIQT cannot continue.");
+  });
+
+  it("classifies and blocks an older incompatible version with exit code 3", () => {
+    expect(classifyCanonicalVersion("0.0.0")).toBe("older_incompatible");
+    const err = expectBlock(() => assertCompatibleVersion("0.0.0", "state.json"));
+    expect(err.issue?.id).toBe("VERSION-OLDER-INCOMPATIBLE");
   });
 
   it("blocks a missing version with exit code 3", () => {
