@@ -1,0 +1,5647 @@
+{
+  "summary": {
+    "generatedAt": "2026-08-04T11:10:34.211Z",
+    "totalFiles": 233,
+    "totalTestsStatic": 2265,
+    "totalTestsActual": 2401,
+    "byLayer": {
+      "unit": 122,
+      "integration": 111
+    },
+    "byWorkloadClass": {
+      "filesystem-integration": 77,
+      "built-binary-smoke": 1,
+      "cli-subprocess-integration": 11,
+      "evidence-execution-workspace-integration": 19,
+      "git-worktree-integration": 4,
+      "fast-unit": 121
+    },
+    "byCriticality": {
+      "Normal": 67,
+      "Critical": 61,
+      "High-value": 87,
+      "Low-signal": 18
+    },
+    "byDomain": {
+      "work-packet-lifecycle": 19,
+      "security-boundary": 13,
+      "built-binary": 1,
+      "canonical-state": 4,
+      "evidence-binding": 25,
+      "checkpoint-lifecycle": 9,
+      "cli-machine-contract": 5,
+      "plan-lifecycle": 17,
+      "self-consistency": 2,
+      "workflow-assessment": 11,
+      "execution-lifecycle": 31,
+      "persistence-runlog": 3,
+      "read-only-views": 9,
+      "git-worktree-safety": 15,
+      "corruption-repair": 6,
+      "project-bootstrap": 8,
+      "review-and-issues": 16,
+      "schema-compatibility": 13,
+      "prompt-generation": 18,
+      "release-tooling": 6,
+      "validation-infrastructure": 2
+    },
+    "skippedOrConditionalFiles": [],
+    "platformGuardedFiles": [
+      "tests/unit/prompt-out-path.test.ts"
+    ]
+  },
+  "files": [
+    {
+      "path": "tests/integration/agent-packet-audit-metadata.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 235,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 206
+    },
+    {
+      "path": "tests/integration/agent-packet-design-guidance.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 346,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 127
+    },
+    {
+      "path": "tests/integration/agent-packet-repository-boundary.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 1,
+      "testCountActual": 1,
+      "durationMs": 80,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 51
+    },
+    {
+      "path": "tests/integration/agent-packet-source-control.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 308,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 134
+    },
+    {
+      "path": "tests/integration/built-binary-smoke.test.ts",
+      "layer": "integration",
+      "workloadClass": "built-binary-smoke",
+      "domain": "built-binary",
+      "criticality": "Critical",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 18256,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": true
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 153
+    },
+    {
+      "path": "tests/integration/canonical-unknown-field-preservation.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "canonical-state",
+      "criticality": "Critical",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 333,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 186
+    },
+    {
+      "path": "tests/integration/canonical-version-compatibility.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "canonical-state",
+      "criticality": "Critical",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 152,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 109
+    },
+    {
+      "path": "tests/integration/checkpoint-advisory-issues-feedback.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 8,
+      "testCountActual": 8,
+      "durationMs": 938,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": true
+      },
+      "lineCount": 299
+    },
+    {
+      "path": "tests/integration/checkpoint-amend.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "checkpoint-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 12,
+      "testCountActual": 12,
+      "durationMs": 1728,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 240
+    },
+    {
+      "path": "tests/integration/checkpoint-evidence-advisory.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 14,
+      "testCountActual": 14,
+      "durationMs": 1700,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": true
+      },
+      "lineCount": 313
+    },
+    {
+      "path": "tests/integration/checkpoint-next-flow.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "checkpoint-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 1,
+      "testCountActual": 1,
+      "durationMs": 130,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 72
+    },
+    {
+      "path": "tests/integration/checkpoint-required-evidence-enforcement.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 884,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": true
+      },
+      "lineCount": 343
+    },
+    {
+      "path": "tests/integration/checkpoint.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "checkpoint-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 23,
+      "testCountActual": 23,
+      "durationMs": 1753,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 375
+    },
+    {
+      "path": "tests/integration/cli.test.ts",
+      "layer": "integration",
+      "workloadClass": "cli-subprocess-integration",
+      "domain": "cli-machine-contract",
+      "criticality": "Critical",
+      "testCountStatic": 49,
+      "testCountActual": 49,
+      "durationMs": 181738,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": true
+      },
+      "lineCount": 785
+    },
+    {
+      "path": "tests/integration/dependency-update.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 529,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 183
+    },
+    {
+      "path": "tests/integration/dogfood-regression.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "self-consistency",
+      "criticality": "Normal",
+      "testCountStatic": 11,
+      "testCountActual": 11,
+      "durationMs": 2093,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 206
+    },
+    {
+      "path": "tests/integration/effective-readiness-replanned-compatibility.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "workflow-assessment",
+      "criticality": "Critical",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 395,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 228
+    },
+    {
+      "path": "tests/integration/effective-readiness-selection.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "workflow-assessment",
+      "criticality": "Critical",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 791,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 325
+    },
+    {
+      "path": "tests/integration/evidence-advisory-hardening.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 69383,
+      "runStatus": "failed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": true
+      },
+      "lineCount": 254
+    },
+    {
+      "path": "tests/integration/evidence-gate-enforcement-activation-review.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 681,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": true
+      },
+      "lineCount": 284
+    },
+    {
+      "path": "tests/integration/evidence-gate-enforcement-profiles.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 11,
+      "testCountActual": 11,
+      "durationMs": 587,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 239
+    },
+    {
+      "path": "tests/integration/evidence-gate-exception-lifecycle.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 707,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": true
+      },
+      "lineCount": 312
+    },
+    {
+      "path": "tests/integration/evidence-gate-full-lifecycle.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 1,
+      "testCountActual": 1,
+      "durationMs": 32495,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": true
+      },
+      "lineCount": 228
+    },
+    {
+      "path": "tests/integration/evidence-gate-hardening.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 69761,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": true
+      },
+      "lineCount": 334
+    },
+    {
+      "path": "tests/integration/evidence-gate-policy.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 69402,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 280
+    },
+    {
+      "path": "tests/integration/evidence-gate-simulate.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 11,
+      "testCountActual": 11,
+      "durationMs": 107997,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": true
+      },
+      "lineCount": 305
+    },
+    {
+      "path": "tests/integration/evidence-import-cli.test.ts",
+      "layer": "integration",
+      "workloadClass": "cli-subprocess-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 14,
+      "testCountActual": 14,
+      "durationMs": 62153,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 316
+    },
+    {
+      "path": "tests/integration/execution-adapter-claude-code-full-lifecycle.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 1,
+      "testCountActual": 1,
+      "durationMs": 29476,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": true
+      },
+      "lineCount": 231
+    },
+    {
+      "path": "tests/integration/execution-adapter-claude-code-hardening.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 35939,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 253
+    },
+    {
+      "path": "tests/integration/execution-adapter-claude-code-import.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 11,
+      "testCountActual": 11,
+      "durationMs": 94173,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 359
+    },
+    {
+      "path": "tests/integration/execution-adapter-claude-code-legacy-compat.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 22399,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 242
+    },
+    {
+      "path": "tests/integration/execution-adapter-claude-code-request.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 62347,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 288
+    },
+    {
+      "path": "tests/integration/execution-external-hardening.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 57246,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": true
+      },
+      "lineCount": 319
+    },
+    {
+      "path": "tests/integration/execution-external-import.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 95617,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 340
+    },
+    {
+      "path": "tests/integration/execution-external-request.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 41612,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 251
+    },
+    {
+      "path": "tests/integration/execution-full-lifecycle.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 1,
+      "testCountActual": 1,
+      "durationMs": 31556,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": true
+      },
+      "lineCount": 247
+    },
+    {
+      "path": "tests/integration/execution-hardening.test.ts",
+      "layer": "integration",
+      "workloadClass": "cli-subprocess-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 11,
+      "testCountActual": 11,
+      "durationMs": 60241,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 281
+    },
+    {
+      "path": "tests/integration/execution-import-cli.test.ts",
+      "layer": "integration",
+      "workloadClass": "cli-subprocess-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 15,
+      "testCountActual": 15,
+      "durationMs": 66695,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 288
+    },
+    {
+      "path": "tests/integration/execution-metadata-runlog-recovery.test.ts",
+      "layer": "integration",
+      "workloadClass": "cli-subprocess-integration",
+      "domain": "persistence-runlog",
+      "criticality": "Critical",
+      "testCountStatic": 1,
+      "testCountActual": 1,
+      "durationMs": 11123,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": true
+      },
+      "lineCount": 110
+    },
+    {
+      "path": "tests/integration/execution-next-cancel-safeguard.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 67606,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": true
+      },
+      "lineCount": 294
+    },
+    {
+      "path": "tests/integration/execution-stale-cli.test.ts",
+      "layer": "integration",
+      "workloadClass": "cli-subprocess-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 33200,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 164
+    },
+    {
+      "path": "tests/integration/execution-workflow-integration.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 46869,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": true
+      },
+      "lineCount": 250
+    },
+    {
+      "path": "tests/integration/export-agent-packet-audit.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 317,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 135
+    },
+    {
+      "path": "tests/integration/export.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "read-only-views",
+      "criticality": "Normal",
+      "testCountStatic": 20,
+      "testCountActual": 20,
+      "durationMs": 1154,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 307
+    },
+    {
+      "path": "tests/integration/gate-k-dogfood.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "self-consistency",
+      "criticality": "Normal",
+      "testCountStatic": 1,
+      "testCountActual": 1,
+      "durationMs": 557,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": true
+      },
+      "lineCount": 297
+    },
+    {
+      "path": "tests/integration/git-command-runner.test.ts",
+      "layer": "integration",
+      "workloadClass": "git-worktree-integration",
+      "domain": "git-worktree-safety",
+      "criticality": "Critical",
+      "testCountStatic": 12,
+      "testCountActual": 12,
+      "durationMs": 4044,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 166
+    },
+    {
+      "path": "tests/integration/graph-repair-stale-readiness.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "corruption-repair",
+      "criticality": "Critical",
+      "testCountStatic": 16,
+      "testCountActual": 16,
+      "durationMs": 903,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 416
+    },
+    {
+      "path": "tests/integration/graph-repair.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "corruption-repair",
+      "criticality": "Critical",
+      "testCountStatic": 8,
+      "testCountActual": 8,
+      "durationMs": 374,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 115
+    },
+    {
+      "path": "tests/integration/graph-validate.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "corruption-repair",
+      "criticality": "Critical",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 759,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 96
+    },
+    {
+      "path": "tests/integration/import-plan-extend.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "cli-subprocess-integration",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 4914,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 265
+    },
+    {
+      "path": "tests/integration/import.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 19,
+      "testCountActual": 19,
+      "durationMs": 693,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 375
+    },
+    {
+      "path": "tests/integration/init-implementation-root.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "project-bootstrap",
+      "criticality": "High-value",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 42,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 52
+    },
+    {
+      "path": "tests/integration/init.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "project-bootstrap",
+      "criticality": "High-value",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 84,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 124
+    },
+    {
+      "path": "tests/integration/issue-list.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 442,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 57
+    },
+    {
+      "path": "tests/integration/issue-promote.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 1431,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 197
+    },
+    {
+      "path": "tests/integration/issue-update.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 11,
+      "testCountActual": 11,
+      "durationMs": 1757,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 196
+    },
+    {
+      "path": "tests/integration/m22-compatibility.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 1041,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 252
+    },
+    {
+      "path": "tests/integration/m33-result-contract-characterization.test.ts",
+      "layer": "integration",
+      "workloadClass": "cli-subprocess-integration",
+      "domain": "cli-machine-contract",
+      "criticality": "Critical",
+      "testCountStatic": 20,
+      "testCountActual": 20,
+      "durationMs": 136051,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 435
+    },
+    {
+      "path": "tests/integration/manage-export-consistency.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "read-only-views",
+      "criticality": "Normal",
+      "testCountStatic": 2,
+      "testCountActual": 2,
+      "durationMs": 298,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 171
+    },
+    {
+      "path": "tests/integration/manage.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "read-only-views",
+      "criticality": "Normal",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 363,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 107
+    },
+    {
+      "path": "tests/integration/next-cancel.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 418,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 138
+    },
+    {
+      "path": "tests/integration/next-checkpoint-flow.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "checkpoint-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 1,
+      "testCountActual": 1,
+      "durationMs": 99,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 63
+    },
+    {
+      "path": "tests/integration/next-explicit-selection.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 30,
+      "testCountActual": 43,
+      "durationMs": 2333,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 547
+    },
+    {
+      "path": "tests/integration/next-packet.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 18,
+      "testCountActual": 18,
+      "durationMs": 980,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 255
+    },
+    {
+      "path": "tests/integration/next-preview.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 279,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 113
+    },
+    {
+      "path": "tests/integration/next.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 78,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 99
+    },
+    {
+      "path": "tests/integration/packet-skill-hints.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 254,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 107
+    },
+    {
+      "path": "tests/integration/plan-extend-atomicity.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 2,
+      "testCountActual": 2,
+      "durationMs": 268,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 174
+    },
+    {
+      "path": "tests/integration/plan-extend-existing-graph.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 2367,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 151
+    },
+    {
+      "path": "tests/integration/plan-extend-mixed-boundary.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 227,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 234
+    },
+    {
+      "path": "tests/integration/plan-extend-workflow.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 781,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 184
+    },
+    {
+      "path": "tests/integration/plan-extend.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 27,
+      "testCountActual": 27,
+      "durationMs": 2134,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 639
+    },
+    {
+      "path": "tests/integration/plan-next-flow.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 1,
+      "testCountActual": 1,
+      "durationMs": 104,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 62
+    },
+    {
+      "path": "tests/integration/plan.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 18,
+      "testCountActual": 18,
+      "durationMs": 865,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 323
+    },
+    {
+      "path": "tests/integration/prompt-checkpoint-repository-boundary.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 2,
+      "testCountActual": 2,
+      "durationMs": 145,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 71
+    },
+    {
+      "path": "tests/integration/prompt-checkpoint-source-control.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 2,
+      "testCountActual": 2,
+      "durationMs": 145,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 78
+    },
+    {
+      "path": "tests/integration/prompt-driver-design-system.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 13,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 48
+    },
+    {
+      "path": "tests/integration/prompt-driver-operating-discipline.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 97,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 77
+    },
+    {
+      "path": "tests/integration/prompt-driver-repository-boundary.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 2,
+      "testCountActual": 2,
+      "durationMs": 14,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 32
+    },
+    {
+      "path": "tests/integration/prompt-driver-source-control.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 2,
+      "testCountActual": 2,
+      "durationMs": 12,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 33
+    },
+    {
+      "path": "tests/integration/prompt-interview-design-system.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 2,
+      "testCountActual": 2,
+      "durationMs": 10,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 38
+    },
+    {
+      "path": "tests/integration/prompt-plan-component-system.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 147,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 72
+    },
+    {
+      "path": "tests/integration/prompt-plan-design-system.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 126,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 76
+    },
+    {
+      "path": "tests/integration/prompt-plan-extend.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 8,
+      "testCountActual": 8,
+      "durationMs": 387,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 139
+    },
+    {
+      "path": "tests/integration/prompt-plan-repository-boundary.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 1,
+      "testCountActual": 1,
+      "durationMs": 50,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 36
+    },
+    {
+      "path": "tests/integration/prompt-plan-source-control.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 199,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 80
+    },
+    {
+      "path": "tests/integration/prompt-root-context.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 242,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 141
+    },
+    {
+      "path": "tests/integration/prompt.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 25,
+      "testCountActual": 25,
+      "durationMs": 884,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 302
+    },
+    {
+      "path": "tests/integration/repair-plan.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "corruption-repair",
+      "criticality": "Critical",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 673,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 83
+    },
+    {
+      "path": "tests/integration/required-evidence-hardening.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 28316,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": true
+      },
+      "lineCount": 221
+    },
+    {
+      "path": "tests/integration/review-acknowledge.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 872,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 129
+    },
+    {
+      "path": "tests/integration/review-mode.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 868,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 113
+    },
+    {
+      "path": "tests/integration/review.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 15,
+      "testCountActual": 15,
+      "durationMs": 996,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 302
+    },
+    {
+      "path": "tests/integration/root-backward-compatibility.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 2,
+      "testCountActual": 2,
+      "durationMs": 58,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 33
+    },
+    {
+      "path": "tests/integration/runlog.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "persistence-runlog",
+      "criticality": "Critical",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 79,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 73
+    },
+    {
+      "path": "tests/integration/skills-plan-design-aids.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 151,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 122
+    },
+    {
+      "path": "tests/integration/skills-plan.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 140,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 115
+    },
+    {
+      "path": "tests/integration/start-continue.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 11,
+      "testCountActual": 21,
+      "durationMs": 1307,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 245
+    },
+    {
+      "path": "tests/integration/status-manage-roots.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "read-only-views",
+      "criticality": "Normal",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 70,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 59
+    },
+    {
+      "path": "tests/integration/status-parallel-cli.test.ts",
+      "layer": "integration",
+      "workloadClass": "cli-subprocess-integration",
+      "domain": "read-only-views",
+      "criticality": "Normal",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 38219,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 196
+    },
+    {
+      "path": "tests/integration/status.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "read-only-views",
+      "criticality": "Normal",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 332,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 88
+    },
+    {
+      "path": "tests/integration/update-implementation-root.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "project-bootstrap",
+      "criticality": "High-value",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 136,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 70
+    },
+    {
+      "path": "tests/integration/update-next-flow.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "project-bootstrap",
+      "criticality": "High-value",
+      "testCountStatic": 1,
+      "testCountActual": 1,
+      "durationMs": 62,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 60
+    },
+    {
+      "path": "tests/integration/update.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "project-bootstrap",
+      "criticality": "High-value",
+      "testCountStatic": 19,
+      "testCountActual": 19,
+      "durationMs": 541,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 376
+    },
+    {
+      "path": "tests/integration/version-check.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "cli-machine-contract",
+      "criticality": "High-value",
+      "testCountStatic": 38,
+      "testCountActual": 38,
+      "durationMs": 39341,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 535
+    },
+    {
+      "path": "tests/integration/workflow-recommendation-parity.command.test.ts",
+      "layer": "integration",
+      "workloadClass": "filesystem-integration",
+      "domain": "workflow-assessment",
+      "criticality": "Critical",
+      "testCountStatic": 1,
+      "testCountActual": 1,
+      "durationMs": 129,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 74
+    },
+    {
+      "path": "tests/integration/workspace-cli.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "git-worktree-safety",
+      "criticality": "High-value",
+      "testCountStatic": 12,
+      "testCountActual": 12,
+      "durationMs": 67543,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 234
+    },
+    {
+      "path": "tests/integration/workspace-hardening.test.ts",
+      "layer": "integration",
+      "workloadClass": "git-worktree-integration",
+      "domain": "git-worktree-safety",
+      "criticality": "High-value",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 6465,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 199
+    },
+    {
+      "path": "tests/integration/workspace-packet-status-integration.test.ts",
+      "layer": "integration",
+      "workloadClass": "cli-subprocess-integration",
+      "domain": "git-worktree-safety",
+      "criticality": "High-value",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 16905,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 112
+    },
+    {
+      "path": "tests/integration/workspace-service-prepare.test.ts",
+      "layer": "integration",
+      "workloadClass": "git-worktree-integration",
+      "domain": "git-worktree-safety",
+      "criticality": "High-value",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 3828,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 184
+    },
+    {
+      "path": "tests/integration/workspace-service-release-recovery.test.ts",
+      "layer": "integration",
+      "workloadClass": "git-worktree-integration",
+      "domain": "git-worktree-safety",
+      "criticality": "High-value",
+      "testCountStatic": 8,
+      "testCountActual": 8,
+      "durationMs": 17151,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": true,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 429
+    },
+    {
+      "path": "tests/unit/agent-handoff-gate.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 9,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 154
+    },
+    {
+      "path": "tests/unit/agent-operating-discipline.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 4,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 85
+    },
+    {
+      "path": "tests/unit/agent-packet-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 13,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 158
+    },
+    {
+      "path": "tests/unit/agent-packet-template.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 5,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 185
+    },
+    {
+      "path": "tests/unit/atomic-write.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "canonical-state",
+      "criticality": "Critical",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 64,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 147
+    },
+    {
+      "path": "tests/unit/checkpoint-amendment-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "checkpoint-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 13,
+      "testCountActual": 13,
+      "durationMs": 7,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 269
+    },
+    {
+      "path": "tests/unit/checkpoint-completion-gate.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "checkpoint-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 14,
+      "testCountActual": 14,
+      "durationMs": 5,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 118
+    },
+    {
+      "path": "tests/unit/checkpoint-input.schema.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "checkpoint-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 12,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 95
+    },
+    {
+      "path": "tests/unit/checkpoint-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "checkpoint-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 8,
+      "testCountActual": 8,
+      "durationMs": 9,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 263
+    },
+    {
+      "path": "tests/unit/checkpoint-status-transitions.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "checkpoint-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 8,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 108
+    },
+    {
+      "path": "tests/unit/claude-code-fixture-corpus.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 12,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 70
+    },
+    {
+      "path": "tests/unit/claude-code-stream-json-parser.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 23,
+      "testCountActual": 23,
+      "durationMs": 26,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 196
+    },
+    {
+      "path": "tests/unit/component-system-preferences.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 9,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 128
+    },
+    {
+      "path": "tests/unit/decision-escalation-schema.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 13,
+      "testCountActual": 13,
+      "durationMs": 9,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 99
+    },
+    {
+      "path": "tests/unit/dependency-graph.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "workflow-assessment",
+      "criticality": "Critical",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 5,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 56
+    },
+    {
+      "path": "tests/unit/dependency-readiness.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "workflow-assessment",
+      "criticality": "Critical",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 4,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 100
+    },
+    {
+      "path": "tests/unit/dependency-relation.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "workflow-assessment",
+      "criticality": "Critical",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 5,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 60
+    },
+    {
+      "path": "tests/unit/dependency-update-transition.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 6,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 134
+    },
+    {
+      "path": "tests/unit/design-system-planner.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 10,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 119
+    },
+    {
+      "path": "tests/unit/effective-readiness.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "workflow-assessment",
+      "criticality": "Critical",
+      "testCountStatic": 13,
+      "testCountActual": 13,
+      "durationMs": 8,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 244
+    },
+    {
+      "path": "tests/unit/evidence-advisory-telemetry.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 33,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 199
+    },
+    {
+      "path": "tests/unit/evidence-gate-audit-baseline.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 2,
+      "testCountActual": 2,
+      "durationMs": 2,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 20
+    },
+    {
+      "path": "tests/unit/evidence-gate-boundary-scan.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 5,
+      "testCountActual": 21,
+      "durationMs": 21,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 120
+    },
+    {
+      "path": "tests/unit/evidence-gate-simulation-engine.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 27,
+      "testCountActual": 27,
+      "durationMs": 21,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 303
+    },
+    {
+      "path": "tests/unit/evidence-import-orchestrator.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 15,
+      "testCountActual": 18,
+      "durationMs": 17,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 446
+    },
+    {
+      "path": "tests/unit/evidence-mutation-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 14,
+      "testCountActual": 14,
+      "durationMs": 18,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 249
+    },
+    {
+      "path": "tests/unit/evidence-schema.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 32,
+      "testCountActual": 32,
+      "durationMs": 13,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 291
+    },
+    {
+      "path": "tests/unit/execution-adapter-boundary-scan.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 4,
+      "testCountActual": 24,
+      "durationMs": 21,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 118
+    },
+    {
+      "path": "tests/unit/execution-envelope-engine.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 29,
+      "testCountActual": 29,
+      "durationMs": 15,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 473
+    },
+    {
+      "path": "tests/unit/execution-manage-summary.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 11,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 92
+    },
+    {
+      "path": "tests/unit/execution-metadata-advisory.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 22,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 143
+    },
+    {
+      "path": "tests/unit/execution-metadata-defaults.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 8,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 120
+    },
+    {
+      "path": "tests/unit/execution-metadata-limits-stress.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 6139,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": true
+      },
+      "lineCount": 109
+    },
+    {
+      "path": "tests/unit/execution-metadata-planning-integration.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 11,
+      "testCountActual": 11,
+      "durationMs": 22,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 237
+    },
+    {
+      "path": "tests/unit/execution-metadata-schema.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 37,
+      "testCountActual": 37,
+      "durationMs": 17,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 304
+    },
+    {
+      "path": "tests/unit/execution-review-findings.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 14,
+      "testCountActual": 14,
+      "durationMs": 11,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 195
+    },
+    {
+      "path": "tests/unit/execution-session-identity.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 8,
+      "testCountActual": 8,
+      "durationMs": 5,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 69
+    },
+    {
+      "path": "tests/unit/execution-session-schema.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 22,
+      "testCountActual": 22,
+      "durationMs": 17,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 220
+    },
+    {
+      "path": "tests/unit/execution-session-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 8,
+      "testCountActual": 8,
+      "durationMs": 11,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 105
+    },
+    {
+      "path": "tests/unit/execution-session-transitions.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 11,
+      "testCountActual": 11,
+      "durationMs": 6,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 74
+    },
+    {
+      "path": "tests/unit/execution-stale-detection.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "High-value",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 6,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 113
+    },
+    {
+      "path": "tests/unit/external-evidence-artifact-safety.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 15,
+      "testCountActual": 15,
+      "durationMs": 6,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 71
+    },
+    {
+      "path": "tests/unit/external-evidence-identity.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 15,
+      "testCountActual": 15,
+      "durationMs": 12,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 190
+    },
+    {
+      "path": "tests/unit/external-evidence-limits.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 11,
+      "testCountActual": 11,
+      "durationMs": 8,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 67
+    },
+    {
+      "path": "tests/unit/external-evidence-routing-extensions.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 5,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 140
+    },
+    {
+      "path": "tests/unit/external-evidence-schemas.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 23,
+      "testCountActual": 33,
+      "durationMs": 23,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 241
+    },
+    {
+      "path": "tests/unit/finding-fingerprint.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 12,
+      "testCountActual": 12,
+      "durationMs": 6,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 68
+    },
+    {
+      "path": "tests/unit/finding-routing.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 17,
+      "testCountActual": 26,
+      "durationMs": 9,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 198
+    },
+    {
+      "path": "tests/unit/full-stack-detection.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 4,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 44
+    },
+    {
+      "path": "tests/unit/generic-ci-adapter.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 14,
+      "testCountActual": 23,
+      "durationMs": 10,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 147
+    },
+    {
+      "path": "tests/unit/generic-evidence-adapter.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 8,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 110
+    },
+    {
+      "path": "tests/unit/generic-execution-boundary-scan.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 5,
+      "testCountActual": 24,
+      "durationMs": 23,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 130
+    },
+    {
+      "path": "tests/unit/generic-execution-contracts.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 18,
+      "testCountActual": 18,
+      "durationMs": 17,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 219
+    },
+    {
+      "path": "tests/unit/git-worktree-provider.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "git-worktree-safety",
+      "criticality": "Critical",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 10,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 174
+    },
+    {
+      "path": "tests/unit/git-worktree-release.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "git-worktree-safety",
+      "criticality": "Critical",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 6,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 138
+    },
+    {
+      "path": "tests/unit/graph-validation-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "corruption-repair",
+      "criticality": "Critical",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 10,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 221
+    },
+    {
+      "path": "tests/unit/guidance-rules.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 15,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 251
+    },
+    {
+      "path": "tests/unit/ids.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "release-tooling",
+      "criticality": "High-value",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 4,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 42
+    },
+    {
+      "path": "tests/unit/import-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 3,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 37
+    },
+    {
+      "path": "tests/unit/issue-classification.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 16,
+      "testCountActual": 26,
+      "durationMs": 10,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 162
+    },
+    {
+      "path": "tests/unit/issue-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 7,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 213
+    },
+    {
+      "path": "tests/unit/m22-historical-compatibility.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 7,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 147
+    },
+    {
+      "path": "tests/unit/m24-historical-compatibility.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 11,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 118
+    },
+    {
+      "path": "tests/unit/m25-historical-compatibility.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 13,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 105
+    },
+    {
+      "path": "tests/unit/m26-historical-compatibility.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 6,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 45
+    },
+    {
+      "path": "tests/unit/m33-cli-contract-matrix.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "cli-machine-contract",
+      "criticality": "Critical",
+      "testCountStatic": 3,
+      "testCountActual": 3,
+      "durationMs": 2,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 81
+    },
+    {
+      "path": "tests/unit/m33-exit10-and-owner-inventory.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "cli-machine-contract",
+      "criticality": "Critical",
+      "testCountStatic": 12,
+      "testCountActual": 12,
+      "durationMs": 39,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 261
+    },
+    {
+      "path": "tests/unit/m34-validation-workload-inventory.test.ts",
+      "layer": "unit",
+      "workloadClass": "cli-subprocess-integration",
+      "domain": "validation-infrastructure",
+      "criticality": "Critical",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 482,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 305
+    },
+    {
+      "path": "tests/unit/m35-test-inventory-classification.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "validation-infrastructure",
+      "criticality": "Critical",
+      "testCountStatic": 7,
+      "testCountActual": null,
+      "durationMs": null,
+      "runStatus": null,
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 110
+    },
+    {
+      "path": "tests/unit/manage-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "read-only-views",
+      "criticality": "Normal",
+      "testCountStatic": 13,
+      "testCountActual": 13,
+      "durationMs": 19,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 311
+    },
+    {
+      "path": "tests/unit/managed-workspace-advisory.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "read-only-views",
+      "criticality": "Normal",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 11,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 133
+    },
+    {
+      "path": "tests/unit/managed-workspace-schema.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 16,
+      "testCountActual": 16,
+      "durationMs": 81,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 197
+    },
+    {
+      "path": "tests/unit/manual-evidence-adapter.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "execution-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 7,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 74
+    },
+    {
+      "path": "tests/unit/next-work-unit-selector.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 18,
+      "testCountActual": 24,
+      "durationMs": 11,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 247
+    },
+    {
+      "path": "tests/unit/package-version.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "release-tooling",
+      "criticality": "High-value",
+      "testCountStatic": 2,
+      "testCountActual": 2,
+      "durationMs": 2,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 22
+    },
+    {
+      "path": "tests/unit/parallel-batch.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 12,
+      "testCountActual": 12,
+      "durationMs": 16,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 180
+    },
+    {
+      "path": "tests/unit/parallel-eligibility.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 26,
+      "testCountActual": 26,
+      "durationMs": 23,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 341
+    },
+    {
+      "path": "tests/unit/plan-append-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 20,
+      "testCountActual": 20,
+      "durationMs": 17,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 319
+    },
+    {
+      "path": "tests/unit/plan-extension-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 27,
+      "testCountActual": 34,
+      "durationMs": 22,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 522
+    },
+    {
+      "path": "tests/unit/plan-input.schema.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 9,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 86
+    },
+    {
+      "path": "tests/unit/planning-readiness.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 3,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 96
+    },
+    {
+      "path": "tests/unit/planning-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "plan-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 18,
+      "testCountActual": 18,
+      "durationMs": 10,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 230
+    },
+    {
+      "path": "tests/unit/project-issue-foundation.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 9,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 78
+    },
+    {
+      "path": "tests/unit/project-issue-schema.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 20,
+      "testCountActual": 24,
+      "durationMs": 13,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 170
+    },
+    {
+      "path": "tests/unit/project-update-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "project-bootstrap",
+      "criticality": "High-value",
+      "testCountStatic": 20,
+      "testCountActual": 20,
+      "durationMs": 15,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 315
+    },
+    {
+      "path": "tests/unit/prompt-out-path.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 4,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": true,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 38
+    },
+    {
+      "path": "tests/unit/prompt-templates.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 35,
+      "testCountActual": 35,
+      "durationMs": 19,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 349
+    },
+    {
+      "path": "tests/unit/push-base.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "release-tooling",
+      "criticality": "High-value",
+      "testCountStatic": 8,
+      "testCountActual": 8,
+      "durationMs": 3,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 60
+    },
+    {
+      "path": "tests/unit/relevant-paths.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "release-tooling",
+      "criticality": "High-value",
+      "testCountStatic": 19,
+      "testCountActual": 19,
+      "durationMs": 6,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 100
+    },
+    {
+      "path": "tests/unit/repair-work-graph.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "corruption-repair",
+      "criticality": "Critical",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 7,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 115
+    },
+    {
+      "path": "tests/unit/replanned-invariants.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 5,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 180
+    },
+    {
+      "path": "tests/unit/repository-boundary-discipline.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 8,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 69
+    },
+    {
+      "path": "tests/unit/required-evidence-gate.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 14,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 224
+    },
+    {
+      "path": "tests/unit/resource-claim-conflict-engine.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 45,
+      "testCountActual": 45,
+      "durationMs": 15,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 289
+    },
+    {
+      "path": "tests/unit/review-findings.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 6,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 73
+    },
+    {
+      "path": "tests/unit/review-next-command.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 8,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 234
+    },
+    {
+      "path": "tests/unit/review-rules-finding-keys.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 8,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 239
+    },
+    {
+      "path": "tests/unit/root-resolution.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "project-bootstrap",
+      "criticality": "High-value",
+      "testCountStatic": 18,
+      "testCountActual": 18,
+      "durationMs": 35,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 198
+    },
+    {
+      "path": "tests/unit/schema.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "canonical-state",
+      "criticality": "Critical",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 11,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 110
+    },
+    {
+      "path": "tests/unit/select-relevant-skills.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 5,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 76
+    },
+    {
+      "path": "tests/unit/semver.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "release-tooling",
+      "criticality": "High-value",
+      "testCountStatic": 18,
+      "testCountActual": 25,
+      "durationMs": 7,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 113
+    },
+    {
+      "path": "tests/unit/shared-repository-provider.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "git-worktree-safety",
+      "criticality": "Critical",
+      "testCountStatic": 11,
+      "testCountActual": 11,
+      "durationMs": 10,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 230
+    },
+    {
+      "path": "tests/unit/skills-detection-service.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 14,
+      "testCountActual": 14,
+      "durationMs": 167,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 228
+    },
+    {
+      "path": "tests/unit/source-control-discipline.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 16,
+      "testCountActual": 16,
+      "durationMs": 17,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 174
+    },
+    {
+      "path": "tests/unit/status-transitions.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "read-only-views",
+      "criticality": "Normal",
+      "testCountStatic": 4,
+      "testCountActual": 4,
+      "durationMs": 3,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 85
+    },
+    {
+      "path": "tests/unit/stdin.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "evidence-binding",
+      "criticality": "High-value",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 5,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 52
+    },
+    {
+      "path": "tests/unit/ui-heavy-detection.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "prompt-generation",
+      "criticality": "Low-signal",
+      "testCountStatic": 13,
+      "testCountActual": 13,
+      "durationMs": 13,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 120
+    },
+    {
+      "path": "tests/unit/update-input.schema.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "project-bootstrap",
+      "criticality": "High-value",
+      "testCountStatic": 8,
+      "testCountActual": 8,
+      "durationMs": 6,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 59
+    },
+    {
+      "path": "tests/unit/versioning.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "release-tooling",
+      "criticality": "High-value",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 5,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 57
+    },
+    {
+      "path": "tests/unit/warning-rules.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "review-and-issues",
+      "criticality": "Normal",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 8,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 253
+    },
+    {
+      "path": "tests/unit/work-graph-readiness.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "workflow-assessment",
+      "criticality": "Critical",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 2,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 30
+    },
+    {
+      "path": "tests/unit/work-unit-cancel-transition.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "work-packet-lifecycle",
+      "criticality": "Normal",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 5,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 110
+    },
+    {
+      "path": "tests/unit/workflow-assessment.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "workflow-assessment",
+      "criticality": "Critical",
+      "testCountStatic": 12,
+      "testCountActual": 12,
+      "durationMs": 11,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 354
+    },
+    {
+      "path": "tests/unit/workflow-recommendation-architecture.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "workflow-assessment",
+      "criticality": "Critical",
+      "testCountStatic": 2,
+      "testCountActual": 2,
+      "durationMs": 86,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 45
+    },
+    {
+      "path": "tests/unit/workflow-recommendation-characterization.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "workflow-assessment",
+      "criticality": "Critical",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 13,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 304
+    },
+    {
+      "path": "tests/unit/workspace-branch-policy.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "git-worktree-safety",
+      "criticality": "High-value",
+      "testCountStatic": 10,
+      "testCountActual": 10,
+      "durationMs": 8,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 56
+    },
+    {
+      "path": "tests/unit/workspace-identity.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "git-worktree-safety",
+      "criticality": "High-value",
+      "testCountStatic": 17,
+      "testCountActual": 17,
+      "durationMs": 8,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 187
+    },
+    {
+      "path": "tests/unit/workspace-operation-lock.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "git-worktree-safety",
+      "criticality": "High-value",
+      "testCountStatic": 7,
+      "testCountActual": 7,
+      "durationMs": 32,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 111
+    },
+    {
+      "path": "tests/unit/workspace-path-policy.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "git-worktree-safety",
+      "criticality": "High-value",
+      "testCountStatic": 11,
+      "testCountActual": 11,
+      "durationMs": 15,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 97
+    },
+    {
+      "path": "tests/unit/workspace-provider-registry.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "git-worktree-safety",
+      "criticality": "High-value",
+      "testCountStatic": 6,
+      "testCountActual": 6,
+      "durationMs": 5,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 35
+    },
+    {
+      "path": "tests/unit/workspace-readiness-advisory.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "git-worktree-safety",
+      "criticality": "High-value",
+      "testCountStatic": 5,
+      "testCountActual": 5,
+      "durationMs": 18,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 125
+    },
+    {
+      "path": "tests/unit/workspace-recovery.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "persistence-runlog",
+      "criticality": "Critical",
+      "testCountStatic": 9,
+      "testCountActual": 9,
+      "durationMs": 3,
+      "runStatus": "passed",
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 72
+    }
+  ]
+}
