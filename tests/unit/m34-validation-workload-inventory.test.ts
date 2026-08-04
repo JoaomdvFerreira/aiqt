@@ -46,11 +46,12 @@ function hasCliSpawn(text: string): boolean {
 }
 
 /**
- * The exact 33 files known to spawn a real subprocess (git and/or the CLI)
- * as of the M34-WU01 baseline (docs/engineering/m34-validation-workload-
- * policy.md Sec 1/5). A file added to or removed from this set must be a
- * deliberate, reviewed change to the policy document -- this test does not
- * silently absorb a new spawning file into "already accounted for".
+ * The 33 files known to spawn a real subprocess (git and/or the CLI) as of
+ * the M34-WU01 baseline (docs/engineering/m34-validation-workload-policy.md
+ * Sec 1/5), plus the 1 built-binary smoke file WU34-03 added (34 total). A
+ * file added to or removed from this set must be a deliberate, reviewed
+ * change to the policy document -- this test does not silently absorb a new
+ * spawning file into "already accounted for".
  */
 const KNOWN_SPAWNING_FILES = [
   // Git/worktree integration (5)
@@ -59,6 +60,8 @@ const KNOWN_SPAWNING_FILES = [
   "tests/integration/workspace-hardening.test.ts",
   "tests/integration/workspace-service-prepare.test.ts",
   "tests/integration/workspace-service-release-recovery.test.ts",
+  // Built-binary smoke (1) -- added WU34-03
+  "tests/integration/built-binary-smoke.test.ts",
   // Process-spawning CLI integration, general (5)
   "tests/integration/cli.test.ts",
   "tests/integration/import-plan-extend.command.test.ts",
@@ -92,14 +95,16 @@ const KNOWN_SPAWNING_FILES = [
 ].sort();
 
 /**
- * M34-WU02: every one of the 33 known-spawning files now carries a per-file
- * `vi.setConfig({ testTimeout: ... })` override sourced from the shared
- * tests/workload-timeout-policy.ts constants (see
- * docs/engineering/m34-validation-workload-policy.md Sec 6.1) -- this is
- * the exact set as KNOWN_SPAWNING_FILES. Before WU34-02, only 4 of these 33
- * had an override (all pre-existing, from M30/M33); the other 29 relied on
- * the unmodified 5000ms global default, which is the root cause
- * characterized in WU34-01.
+ * M34-WU02: every one of the (then-33) known-spawning files carries a
+ * per-file `vi.setConfig({ testTimeout: ... })` override sourced from the
+ * shared tests/workload-timeout-policy.ts constants (see
+ * docs/engineering/m34-validation-workload-policy.md Sec 6.1). WU34-03
+ * added a 34th spawning file (the built-binary smoke suite), also using the
+ * shared constant from its introduction -- so this remains the exact set as
+ * KNOWN_SPAWNING_FILES. Before WU34-02, only 4 of the original 33 had an
+ * override (all pre-existing, from M30/M33); the other 29 relied on the
+ * unmodified 5000ms global default, which is the root cause characterized
+ * in WU34-01.
  */
 const KNOWN_TIMEOUT_OVERRIDE_FILES = [...KNOWN_SPAWNING_FILES].sort();
 
@@ -260,28 +265,36 @@ describe("M34-WU02: every known-spawning file now has a class-scoped timeout ove
   });
 });
 
-describe("M34-WU01: architecture/security guard dynamic-discovery inventory", () => {
+describe("M34-WU01/WU03: architecture/security guard dynamic-discovery inventory", () => {
   const guards = [
-    { file: "tests/unit/execution-adapter-boundary-scan.test.ts", listName: "M27_FILES", dynamic: false },
-    { file: "tests/unit/generic-execution-boundary-scan.test.ts", listName: "M27R_FILES", dynamic: false },
-    { file: "tests/unit/evidence-gate-boundary-scan.test.ts", listName: "M28_FILES", dynamic: false },
-    { file: "tests/unit/m33-exit10-and-owner-inventory.test.ts", listName: null, dynamic: true },
-    { file: "tests/unit/m33-cli-contract-matrix.test.ts", listName: null, dynamic: true },
+    { file: "tests/unit/execution-adapter-boundary-scan.test.ts", listName: "M27_FILES" },
+    { file: "tests/unit/generic-execution-boundary-scan.test.ts", listName: "M27R_FILES" },
+    { file: "tests/unit/evidence-gate-boundary-scan.test.ts", listName: "M28_FILES" },
   ];
 
-  it("exactly the recorded 3 pre-M33 boundary-scan guards still use a static, hand-maintained file list (LOW-014, not yet fixed -- WU34-03 scope)", () => {
-    for (const g of guards.filter((x) => !x.dynamic)) {
+  /**
+   * M34-WU03 (LOW-014): the 3 pre-M33 boundary-scan guards were static
+   * hand-maintained lists as of WU34-01's characterization (see git history
+   * of this describe block for that snapshot). WU34-03 added a
+   * readdirSync-based drift-detector describe block to each of the 3 files
+   * -- the reviewed M27_FILES/M27R_FILES/M28_FILES arrays remain (a new
+   * file still requires deliberate review to add), but a file matching each
+   * domain's command-file naming convention can no longer be silently
+   * omitted: the drift detector fails loudly instead.
+   */
+  it("all 3 pre-M33 boundary-scan guards now also use readdirSync-based drift detection (LOW-014 fixed) while retaining their reviewed static list", () => {
+    for (const g of guards) {
       const text = readFileSync(join(repoRoot, g.file), "utf8");
       expect(text, `${g.file} should still declare ${g.listName}`).toContain(`const ${g.listName} = [`);
       expect(
         text,
-        `${g.file} should NOT yet use readdirSync for discovery -- if it does, the WU34-01 ` +
-          "inventory is stale and Sec 4 of the policy doc must be updated to reflect the fix.",
-      ).not.toContain("readdirSync");
+        `${g.file} should now use readdirSync for dynamic discovery (WU34-03) -- if it does not, ` +
+          "the LOW-014 fix regressed and Sec 4 of the policy doc must be updated to reflect this.",
+      ).toContain("readdirSync");
     }
   });
 
-  it("exactly the recorded 2 M33 guards use dynamic (readdirSync- or live-command-tree-based) discovery", () => {
+  it("the 2 M33 guards continue to use dynamic (readdirSync- or live-command-tree-based) discovery", () => {
     const m33ExitTenText = readFileSync(join(repoRoot, "tests/unit/m33-exit10-and-owner-inventory.test.ts"), "utf8");
     expect(m33ExitTenText).toContain("readdirSync");
 

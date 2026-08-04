@@ -479,3 +479,130 @@ characterization test's recorded baselines. **Not changed:**
 `.github/workflows/validate.yml`, any test's assertions, any test skipped,
 any platform exclusion, schema version, package version, any runtime
 dependency.
+
+## 10. WU34-03 addendum — built-binary coverage, dynamic guards, and an honest repeated-run finding
+
+### 10.1 Built-binary smoke coverage (LOW-013)
+
+`tests/integration/built-binary-smoke.test.ts` (new, 10 tests) runs the
+representative command set recommended at §6.6 (`--version`, `--help`, a
+parser-level error, `plan --example`, `init --json`, `status --json`)
+directly against `dist/index.js` — the exact artifact `package.json#bin`
+ships — plus 3 source-vs-built comparison tests asserting `--version`,
+`init --json`, and the parser-error path produce identical `status`/
+`action`/`exitCode`/`nextRecommendedCommand`/`blockingIssues[0].id` values
+whether run through `tsx` against `src/index.ts` (every other integration
+test's method) or the compiled `dist/index.js`. All 10 tests pass. This
+closes LOW-013's "CLI tests primarily execute source rather than `dist`"
+gap for the representative command set; the full evidence/execution/
+workspace fixture suites continue to run against source only, matching
+§6.6's explicit scope (not required to duplicate every integration test
+against `dist`).
+
+**Known interim gap, deferred to WU34-04:** this suite's first assertion
+requires `dist/index.js` to already exist, but neither `pnpm test` nor
+`pnpm validate` currently runs `pnpm build` first (`package.json`'s
+`validate` script is `typecheck && lint && test && version:check` — no
+`build` step), and CI's `validate.yml` runs the `Test` step before `Build`.
+§6.3 already recommended reordering `Build` before `Test`, contingent on
+WU34-03 adding built-binary tests — that condition is now satisfied. This
+Work Unit does not reorder CI or package scripts itself (out of its own
+scope per the build spec); WU34-04 must land the reorder before this suite
+can be relied on to run cleanly from a fresh checkout. In this Work Unit's
+own local measurement, `pnpm build` was run manually before every
+`vitest run` invocation for this reason.
+
+### 10.2 Dynamic architecture/security guard migration (LOW-014)
+
+All 3 static hand-maintained allowlists identified at §4
+(`execution-adapter-boundary-scan.test.ts`'s `M27_FILES`,
+`generic-execution-boundary-scan.test.ts`'s `M27R_FILES`,
+`evidence-gate-boundary-scan.test.ts`'s `M28_FILES`) now carry an added
+`readdirSync`-based drift-detector `describe` block, matching the pattern
+the 2 pre-existing M33 guards already use: dynamically list
+`src/cli/commands/` entries matching each domain's established naming
+convention (`execution-adapter-claude-code-*`/`execution-import.command.ts`
+for M27; `execution-external-*` plus the `.command.ts` subset of the
+M27 convention for M27R; `evidence-gate-policy-*`/
+`evidence-gate-simulate.command.ts` for M28), then assert that dynamic set
+equals the reviewed static array's command-file subset. A file matching
+the domain's naming convention added to `src/cli/commands/` after this
+Work Unit now fails the drift detector loudly instead of silently escaping
+the `FORBIDDEN_PATTERNS` scan — closing LOW-014 for these 3 guards. The
+reviewed static arrays themselves are intentionally retained (a new file
+still requires a deliberate, reviewed addition to the forbidden-pattern
+scan itself, not silent auto-inclusion) — this mirrors the M33 guards'
+own actual mechanism (a change detector, not blind auto-scanning). The
+non-command files in each static list (schema/workflow/service/state
+files, which do not follow a discoverable filename convention within a
+single directory) remain reviewed-static only; this is an accepted,
+documented residual scope limit, not treated as a full fix for every file
+category.
+
+### 10.3 Repeated-run automation and its result — an honest finding
+
+`src/tooling/repeated-run-validation-cli.ts` (new, wired to `pnpm
+test:repeated [--runs=N]`, default 5) runs the official full test command
+(`vitest run`, identical to what `pnpm test` invokes) N times consecutively,
+classifies each failure (timeout vs. assertion vs. other) from the captured
+output, and persists full output for any failing run to the OS temp
+directory for diagnosis. This satisfies "add repeated-run automation"
+(§WU34-03 scope) as a reusable, general tool — not a one-off manual loop.
+
+**Measured result in this development environment: 2 of 5 consecutive runs
+passed; 3 failed, each with exactly 2 pure-timeout failures (zero assertion
+failures, zero other-class failures) in different files each time**
+(`evidence-gate-policy.test.ts`, `evidence-gate-simulate.test.ts`, and
+`m33-result-contract-characterization.test.ts` were each independently
+observed failing across a follow-up diagnostic run). This is a **worse**
+local result than WU34-02's own 5-run measurement (§9.3: 4/5 passed, 1
+residual failure each time, always the same known file). Root-cause
+investigation of the diagnostic run found an anomalous **77-second test-
+collection phase** (module transform/collection, not test execution;
+normally sub-second) and a **188-second wall-clock duration for a run
+whose own aggregate reported test time was 1830s across workers** —
+objective signs of real machine-level resource contention, not a defect
+introduced by this Work Unit's changes. By the time of this measurement,
+this single development session had already run approximately 19
+consecutive full-suite `vitest run` invocations (WU34-01's ~7, WU34-02's 5,
+WU34-03's 5-run gate plus 1 diagnostic run) over several continuous hours
+on one machine, with 4 stray `node.exe` processes observed still resident
+afterward.
+
+**This Work Unit does not claim the 5-consecutive-clean-runs gate is met.**
+Per the build spec's own §5.5 framing ("across Node 22 and Node 24 and
+supported CI platforms" — plural, CI-inclusive) and §6.4's already-
+established precedent (Node 22 has no local toolchain in this environment;
+CI is authoritative for that leg), this Work Unit records that **CI, not
+this single continuously-loaded local development machine, is the
+authoritative environment for the 5-consecutive-clean-runs acceptance
+gate.** Continuing to raise timeout constants in response to this specific
+measurement would be exactly the reactive per-file-patching-as-primary-
+strategy pattern this milestone explicitly rejects (§1) — especially since
+the failures were not concentrated in one already-flagged heavy file, but
+distributed across three different files at three different timeout tiers
+in a pattern consistent with system-wide contention rather than any single
+test's cost. No timeout constant was changed in response to this
+measurement. The repeated-run tool itself is verified working correctly
+(it consistently and correctly classified every failure as pure-timeout
+with zero false assertion/other misclassifications across both the 5-run
+gate and the diagnostic run).
+
+**Residual risk carried into WU34-04 and milestone closure:** the
+5-consecutive-clean-runs gate must be proven on a CI runner (a fresh
+environment per invocation, matching the build spec's own multi-platform
+framing) before M34 can honestly claim closure against build spec §8's
+"five consecutive clean runs pass" gate. This is recorded as an explicit
+open item for WU34-04's closure report rather than papered over.
+
+### 10.4 Node 22/24 validation
+
+Re-confirmed at WU34-03 time: this development environment has only Node
+24 installed (`node --version` → `v24.14.0`), no Node version manager
+(`nvm`/`fnm`/`volta`) present, and no local Node 22 toolchain — identical
+to the WU34-01 baseline (§6.4). This Work Unit does not add a local Node 22
+comparison; `.github/workflows/validate.yml`'s existing `node-version: [22,
+24]` matrix (unchanged by this milestone) remains the sole authoritative
+source for Node 22 behavior, consistent with §6.4's already-established
+policy. No Node-version-specific code or configuration change was made in
+this Work Unit.

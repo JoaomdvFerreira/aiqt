@@ -1,10 +1,34 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");
+const commandsDir = join(repoRoot, "src", "cli", "commands");
+
+/**
+ * M34-WU03 (LOW-014): the `execution-external-*` command files, plus the
+ * shared `execution-adapter-claude-code-*.command.ts` files this milestone
+ * also touches, are discovered dynamically -- readdirSync over
+ * src/cli/commands/ -- rather than trusted to stay correct in a frozen
+ * literal. A file matching this domain's naming convention added after
+ * M27R closed now makes the drift-detector test below fail loudly (forcing
+ * a reviewed addition to M27R_FILES/FORBIDDEN_PATTERNS scanning) instead
+ * of silently never being scanned. The non-command files below (schema,
+ * workflow, options/register-commands) are not filename-convention
+ * discoverable the same way and remain a reviewed static list.
+ */
+function listGenericExecutionCommandFiles(): string[] {
+  return readdirSync(commandsDir)
+    .filter(
+      (f) =>
+        f.startsWith("execution-external-") ||
+        (f.startsWith("execution-adapter-claude-code-") && f.endsWith(".command.ts")),
+    )
+    .sort()
+    .map((f) => join("src", "cli", "commands", f).replace(/\\/g, "/"));
+}
 
 /**
  * M27R section 2/9/12 (M27R-R02, R09, R18): every file this milestone
@@ -87,5 +111,19 @@ describe("M27R boundary scan: no process/shell/PTY/network/auth/dynamic-loading 
     const text = readFileSync(join(repoRoot, "src/schema/adapter-registry.ts"), "utf8");
     expect(text).not.toMatch(/\bregister\w*\s*\(/i);
     expect(text).not.toMatch(/\.push\(/);
+  });
+});
+
+describe("M34-WU03: execution-external-*/execution-adapter-claude-code-*.command.ts files cannot silently escape the M27R boundary scan (LOW-014)", () => {
+  it("the dynamically discovered set of execution-external-*/execution-adapter-claude-code-*.command.ts files matches the reviewed M27R_FILES baseline exactly", () => {
+    const discovered = listGenericExecutionCommandFiles();
+    const reviewedCommandFiles = M27R_FILES.filter((f) => discovered.includes(f)).sort();
+    expect(
+      discovered,
+      "A file matching the execution-external-*/execution-adapter-claude-code-*.command.ts naming " +
+        "convention was added to or removed from src/cli/commands/ since M27R closed. Update M27R_FILES " +
+        "(and its FORBIDDEN_PATTERNS scan coverage) as part of a reviewed change -- do not let a new file " +
+        "in this domain silently skip the boundary scan.",
+    ).toEqual(reviewedCommandFiles);
   });
 });

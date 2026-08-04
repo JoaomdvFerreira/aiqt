@@ -1,10 +1,29 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");
+const commandsDir = join(repoRoot, "src", "cli", "commands");
+
+/**
+ * M34-WU03 (LOW-014): the `evidence-gate-policy-*` and `evidence-gate-
+ * simulate*` command files are discovered dynamically -- readdirSync over
+ * src/cli/commands/ -- rather than trusted to stay correct in a frozen
+ * literal. A file matching this domain's naming convention added after M28
+ * closed now makes the drift-detector test below fail loudly (forcing a
+ * reviewed addition to M28_FILES/FORBIDDEN_PATTERNS scanning) instead of
+ * silently never being scanned. The non-command files below (schema,
+ * workflow, state, options/register-commands) are not filename-convention
+ * discoverable the same way and remain a reviewed static list.
+ */
+function listEvidenceGatePolicyCommandFiles(): string[] {
+  return readdirSync(commandsDir)
+    .filter((f) => f.startsWith("evidence-gate-policy-") || f === "evidence-gate-simulate.command.ts")
+    .sort()
+    .map((f) => join("src", "cli", "commands", f).replace(/\\/g, "/"));
+}
 
 /**
  * M28 section 2/7/12 (M28-R05/R09/R18): every file this milestone added or
@@ -82,5 +101,19 @@ describe("M28 boundary scan: no process/shell/PTY/network/Git/validation-executi
   it("the simulation engine never imports the runlog store, atomic-write helper, or state writer (structurally read-only)", () => {
     const text = readFileSync(join(repoRoot, "src/workflow/evidence-gate-simulation-engine.ts"), "utf8");
     expect(text).not.toMatch(/runlog-store|atomic-write|workflow-state-store|writeStateModel|appendRunlogEvent/);
+  });
+});
+
+describe("M34-WU03: evidence-gate-policy/simulate command files cannot silently escape the M28 boundary scan (LOW-014)", () => {
+  it("the dynamically discovered set of evidence-gate-policy-*/evidence-gate-simulate* command files matches the reviewed M28_FILES baseline exactly", () => {
+    const discovered = listEvidenceGatePolicyCommandFiles();
+    const reviewedCommandFiles = M28_FILES.filter((f) => discovered.includes(f)).sort();
+    expect(
+      discovered,
+      "A file matching the evidence-gate-policy-*/evidence-gate-simulate* naming convention was added to " +
+        "or removed from src/cli/commands/ since M28 closed. Update M28_FILES (and its FORBIDDEN_PATTERNS " +
+        "scan coverage) as part of a reviewed change -- do not let a new file in this domain silently skip " +
+        "the boundary scan.",
+    ).toEqual(reviewedCommandFiles);
   });
 });

@@ -1,10 +1,30 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");
+const commandsDir = join(repoRoot, "src", "cli", "commands");
+
+/**
+ * M34-WU03 (LOW-014): the `execution-adapter-claude-code-*` and
+ * `execution-import.command.ts` command files are discovered dynamically --
+ * readdirSync over src/cli/commands/ -- rather than trusted to stay correct
+ * in a frozen literal. A file matching this domain's naming convention
+ * added after M27 closed now makes the drift-detector test below fail
+ * loudly (forcing a reviewed addition to M27_FILES/FORBIDDEN_PATTERNS
+ * scanning) instead of silently never being scanned. The non-command files
+ * below (schema, workflow, state, options/register-commands) are not
+ * filename-convention discoverable the same way and remain a reviewed
+ * static list.
+ */
+function listExecutionAdapterCommandFiles(): string[] {
+  return readdirSync(commandsDir)
+    .filter((f) => f.startsWith("execution-adapter-claude-code-") || f === "execution-import.command.ts")
+    .sort()
+    .map((f) => join("src", "cli", "commands", f).replace(/\\/g, "/"));
+}
 
 /**
  * M27 §2/§8/§11 (M27-R02, M27-R09): every file this milestone added or
@@ -79,5 +99,19 @@ describe("M27 boundary scan: no process/shell/PTY/network/auth/permission-bypass
     const packageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { dependencies: Record<string, string> };
     const deps = Object.keys(packageJson.dependencies);
     expect(deps.sort()).toEqual(["@inquirer/prompts", "commander", "zod"]);
+  });
+});
+
+describe("M34-WU03: execution-adapter-claude-code-*/execution-import command files cannot silently escape the M27 boundary scan (LOW-014)", () => {
+  it("the dynamically discovered set of execution-adapter-claude-code-*/execution-import.command.ts files matches the reviewed M27_FILES baseline exactly", () => {
+    const discovered = listExecutionAdapterCommandFiles();
+    const reviewedCommandFiles = M27_FILES.filter((f) => discovered.includes(f)).sort();
+    expect(
+      discovered,
+      "A file matching the execution-adapter-claude-code-*/execution-import.command.ts naming convention " +
+        "was added to or removed from src/cli/commands/ since M27 closed. Update M27_FILES (and its " +
+        "FORBIDDEN_PATTERNS scan coverage) as part of a reviewed change -- do not let a new file in this " +
+        "domain silently skip the boundary scan.",
+    ).toEqual(reviewedCommandFiles);
   });
 });
