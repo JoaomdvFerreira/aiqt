@@ -180,7 +180,7 @@ describe("M27-WU04: aiqt execution adapter claude-code import", () => {
     const stateBefore = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     const res = runCli(["execution", "adapter", "claude-code", "import", "--request", request.id, "--from-file", otherOutputPath, "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(3);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("ADAPTER-IMPORT-DIGEST-CONFLICT");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("ADAPTER-IMPORT-DIGEST-CONFLICT");
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(stateBefore);
   });
 
@@ -199,7 +199,7 @@ describe("M27-WU04: aiqt execution adapter claude-code import", () => {
     const stateBefore = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     const res = runCli(["execution", "adapter", "claude-code", "import", "--request", request.id, "--from-file", outputPath, "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(3);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("ADAPTER-IMPORT-SESSION-ID-MISMATCH");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("ADAPTER-IMPORT-SESSION-ID-MISMATCH");
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(stateBefore);
   });
 
@@ -218,7 +218,7 @@ describe("M27-WU04: aiqt execution adapter claude-code import", () => {
     const stateBefore = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     const res = runCli(["execution", "adapter", "claude-code", "import", "--request", request.id, "--from-file", outputPath, "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(3);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("ADAPTER-IMPORT-PARSE-REJECTED");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("ADAPTER-IMPORT-PARSE-REJECTED");
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(stateBefore);
   });
 
@@ -310,7 +310,7 @@ describe("M27-WU04: aiqt execution adapter claude-code import", () => {
 
     const cancelRes = runCli(["next", "cancel", "--json"], dir);
     expect(cancelRes.status).toBe(2);
-    expect(JSON.parse(cancelRes.stderr).blockingIssues[0].id).toBe("NEXT-CANCEL-EXECUTION-SESSION-EXISTS");
+    expect(JSON.parse(cancelRes.stdout).blockingIssues[0].id).toBe("NEXT-CANCEL-EXECUTION-SESSION-EXISTS");
   });
 
   it("aiqt execution adapter claude-code status reports request counts and health without probing anything external", () => {

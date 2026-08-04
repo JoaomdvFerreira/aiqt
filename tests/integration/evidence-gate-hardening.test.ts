@@ -117,7 +117,7 @@ describe("M28-WU05: compatibility, security, and failure hardening", () => {
     try {
       const failed = runCli(["evidence", "gate", "policy", "import", "--from-file", policyPath, "--as-of", T1, "--json"], dir);
       expect(failed.status).toBe(3);
-      expect(JSON.parse(failed.stderr).blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-IMPORT-RUNLOG-APPEND-FAILED");
+      expect(JSON.parse(failed.stdout).blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-IMPORT-RUNLOG-APPEND-FAILED");
       const stateAfterFailure = JSON.parse(readFileSync(statePath, "utf8"));
       expect(stateAfterFailure.evidenceGate.policies).toHaveLength(1);
       expect(readFileSync(runlogPath, "utf8")).toBe(runlogBefore);
@@ -150,7 +150,7 @@ describe("M28-WU05: compatibility, security, and failure hardening", () => {
     try {
       const failed = runCli(["evidence", "gate", "policy", "activate", "release-gate", "--version", "1", "--as-of", T1, "--json"], dir);
       expect(failed.status).toBe(3);
-      expect(JSON.parse(failed.stderr).blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-ACTIVATE-RUNLOG-APPEND-FAILED");
+      expect(JSON.parse(failed.stdout).blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-ACTIVATE-RUNLOG-APPEND-FAILED");
       const stateAfterFailure = JSON.parse(readFileSync(statePath, "utf8"));
       expect(stateAfterFailure.evidenceGate.activePolicyRef).toEqual({ policyId: "release-gate", version: 1 });
       expect(readFileSync(runlogPath, "utf8")).toBe(runlogBefore);

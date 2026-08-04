@@ -178,7 +178,7 @@ describe("M27R-WU04: aiqt execution external import", () => {
     const stateBefore = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     const res = runCli(["execution", "external", "import", "--request", request.id, "--from-file", otherPath, "--as-of", T2, "--json"], dir);
     expect(res.status).toBe(3);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EXTERNAL-IMPORT-DIGEST-CONFLICT");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("EXTERNAL-IMPORT-DIGEST-CONFLICT");
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(stateBefore);
   });
 
@@ -197,7 +197,7 @@ describe("M27R-WU04: aiqt execution external import", () => {
     const stateBefore = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     const res = runCli(["execution", "external", "import", "--request", request.id, "--from-file", resultPath, "--as-of", T2, "--json"], dir);
     expect(res.status).toBe(3);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EXTERNAL-IMPORT-REQUEST-MISMATCH");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("EXTERNAL-IMPORT-REQUEST-MISMATCH");
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(stateBefore);
   });
 
@@ -291,7 +291,7 @@ describe("M27R-WU04: aiqt execution external import", () => {
 
     const cancelRes = runCli(["next", "cancel", "--json"], dir);
     expect(cancelRes.status).toBe(2);
-    expect(JSON.parse(cancelRes.stderr).blockingIssues[0].id).toBe("NEXT-CANCEL-EXECUTION-SESSION-EXISTS");
+    expect(JSON.parse(cancelRes.stdout).blockingIssues[0].id).toBe("NEXT-CANCEL-EXECUTION-SESSION-EXISTS");
   });
 
   it("aiqt execution external status reports request counts, generic session counts, and next action", () => {

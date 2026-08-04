@@ -195,7 +195,7 @@ describe("M27R-WU05: legacy Claude session compatibility and generic identity sp
     const stateBefore = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     const res = runCli(["execution", "external", "request", "WU001", "--resume-session", sessionId, "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(3);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EXTERNAL-REQUEST-LEGACY-SESSION-NOT-SUPPORTED");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("EXTERNAL-REQUEST-LEGACY-SESSION-NOT-SUPPORTED");
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(stateBefore);
   });
 

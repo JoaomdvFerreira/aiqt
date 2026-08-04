@@ -51,51 +51,60 @@ function setupProjectWithRealWarnings(dir: string): void {
   expect(runCli(["plan", "--from-file", planPath, "--json"], dir).status).toBe(0);
 }
 
-describe("M33-WU01: Contradiction A -- parser-level JSON loss", () => {
+describe("M33-WU03: Contradiction A closed -- parser-level errors now emit valid JSON on stdout", () => {
   let dir: string;
   afterEach(() => removeDir(dir));
 
-  it("unknown command with --json produces non-JSON stderr output, not a CommandResult", () => {
+  it("unknown command with --json produces valid CommandResult JSON on stdout, empty stderr", () => {
     dir = makeTempDir();
     const res = runCli(["bogus", "--json"], dir);
     expect(res.status).toBe(3);
-    expect(res.stdout).toBe("");
-    expect(() => JSON.parse(res.stderr)).toThrow();
-    expect(res.stderr).toContain("unknown command");
+    expect(res.stderr).toBe("");
+    const body = JSON.parse(res.stdout);
+    expect(body.blockingIssues[0].id).toBe("CLI-UNKNOWN-COMMAND");
+    expect(body.exitCode).toBe(3);
   });
 
-  it("unknown option with --json produces non-JSON stderr output, not a CommandResult", () => {
+  it("unknown option with --json produces valid CommandResult JSON on stdout, empty stderr", () => {
     dir = makeTempDir();
     const res = runCli(["status", "--bogus", "--json"], dir);
     expect(res.status).toBe(3);
-    expect(res.stdout).toBe("");
-    expect(() => JSON.parse(res.stderr)).toThrow();
-    expect(res.stderr).toContain("unknown option");
+    expect(res.stderr).toBe("");
+    const body = JSON.parse(res.stdout);
+    expect(body.blockingIssues[0].id).toBe("CLI-UNKNOWN-OPTION");
   });
 
-  it("missing required argument with --json produces non-JSON stderr output, not a CommandResult", () => {
+  it("missing required argument with --json produces valid CommandResult JSON on stdout, empty stderr", () => {
     dir = makeTempDir();
     expect(runCli(["init", "--json"], dir).status).toBe(0);
     const res = runCli(["evidence", "gate", "policy", "show", "--json"], dir);
     expect(res.status).toBe(3);
+    expect(res.stderr).toBe("");
+    const body = JSON.parse(res.stdout);
+    expect(body.blockingIssues[0].id).toBe("CLI-MISSING-ARGUMENT");
+  });
+
+  it("the equivalent human-mode invocations are unaffected: commander's own text still reaches stderr", () => {
+    dir = makeTempDir();
+    const res = runCli(["bogus"], dir);
+    expect(res.status).toBe(3);
     expect(res.stdout).toBe("");
-    expect(() => JSON.parse(res.stderr)).toThrow();
-    expect(res.stderr).toContain("missing required argument");
+    expect(res.stderr).toContain("unknown command");
   });
 });
 
-describe("M33-WU02: Contradiction B closed (live sample) -- exit 10 now agrees across families", () => {
+describe("M33-WU02+WU03: Contradiction B closed (live sample) -- exit 10 now agrees across families, and its JSON now lands on stdout", () => {
   let dir: string;
   afterEach(() => removeDir(dir));
 
-  it("import plan (core family) pairs exit 10 with needs_input/requiresHumanInput:true", () => {
+  it("import plan (core family) pairs exit 10 with needs_input/requiresHumanInput:true, JSON on stdout", () => {
     dir = makeTempDir();
     expect(runCli(["init", "--json"], dir).status).toBe(0);
     const res = runCli(["import", "plan", "--json"], dir);
-    // Exit 10 !== ExitCode.Success, so emit() routes this JSON to stderr (see
-    // Sec 2.A/2.G of the inventory doc -- this is itself part of the
-    // undocumented stream-routing behavior WU33-03 is scoped to normalize).
-    const body = JSON.parse(res.stderr);
+    // M33-WU03 Sec 5.5: --json now always lands on stdout regardless of
+    // exit code (previously routed to stderr whenever exitCode !== 0).
+    expect(res.stderr).toBe("");
+    const body = JSON.parse(res.stdout);
     expect(res.status).toBe(10);
     expect(body.status).toBe("needs_input");
     expect(body.requiresHumanInput).toBe(true);
@@ -105,7 +114,8 @@ describe("M33-WU02: Contradiction B closed (live sample) -- exit 10 now agrees a
     dir = makeTempDir();
     expect(runCli(["init", "--json"], dir).status).toBe(0);
     const res = runCli(["evidence", "import", "--json"], dir);
-    const body = JSON.parse(res.stderr);
+    expect(res.stderr).toBe("");
+    const body = JSON.parse(res.stdout);
     expect(res.status).toBe(10);
     expect(body.status).toBe("needs_input");
     expect(body.requiresHumanInput).toBe(true);
@@ -274,7 +284,7 @@ describe("M33-WU01: Contradiction G -- status --parallel is additive in JSON, a 
   });
 });
 
-describe("M33-WU01: Contradiction H -- --example --json behaves three different ways", () => {
+describe("M33-WU03: Contradiction H closed -- --example --json now consistently rejects across all 5 sites", () => {
   let dir: string;
   afterEach(() => removeDir(dir));
 
@@ -282,26 +292,46 @@ describe("M33-WU01: Contradiction H -- --example --json behaves three different 
     dir = makeTempDir();
     const res = runCli(["plan", "--example", "--json"], dir);
     expect(res.status).toBe(3);
-    const body = JSON.parse(res.stdout === "" ? res.stderr : res.stdout);
+    const body = JSON.parse(res.stdout);
     expect(body.blockingIssues[0].id).toBe("PLAN-EXAMPLE-JSON-CONFLICT");
   });
 
-  it("execution import --example --json silently ignores --json and prints a raw, non-CommandResult payload with exit 0", () => {
+  it("checkpoint --example --json is a hard error (exit 3, valid CommandResult JSON)", () => {
     dir = makeTempDir();
-    const res = runCli(["execution", "import", "--example", "--json"], dir);
-    expect(res.status).toBe(0);
+    const res = runCli(["checkpoint", "--example", "--json"], dir);
+    expect(res.status).toBe(3);
     const body = JSON.parse(res.stdout);
-    expect(body).not.toHaveProperty("status");
-    expect(body).not.toHaveProperty("exitCode");
+    expect(body.blockingIssues[0].id).toBe("CHECKPOINT-EXAMPLE-JSON-CONFLICT");
   });
 
-  it("execution external example --json is a dead option: identical output with or without --json", () => {
+  it("execution import --example --json is NOW a hard error too, matching plan/checkpoint (was: silently ignored --json, exit 0, raw non-CommandResult payload)", () => {
     dir = makeTempDir();
-    const withJson = runCli(["execution", "external", "example", "--json"], dir);
+    const res = runCli(["execution", "import", "--example", "--json"], dir);
+    expect(res.status).toBe(3);
+    const body = JSON.parse(res.stdout);
+    expect(body.blockingIssues[0].id).toBe("EXECUTION-IMPORT-EXAMPLE-JSON-CONFLICT");
+  });
+
+  it("execution external example --json is NOW a hard error too (was: a dead option, identical output with or without --json)", () => {
+    dir = makeTempDir();
+    const res = runCli(["execution", "external", "example", "--json"], dir);
+    expect(res.status).toBe(3);
+    const body = JSON.parse(res.stdout);
+    expect(body.blockingIssues[0].id).toBe("EXECUTION-EXTERNAL-EXAMPLE-JSON-CONFLICT");
+
+    // Without --json, the raw example is still printed exactly as before --
+    // only the --json combination's behavior changed.
     const withoutJson = runCli(["execution", "external", "example"], dir);
-    expect(withJson.status).toBe(0);
     expect(withoutJson.status).toBe(0);
-    expect(withJson.stdout).toBe(withoutJson.stdout);
+    expect(() => JSON.parse(withoutJson.stdout)).not.toThrow();
+  });
+
+  it("execution adapter claude-code example --json is NOW a hard error too (was: a dead option)", () => {
+    dir = makeTempDir();
+    const res = runCli(["execution", "adapter", "claude-code", "example", "--json"], dir);
+    expect(res.status).toBe(3);
+    const body = JSON.parse(res.stdout);
+    expect(body.blockingIssues[0].id).toBe("EXECUTION-ADAPTER-CLAUDE-CODE-EXAMPLE-JSON-CONFLICT");
   });
 });
 

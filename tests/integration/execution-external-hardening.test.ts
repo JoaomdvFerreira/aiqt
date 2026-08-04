@@ -161,7 +161,7 @@ describe("M27R-WU06: hardening and disposable-project cross-agent lifecycle", ()
     try {
       const failed = runCli(["execution", "external", "request", "WU001", "--as-of", T1, "--json"], dir);
       expect(failed.status).toBe(3);
-      expect(JSON.parse(failed.stderr).blockingIssues[0].id).toBe("EXTERNAL-REQUEST-RUNLOG-APPEND-FAILED");
+      expect(JSON.parse(failed.stdout).blockingIssues[0].id).toBe("EXTERNAL-REQUEST-RUNLOG-APPEND-FAILED");
 
       const stateAfterFailure = JSON.parse(readFileSync(statePath, "utf8"));
       expect(stateAfterFailure.executionAdapterRequests).toHaveLength(1);
@@ -200,7 +200,7 @@ describe("M27R-WU06: hardening and disposable-project cross-agent lifecycle", ()
     try {
       const failed = runCli(["execution", "external", "import", "--request", request.id, "--from-file", resultPath, "--as-of", T2, "--json"], dir);
       expect(failed.status).toBe(3);
-      expect(JSON.parse(failed.stderr).blockingIssues[0].id).toBe("EXTERNAL-IMPORT-RUNLOG-APPEND-FAILED");
+      expect(JSON.parse(failed.stdout).blockingIssues[0].id).toBe("EXTERNAL-IMPORT-RUNLOG-APPEND-FAILED");
 
       const stateAfterFailure = JSON.parse(readFileSync(statePath, "utf8"));
       expect(stateAfterFailure.executionAdapterRequests[0].status).toBe("imported");
@@ -242,7 +242,7 @@ describe("M27R-WU06: hardening and disposable-project cross-agent lifecycle", ()
     const stateBefore = readFileSync(statePath, "utf8");
     const res = runCli(["execution", "external", "request", "WU001", "--resume-session", request.executionSessionId, "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(2);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EXTERNAL-REQUEST-SESSION-CAP-REACHED");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("EXTERNAL-REQUEST-SESSION-CAP-REACHED");
     expect(readFileSync(statePath, "utf8")).toBe(stateBefore);
   }, 20000);
 
@@ -268,7 +268,7 @@ describe("M27R-WU06: hardening and disposable-project cross-agent lifecycle", ()
     const stateBefore = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     const res = runCli(["execution", "external", "import", "--request", request.id, "--from-file", resultPath, "--as-of", T2, "--json"], dir);
     expect(res.status).toBe(3);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EXTERNAL-IMPORT-SCHEMA-INVALID");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("EXTERNAL-IMPORT-SCHEMA-INVALID");
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(stateBefore);
   }, 20000);
 

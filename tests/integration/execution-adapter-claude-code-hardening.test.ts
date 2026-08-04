@@ -102,7 +102,7 @@ describe("M27-WU05: compatibility, security, and failure hardening", () => {
     try {
       const failed = runCli(["execution", "adapter", "claude-code", "request", "WU001", "--as-of", T1, "--json"], dir);
       expect(failed.status).toBe(3);
-      expect(JSON.parse(failed.stderr).blockingIssues[0].id).toBe("ADAPTER-REQUEST-RUNLOG-APPEND-FAILED");
+      expect(JSON.parse(failed.stdout).blockingIssues[0].id).toBe("ADAPTER-REQUEST-RUNLOG-APPEND-FAILED");
 
       const stateAfterFailure = JSON.parse(readFileSync(statePath, "utf8"));
       expect(stateAfterFailure.executionAdapterRequests).toHaveLength(1);
@@ -148,7 +148,7 @@ describe("M27-WU05: compatibility, security, and failure hardening", () => {
     try {
       const failed = runCli(["execution", "adapter", "claude-code", "import", "--request", request.id, "--from-file", outputPath, "--as-of", T1, "--json"], dir);
       expect(failed.status).toBe(3);
-      expect(JSON.parse(failed.stderr).blockingIssues[0].id).toBe("ADAPTER-IMPORT-RUNLOG-APPEND-FAILED");
+      expect(JSON.parse(failed.stdout).blockingIssues[0].id).toBe("ADAPTER-IMPORT-RUNLOG-APPEND-FAILED");
 
       const stateAfterFailure = JSON.parse(readFileSync(statePath, "utf8"));
       expect(stateAfterFailure.executionAdapterRequests[0].status).toBe("imported");
@@ -195,7 +195,7 @@ describe("M27-WU05: compatibility, security, and failure hardening", () => {
     const stateBefore = readFileSync(statePath, "utf8");
     const res = runCli(["execution", "adapter", "claude-code", "request", "WU001", "--resume-session", request.executionSessionId, "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(2);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("ADAPTER-REQUEST-SESSION-CAP-REACHED");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("ADAPTER-REQUEST-SESSION-CAP-REACHED");
     expect(readFileSync(statePath, "utf8")).toBe(stateBefore);
   });
 
@@ -240,6 +240,6 @@ describe("M27-WU05: compatibility, security, and failure hardening", () => {
 
     const cancelRes = runCli(["next", "cancel", "--json"], dir);
     expect(cancelRes.status).toBe(2);
-    expect(JSON.parse(cancelRes.stderr).blockingIssues[0].id).toBe("NEXT-CANCEL-EXECUTION-SESSION-EXISTS");
+    expect(JSON.parse(cancelRes.stdout).blockingIssues[0].id).toBe("NEXT-CANCEL-EXECUTION-SESSION-EXISTS");
   });
 });

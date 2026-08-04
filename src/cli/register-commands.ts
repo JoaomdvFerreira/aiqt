@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { AIQT_PACKAGE_VERSION } from "../core/constants/package-version.js";
-import { makeContext } from "./command-context.js";
+import { makeContext, argvRequestsJson } from "./command-context.js";
 import {
   normalizeInitOptions,
   collectRepeatable,
@@ -134,10 +134,20 @@ import { ExitCode } from "../core/output/exit-codes.js";
 import { AiqtError } from "../core/output/aiqt-error.js";
 import type { CommandResult } from "../core/output/result.js";
 
-/** Emit a CommandResult and set the process exit code. */
+/**
+ * Emit a CommandResult and set the process exit code.
+ *
+ * M33 Sec 5.5 stream policy: every `--json` payload goes to stdout,
+ * regardless of exit code -- a machine consumer piping `--json` output
+ * should never see an empty stdout on a normal, expected workflow outcome
+ * like `blocked` or `needs_input` (M33-WU01 Contradiction A/G). Human-mode
+ * text keeps the pre-M33 behavior (stdout on success, stderr otherwise),
+ * since that distinction is meaningful for a human at a terminal and
+ * nothing in the M33 spec requires changing it.
+ */
 function emit(result: CommandResult, json: boolean): void {
   const text = json ? renderJson(result) : renderHuman(result);
-  if (result.exitCode === ExitCode.Success) {
+  if (json || result.exitCode === ExitCode.Success) {
     process.stdout.write(text + "\n");
   } else {
     process.stderr.write(text + "\n");
@@ -157,6 +167,17 @@ export function buildProgram(): Command {
     // (cancel, acknowledge) is parsed against the subcommand actually
     // invoked, not silently overwritten by the parent's default value.
     .enablePositionalOptions()
+    // M33-WU03 Sec 5.4: when --json was requested, suppress commander's own
+    // raw-text error/help-error output (it would otherwise write directly
+    // to stderr before our own JSON-error path in src/index.ts ever runs,
+    // contaminating the machine-readable stream -- M33-WU01 Contradiction
+    // A). Human-mode parser errors are unaffected: commander's own text
+    // still reaches stderr exactly as before.
+    .configureOutput({
+      writeErr: (str) => {
+        if (!argvRequestsJson()) process.stderr.write(str);
+      },
+    })
     // Unknown commands / bad input exit with code 3.
     .exitOverride((err) => {
       // commander throws for help/version (exit 0) and parse errors.
@@ -1150,6 +1171,27 @@ export function buildProgram(): Command {
     .option("--as-of <timestamp>", "ISO timestamp used as the effective current time for all time-dependent validation")
     .option("--example", "print a sample execution-protocol envelope JSON and exit", false)
     .action(async (raw: RawExecutionImportOptions) => {
+      // M33-WU03 Sec 5.11: standardized on the same reject-the-combination
+      // policy already used by `plan --example`/`checkpoint --example`
+      // (M33-WU01 Contradiction H) instead of silently ignoring --json.
+      if (raw.example && raw.json) {
+        const result = errorToResult(
+          "execution",
+          new AiqtError(
+            "aiqt execution import --example cannot be combined with --json.",
+            ExitCode.InvalidInput,
+            {
+              id: "EXECUTION-IMPORT-EXAMPLE-JSON-CONFLICT",
+              severity: "critical",
+              area: "input",
+              message: "aiqt execution import --example cannot be combined with --json.",
+              agentCanFix: false,
+            },
+          ),
+        );
+        emit(result, true);
+        return;
+      }
       if (raw.example) {
         process.stdout.write(JSON.stringify(EXAMPLE_EXECUTION_ENVELOPE, null, 2) + "\n");
         process.exitCode = ExitCode.Success;
@@ -1252,7 +1294,28 @@ export function buildProgram(): Command {
     .command("example")
     .description("Print a sample generic execution request and exit")
     .option("--json", "emit machine-readable JSON output", false)
-    .action(() => {
+    .action((raw: { json?: boolean }) => {
+      // M33-WU03 Sec 5.11: this option was previously a dead flag (the
+      // action callback never read it) -- now rejects the combination,
+      // matching plan/checkpoint/execution import's policy.
+      if (raw.json) {
+        const result = errorToResult(
+          "execution",
+          new AiqtError(
+            "aiqt execution external example cannot be combined with --json.",
+            ExitCode.InvalidInput,
+            {
+              id: "EXECUTION-EXTERNAL-EXAMPLE-JSON-CONFLICT",
+              severity: "critical",
+              area: "input",
+              message: "aiqt execution external example cannot be combined with --json.",
+              agentCanFix: false,
+            },
+          ),
+        );
+        emit(result, true);
+        return;
+      }
       process.stdout.write(JSON.stringify(EXAMPLE_EXTERNAL_REQUEST, null, 2) + "\n");
       process.exitCode = ExitCode.Success;
     });
@@ -1322,7 +1385,28 @@ export function buildProgram(): Command {
     .command("example")
     .description("Print a sample Claude Code request package and exit")
     .option("--json", "emit machine-readable JSON output", false)
-    .action(() => {
+    .action((raw: { json?: boolean }) => {
+      // M33-WU03 Sec 5.11: was a dead flag; now rejects the combination,
+      // matching plan/checkpoint/execution import/execution external's
+      // policy.
+      if (raw.json) {
+        const result = errorToResult(
+          "execution",
+          new AiqtError(
+            "aiqt execution adapter claude-code example cannot be combined with --json.",
+            ExitCode.InvalidInput,
+            {
+              id: "EXECUTION-ADAPTER-CLAUDE-CODE-EXAMPLE-JSON-CONFLICT",
+              severity: "critical",
+              area: "input",
+              message: "aiqt execution adapter claude-code example cannot be combined with --json.",
+              agentCanFix: false,
+            },
+          ),
+        );
+        emit(result, true);
+        return;
+      }
       process.stdout.write(JSON.stringify(EXAMPLE_CLAUDE_CODE_REQUEST, null, 2) + "\n");
       process.exitCode = ExitCode.Success;
     });

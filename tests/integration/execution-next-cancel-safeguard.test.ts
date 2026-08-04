@@ -79,7 +79,7 @@ function importAt(dir: string, name: string, events: unknown[], asOf: string) {
 /** Confirms the block is specifically the execution-session safeguard (not the unrelated "no current work unit" or "checkpoint exists" blockers), exit 2, and zero state/runlog mutation. */
 function expectExecutionSessionBlocked(dir: string, res: ReturnType<typeof runCli>, stateBefore: string, runlogBefore: string) {
   expect(res.status).toBe(2);
-  const parsed = JSON.parse(res.stderr);
+  const parsed = JSON.parse(res.stdout);
   expect(parsed.status).toBe("blocked");
   expect(parsed.blockingIssues[0].id).toBe("NEXT-CANCEL-EXECUTION-SESSION-EXISTS");
   const statePath = join(dir, ".aiqt", "state.json");

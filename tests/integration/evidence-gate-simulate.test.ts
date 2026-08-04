@@ -208,7 +208,7 @@ describe("M28-WU04: aiqt evidence gate simulate", () => {
 
     const res = runCli(["evidence", "gate", "simulate", "--project", "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(2);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EVIDENCE-GATE-SIMULATE-NO-POLICY");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("EVIDENCE-GATE-SIMULATE-NO-POLICY");
   }, 20000);
 
   it("an explicit but nonexistent policy/version is rejected (exit 3)", () => {
@@ -220,7 +220,7 @@ describe("M28-WU04: aiqt evidence gate simulate", () => {
 
     const res = runCli(["evidence", "gate", "simulate", "--project", "--policy", "no-such-policy", "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(3);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EVIDENCE-GATE-SIMULATE-UNKNOWN-POLICY");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("EVIDENCE-GATE-SIMULATE-UNKNOWN-POLICY");
   }, 20000);
 
   it("an unknown work-unit or checkpoint target is rejected (exit 3)", () => {

@@ -127,7 +127,7 @@ describe("M28-WU02: aiqt evidence gate policy import/list/show/activate", () => 
     const before = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     const res = runCli(["evidence", "gate", "policy", "import", "--from-file", changedPath, "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(3);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-IMPORT-DIGEST-CONFLICT");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-IMPORT-DIGEST-CONFLICT");
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(before);
   });
 
@@ -147,7 +147,7 @@ describe("M28-WU02: aiqt evidence gate policy import/list/show/activate", () => 
     const before = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     const res = runCli(["evidence", "gate", "policy", "import", "--from-file", olderPath, "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(3);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-IMPORT-VERSION-NOT-MONOTONIC");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-IMPORT-VERSION-NOT-MONOTONIC");
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(before);
   });
 
@@ -177,7 +177,7 @@ describe("M28-WU02: aiqt evidence gate policy import/list/show/activate", () => 
     );
     const res1 = runCli(["evidence", "gate", "policy", "import", "--from-file", badKindPath, "--as-of", T1, "--json"], dir);
     expect(res1.status).toBe(3);
-    expect(JSON.parse(res1.stderr).blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-IMPORT-SCHEMA-INVALID");
+    expect(JSON.parse(res1.stdout).blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-IMPORT-SCHEMA-INVALID");
 
     const badTrustPath = join(dir, "bad-trust.json");
     writeFileSync(
@@ -267,6 +267,6 @@ describe("M28-WU02: aiqt evidence gate policy import/list/show/activate", () => 
 
     const res = runCli(["evidence", "gate", "policy", "activate", "no-such-policy", "--version", "1", "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(3);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-ACTIVATE-NOT-FOUND");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-ACTIVATE-NOT-FOUND");
   });
 });

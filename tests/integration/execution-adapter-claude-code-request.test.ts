@@ -170,7 +170,7 @@ describe("M27-WU02: aiqt execution adapter claude-code request", () => {
     const stateBefore = readFileSync(statePath, "utf8");
     const res = runCli(["execution", "adapter", "claude-code", "request", "WU001", "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(2);
-    const parsed = JSON.parse(res.stderr);
+    const parsed = JSON.parse(res.stdout);
     expect(parsed.blockingIssues[0].id).toBe("EXTERNAL-REQUEST-NON-TERMINAL-SESSION-EXISTS");
     const stateAfter = readFileSync(statePath, "utf8");
     expect(stateAfter).toBe(stateBefore);
@@ -229,7 +229,7 @@ describe("M27-WU02: aiqt execution adapter claude-code request", () => {
     const stateBefore = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
     const res = runCli(["execution", "adapter", "claude-code", "request", "WU001", "--resume-session", sessionId, "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(2);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EXTERNAL-REQUEST-ACTIVE-EXISTS");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("EXTERNAL-REQUEST-ACTIVE-EXISTS");
     expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(stateBefore);
   });
 

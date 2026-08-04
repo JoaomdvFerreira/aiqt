@@ -35,7 +35,12 @@ export type WorkflowAction =
 
 export interface CommandResult<TData = unknown> {
   status: CommandStatus;
-  action: WorkflowAction;
+  // M33 Sec 5.1: widened from WorkflowAction to WorkflowAction | string so
+  // parserErrorToResult() can report "cli" for a failure that occurred
+  // before any specific command's action was ever identified (a parser-
+  // level error, by definition, means dispatch to a command never
+  // happened). Every other caller continues to pass a real WorkflowAction.
+  action: WorkflowAction | string;
   projectStatus: ProjectStatus | null;
   currentMilestoneId: string | null;
   currentWorkUnitId: string | null;
@@ -165,6 +170,50 @@ export function missingProjectResult(
         area: "workflow",
         message: ".aiqt/ not found in the current folder.",
         suggestedAction: "Run aiqt init.",
+        agentCanFix: false,
+      },
+    ],
+  });
+}
+
+/**
+ * M33-WU03 Sec 5.4 (JSON guarantee): converts a commander parser-level error
+ * (unknown command, unknown option, missing required argument, and similar
+ * CommanderError instances raised before a command action ever runs) into a
+ * canonical CommandResult, so `--json` produces valid, parseable JSON for
+ * these failures instead of commander's own raw error text (M33-WU01
+ * Contradiction A). `action` is "cli" (not a WorkflowAction) since the
+ * command that would have owned an action-specific value was never
+ * identified -- the parser failed before dispatch.
+ */
+export function parserErrorToResult(err: {
+  code?: string;
+  message?: string;
+  exitCode?: number;
+}): CommandResult {
+  const message = err.message ?? "Invalid command line input.";
+  const issueIdByCode: Record<string, string> = {
+    "commander.unknownCommand": "CLI-UNKNOWN-COMMAND",
+    "commander.unknownOption": "CLI-UNKNOWN-OPTION",
+    "commander.missingArgument": "CLI-MISSING-ARGUMENT",
+    "commander.missingMandatoryOptionValue": "CLI-MISSING-OPTION-VALUE",
+    "commander.optionMissingArgument": "CLI-OPTION-MISSING-ARGUMENT",
+    "commander.invalidArgument": "CLI-INVALID-ARGUMENT",
+    "commander.excessArguments": "CLI-EXCESS-ARGUMENTS",
+    "commander.conflictingOption": "CLI-CONFLICTING-OPTION",
+  };
+  const issueId = issueIdByCode[err.code ?? ""] ?? "CLI-PARSE-ERROR";
+  return makeResult({
+    status: "failed",
+    action: "cli",
+    summary: message,
+    exitCode: ExitCode.InvalidInput,
+    blockingIssues: [
+      {
+        id: issueId,
+        severity: "high",
+        area: "cli",
+        message,
         agentCanFix: false,
       },
     ],

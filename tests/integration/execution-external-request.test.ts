@@ -222,7 +222,7 @@ describe("M27R-WU03: aiqt execution external request", () => {
     const stateBefore = readFileSync(statePath, "utf8");
     const res = runCli(["execution", "external", "request", "WU001", "--as-of", T1, "--json"], dir);
     expect(res.status).toBe(2);
-    expect(JSON.parse(res.stderr).blockingIssues[0].id).toBe("EXTERNAL-REQUEST-NON-TERMINAL-SESSION-EXISTS");
+    expect(JSON.parse(res.stdout).blockingIssues[0].id).toBe("EXTERNAL-REQUEST-NON-TERMINAL-SESSION-EXISTS");
     expect(readFileSync(statePath, "utf8")).toBe(stateBefore);
   });
 

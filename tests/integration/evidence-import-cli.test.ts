@@ -129,7 +129,7 @@ describe("aiqt evidence import (M23-WU07/WU08)", () => {
     writeFileSync(payloadPath, JSON.stringify(manualPayload()));
     const res = runCli(["evidence", "import", "--from-file", payloadPath, "--json"], dir);
     expect(res.status).toBe(3);
-    expect(JSON.parse(res.stderr).summary).toContain("Unknown work unit reference");
+    expect(JSON.parse(res.stdout).summary).toContain("Unknown work unit reference");
   });
 
   it("exits 3 for an unsafe artifact locator, with zero mutation", () => {
@@ -262,7 +262,7 @@ describe("aiqt evidence import (M23-WU07/WU08)", () => {
       const failedRun = runCli(["evidence", "import", "--from-file", payloadPath, "--json"], dir);
       // errorToResult's generic-Error fallback -> ExitCode.InvalidInput (3).
       expect(failedRun.status).toBe(3);
-      const failedResult = JSON.parse(failedRun.stderr);
+      const failedResult = JSON.parse(failedRun.stdout);
       expect(failedResult.status).toBe("failed");
 
       // Property 1: state.json was already written and IS the new

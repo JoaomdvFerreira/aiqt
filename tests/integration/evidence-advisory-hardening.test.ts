@@ -131,7 +131,7 @@ describe("M29-WU03: hardening -- runlog-gap repair, historical compatibility, pr
       // the advisory operation, so a runlog gap here IS surfaced as a
       // command failure (M29 §7.2).
       expect(failed.status).toBe(3);
-      expect(JSON.parse(failed.stderr).blockingIssues[0].id).toBe("EVIDENCE-GATE-ADVISORY-REFRESH-RUNLOG-APPEND-FAILED");
+      expect(JSON.parse(failed.stdout).blockingIssues[0].id).toBe("EVIDENCE-GATE-ADVISORY-REFRESH-RUNLOG-APPEND-FAILED");
 
       const stateAfterFailure = JSON.parse(readFileSync(statePath, "utf8"));
       expect(stateAfterFailure.checkpointEvidenceAdvisories).toHaveLength(1);

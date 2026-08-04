@@ -70,7 +70,7 @@ describe("aiqt CLI entrypoint", () => {
     dir = makeTempDir();
     const res = runCli(["plan", "--example", "--json"], dir);
     expect(res.status).toBe(3);
-    const parsed = JSON.parse(res.stderr);
+    const parsed = JSON.parse(res.stdout);
     expect(parsed.exitCode).toBe(3);
   });
 
@@ -121,7 +121,7 @@ describe("aiqt CLI entrypoint", () => {
     dir = makeTempDir();
     const res = runCli(["checkpoint", "--example", "--json"], dir);
     expect(res.status).toBe(3);
-    const parsed = JSON.parse(res.stderr);
+    const parsed = JSON.parse(res.stdout);
     expect(parsed.exitCode).toBe(3);
   });
 
@@ -191,7 +191,7 @@ describe("aiqt CLI entrypoint", () => {
     // a same-named --json declared on both "next" and its "cancel"
     // subcommand can otherwise silently reset to the parent's default).
     expect(res.status).toBe(2);
-    const parsed = JSON.parse(res.stderr);
+    const parsed = JSON.parse(res.stdout);
     expect(parsed.action).toBe("next");
   });
 
@@ -204,7 +204,7 @@ describe("aiqt CLI entrypoint", () => {
     );
     // Unknown finding key -> exit 3, but the output must be JSON.
     expect(res.status).toBe(3);
-    const parsed = JSON.parse(res.stderr);
+    const parsed = JSON.parse(res.stdout);
     expect(parsed.action).toBe("review");
   });
 
@@ -241,7 +241,7 @@ describe("aiqt CLI entrypoint", () => {
     expect(runCli(["init"], dir).status).toBe(0);
     const res = runCli(["export", "final-review", "--json"], dir);
     expect(res.status).toBe(3);
-    const parsed = JSON.parse(res.stderr);
+    const parsed = JSON.parse(res.stdout);
     expect(parsed.status).toBe("failed");
   });
 
@@ -264,7 +264,7 @@ describe("aiqt CLI entrypoint", () => {
     );
     // Unknown issue key -> exit 3, but the output must be JSON.
     expect(res.status).toBe(3);
-    const parsed = JSON.parse(res.stderr);
+    const parsed = JSON.parse(res.stdout);
     expect(parsed.action).toBe("issue");
   });
 
@@ -287,7 +287,7 @@ describe("aiqt CLI entrypoint", () => {
       dir,
     );
     expect(res.status).toBe(3);
-    const parsed = JSON.parse(res.stderr);
+    const parsed = JSON.parse(res.stdout);
     expect(parsed.action).toBe("issue");
   });
 
@@ -316,7 +316,7 @@ describe("aiqt CLI entrypoint", () => {
     // Unknown checkpoint -> exit 3, but the output must actually be JSON
     // (guards the same Commander positional-options regression class as M9).
     expect(res.status).toBe(3);
-    const parsed = JSON.parse(res.stderr);
+    const parsed = JSON.parse(res.stdout);
     expect(parsed.action).toBe("checkpoint");
   });
 
@@ -335,7 +335,7 @@ describe("aiqt CLI entrypoint", () => {
       dir,
     );
     expect(res.status).toBe(3);
-    const parsed = JSON.parse(res.stderr);
+    const parsed = JSON.parse(res.stdout);
     expect(parsed.action).toBe("dependency");
   });
 
@@ -354,7 +354,7 @@ describe("aiqt CLI entrypoint", () => {
     expect(runCli(["init"], dir).status).toBe(0);
     const res = runCli(["graph", "repair", "--json"], dir);
     expect(res.status).toBe(3);
-    const parsed = JSON.parse(res.stderr);
+    const parsed = JSON.parse(res.stdout);
     expect(parsed.action).toBe("graph");
   });
 
