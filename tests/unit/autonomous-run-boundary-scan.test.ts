@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -489,6 +489,96 @@ describe("M37-WU01 boundary scan: public CLI never reaches the real M36 executio
   });
 
   it("the AIQT repository root still has no .aiqt/ directory as a result of the M37-WU01 CLI existing (structural -- behavioral proof is in the integration tests)", () => {
+    expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
+  });
+});
+
+/**
+ * M37-WU02 (build spec: "Bounded Coding-Agent Adapter"; operating
+ * decision recorded in docs/engineering/m37-wu02-agent-adapter-design-
+ * note.md: the request/import pattern, AIQT never spawns the agent
+ * process itself). This is THE critical guard for this Work Unit: it
+ * structurally proves the design-note decision was actually followed,
+ * not merely described in a doc comment -- no file in this Work Unit
+ * spawns a subprocess, touches the network, or invokes a model SDK.
+ */
+const M37_WU02_FILES = [
+  "src/schema/autonomous-agent-request.schema.ts",
+  "src/workflow/autonomous-agent-request-builder.ts",
+  "src/workflow/autonomous-agent-request-lifecycle.ts",
+  "src/services/autonomous-agent-response-import-service.ts",
+  "src/services/autonomous-agent-response-import-result.ts",
+];
+
+describe("M37-WU02 boundary scan: the coding-agent adapter never spawns a process itself (request/import pattern, not live execution)", () => {
+  it("no M37-WU02 file references a process-spawn, network, model-invocation, or dynamic-code-execution surface (code only -- a doc comment explaining what is deliberately NOT called does not itself violate this)", () => {
+    const codeOnly = (text: string) =>
+      text
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+        .join("\n");
+    const surfaces: { pattern: RegExp; label: string }[] = [
+      { pattern: /\bexecFileSync\b|\bspawnSync\b|\bexecFile\b|\bspawn\b|\bexecSync\b/, label: "a child_process execution function" },
+      { pattern: /from\s+["']node:child_process["']/, label: "node:child_process import" },
+      { pattern: /@anthropic-ai\/(claude-agent-sdk|sdk)/, label: "Claude/Anthropic SDK dependency (model invocation)" },
+      { pattern: /\bnode:net\b|\bnode:http\b|\bnode:https\b|\bfetch\s*\(|\bWebSocket\b/, label: "a network surface" },
+      { pattern: /\beval\s*\(|new\s+Function\s*\(|\bvm\.(Script|createContext|runIn)/, label: "dynamic code execution" },
+      { pattern: /\bimport\s*\(/, label: "dynamic import()" },
+      { pattern: /\brequire\s*\(/, label: "require() (this codebase is ESM-only)" },
+    ];
+    for (const relPath of M37_WU02_FILES) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      for (const { pattern, label } of surfaces) {
+        expect(pattern.test(text), `${relPath} unexpectedly matched forbidden pattern: ${label}`).toBe(false);
+      }
+    }
+  });
+
+  it("importing an agent response never executes a proposed command -- no function in this Work Unit calls runAutonomousCommand, executeAutonomousRun, or produceAutonomousEvidencePacket", () => {
+    const forbidden = ["runAutonomousCommand", "executeAutonomousRun", "produceAutonomousEvidencePacket", "createAutonomousWorktree", "gitWorktreeAdd"];
+    for (const relPath of M37_WU02_FILES) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      for (const symbol of forbidden) {
+        expect(text.includes(symbol), `${relPath} unexpectedly references execution symbol: ${symbol}`).toBe(false);
+      }
+    }
+  });
+
+  it("environment projection defaults to empty and is never a full process.env spread", () => {
+    const text = readFileSync(join(repoRoot, "src", "workflow", "autonomous-agent-request-builder.ts"), "utf8");
+    expect(text).not.toMatch(/\.\.\.process\.env/);
+  });
+
+  it("only one fixed provider id exists -- no arbitrary provider plugin surface (build spec Sec 5 Out of Scope)", () => {
+    const text = readFileSync(join(repoRoot, "src", "schema", "autonomous-agent-request.schema.ts"), "utf8");
+    expect(text).toMatch(/AUTONOMOUS_AGENT_PROVIDER_ID\s*=\s*"external-coding-agent-manual@1"/);
+    expect(text).not.toMatch(/providerId:\s*z\.string\(\)/); // must be a fixed literal, not a free-form string
+  });
+
+  it("no CLI command wires the agent adapter yet (invoking it is explicitly WU37-03 scope, not WU37-02)", () => {
+    const commandsDir = join(repoRoot, "src", "cli", "commands");
+    const offenders = readdirSync(commandsDir).filter((f) => {
+      const text = readFileSync(join(commandsDir, f), "utf8");
+      return /autonomous-agent-request-builder|autonomous-agent-response-import/.test(text);
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  it("no function anywhere in the M37-WU02 call graph can merge, push, or deploy", () => {
+    const codeOnly = (text: string) =>
+      text
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+        .join("\n");
+    for (const relPath of M37_WU02_FILES) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(text, `${relPath} should not invoke a git merge/push/deploy or a merge/push/deploy-capable function`).not.toMatch(
+        /["'`]merge["'`]|\.merge\(|gitMerge|["'`]push["'`]|\.push\(\s*origin|gitPush|\bdeploy\(/i,
+      );
+    }
+  });
+
+  it("the AIQT repository root still has no .aiqt/ directory as a result of the M37-WU02 adapter existing", () => {
     expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
   });
 });

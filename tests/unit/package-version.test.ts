@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.25.0 (M37-WU01: public autonomous-run CLI and operator configuration contract added)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.25.0");
+  it("is the current released version 0.26.0 (M37-WU02: bounded coding-agent adapter, request/import pattern, added)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.26.0");
   });
 });
