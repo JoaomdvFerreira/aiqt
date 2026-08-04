@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { AutonomousOperatorConfig, AutonomousOperatorConfigPartial } from "../schema/autonomous-run-operator.schema.js";
 import { ALWAYS_DENIED_COMMAND_CLASSES, DEFAULT_ALLOWED_COMMAND_CLASSES } from "../schema/autonomous-run.schema.js";
 
@@ -8,9 +10,24 @@ import { ALWAYS_DENIED_COMMAND_CLASSES, DEFAULT_ALLOWED_COMMAND_CLASSES } from "
  * M36-WU01's own AutonomousBudgetsSchema max bounds; an operator who
  * wants looser limits must say so explicitly in a higher-precedence
  * layer, never get them by omission.
+ *
+ * M37-WU03 correction (found while wiring real worktree creation for
+ * the first time): `worktreeRoot`'s original default was a RELATIVE
+ * path (".aiqt-autonomous/worktrees"), which resolves against whatever
+ * `cwd` the CLI happens to be invoked from -- unpredictable, and in one
+ * observed case during this Work Unit's own manual verification,
+ * resolved to a path INSIDE the AIQT repository's own working tree
+ * (because the CLI was invoked with cwd set there), writing real
+ * worktree files into it. The default is now an absolute, OS-temp-dir-
+ * based path, deterministic regardless of invocation cwd and never
+ * coinciding with any project directory. autonomous-agent-import.command.ts
+ * (the one real worktree-creation call site) additionally refuses to
+ * proceed if the resolved worktreeRoot is not absolute at all, even for
+ * an operator-supplied override -- defense in depth, not just a safer
+ * default.
  */
 export const SAFE_DEFAULT_OPERATOR_CONFIG: AutonomousOperatorConfig = {
-  worktreeRoot: ".aiqt-autonomous/worktrees",
+  worktreeRoot: join(tmpdir(), "aiqt-autonomous-worktrees"),
   defaultBudgets: {
     maxWallClockSeconds: 600,
     maxCommandCount: 20,

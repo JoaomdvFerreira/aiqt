@@ -160,6 +160,18 @@ export function produceAutonomousEvidencePacket(params: BindAutonomousRunEvidenc
   let filesChanged: string[] = [];
   let validation: AutonomousValidationResult = NOT_VALIDATED;
   let findings: string[] = [];
+  // M37-WU03 correction: this used to be discarded entirely, with
+  // `workspace.cleanupStatus` hardcoded to "cleaned" below regardless of
+  // what actually happened -- found while writing WU37-03's own real
+  // (non-simulated) execution tests, which exercise a genuinely dirty
+  // worktree (an uncommitted `git mv`) that `git worktree remove`
+  // legitimately refuses without `--force` (this repository never
+  // passes `--force`, by design). The M36-WU05 dogfood pilot's own
+  // "successful" scenario used the identical `git mv` shape and was
+  // therefore ALSO silently misreporting "cleaned" the entire time --
+  // recorded here honestly as a real defect in already-shipped, already-
+  // tagged M36 code, not merely a WU37-03 addition.
+  let cleanupOk = false;
 
   try {
     // Diff evidence is captured for every outcome that reached a worktree
@@ -184,7 +196,7 @@ export function produceAutonomousEvidencePacket(params: BindAutonomousRunEvidenc
       findings = review.findings;
     }
   } finally {
-    removeAutonomousWorktree(sourceRepositoryPath, worktreePath);
+    cleanupOk = removeAutonomousWorktree(sourceRepositoryPath, worktreePath).ok;
   }
 
   const workspace = {
@@ -194,7 +206,7 @@ export function produceAutonomousEvidencePacket(params: BindAutonomousRunEvidenc
     branch: loopResult.branchName!,
     worktreePath,
     createdFiles: [] as string[],
-    cleanupStatus: "cleaned" as const,
+    cleanupStatus: cleanupOk ? ("cleaned" as const) : ("cleanup_failed" as const),
   };
 
   if (loopResult.outcome !== "completed") {

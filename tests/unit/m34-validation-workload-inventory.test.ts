@@ -64,8 +64,8 @@ function hasCliSpawn(text: string): boolean {
  * the M34-WU01 baseline (docs/engineering/m34-validation-workload-policy.md
  * Sec 1/5), plus the 1 built-binary smoke file WU34-03 added, the 2
  * autonomous-run files M36-WU02 added, the 2 more M36-WU03 added, the
- * 3 more M36-WU04 added, the 1 more M36-WU05 added, and the 1 more
- * M37-WU01 added (43 total). A
+ * 3 more M36-WU04 added, the 1 more M36-WU05 added, the 1 more M37-WU01
+ * added, and the 1 more M37-WU03 added (44 total). A
  * file added to or removed from this set must be a deliberate, reviewed
  * change to the policy document -- this test does not silently absorb a new
  * spawning file into "already accounted for".
@@ -138,6 +138,11 @@ const KNOWN_SPAWNING_FILES = [
   // via initGitFixtureRepo (its fixture) and every autonomous-inspect/
   // classify call's real, read-only runRepositoryPreflight.
   "tests/integration/autonomous-cli-lifecycle.test.ts",
+  // M37-WU03 (+1): the real (non-simulated) execution suite spawns git
+  // transitively via initGitFixtureRepo (its fixture) and the first-ever
+  // real `git worktree add`/command execution invoked from a public CLI
+  // command (autonomous-agent-import.command.ts -> produceAutonomousEvidencePacket).
+  "tests/integration/autonomous-real-execution.test.ts",
 ].sort();
 
 /**

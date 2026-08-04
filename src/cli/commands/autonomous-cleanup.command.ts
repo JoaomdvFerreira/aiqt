@@ -6,15 +6,26 @@ import { isTerminalRunStatus } from "../../schema/autonomous-run.schema.js";
 import { autonomousFailure, resolveOperatorConfigOrFail } from "./autonomous-shared.js";
 
 /**
- * M37-WU01 (build spec: "aiqt autonomous cleanup"; acceptance criterion:
- * "Simulation-safe cleanup only; no deletion outside approved run
- * paths"). No real worktree exists anywhere in this Work Unit's pipeline
- * (autonomous-run-store.ts never created one), so the entire cleanup
- * surface here is deleting exactly one run record's own JSON file,
- * strictly within the resolved evidenceOutputDir
+ * M37-WU01/WU03 (build spec: "aiqt autonomous cleanup"; acceptance
+ * criterion: "Simulation-safe cleanup only; no deletion outside approved
+ * run paths"). The cleanup surface here is deleting exactly one run
+ * record's own JSON file, strictly within the resolved evidenceOutputDir
  * (deleteAutonomousRunRecord's own runId-shape validation makes any path
  * outside that directory structurally unreachable). Only a terminal run
  * may be cleaned up -- an active run must be cancelled first.
+ *
+ * A real (non-simulated) run's own worktree is always created AND
+ * removed within the single, synchronous `aiqt autonomous agent-import`
+ * call that produces it (M36-WU04's produceAutonomousEvidencePacket
+ * guarantees cleanup is attempted exactly once, in a `finally` block, by
+ * the time that command returns) -- there is never a real worktree still
+ * open by the time a run reaches a terminal status, so this command
+ * itself never touches one. The one exception: if that cleanup attempt
+ * itself failed (`evidencePacket.workspace.cleanupStatus ===
+ * "cleanup_failed"`), this command refuses to delete the run record --
+ * doing so would destroy the only recorded reference to the orphaned
+ * worktree path, making the operator's own manual cleanup harder, not
+ * easier.
  */
 export interface AutonomousCleanupOptions {
   run?: string;
@@ -46,6 +57,14 @@ export function runAutonomousCleanup(ctx: CommandContext, options: AutonomousCle
       `Run ${record.runId} is in status "${record.status}", which is not terminal. Cancel it (aiqt autonomous cancel) before cleaning up.`,
       ExitCode.WorkflowBlocked,
       "AUTONOMOUS-CLEANUP-NOT-TERMINAL",
+    );
+  }
+
+  if (record.evidencePacket?.workspace?.cleanupStatus === "cleanup_failed") {
+    return autonomousFailure(
+      `Run ${record.runId}'s own worktree cleanup previously failed (path: ${record.evidencePacket.workspace.worktreePath}). Remove it manually (git worktree remove, possibly with --force) before cleaning up this run's record -- deleting the record now would lose the only reference to it.`,
+      ExitCode.WorkflowBlocked,
+      "AUTONOMOUS-CLEANUP-ORPHANED-WORKTREE",
     );
   }
 

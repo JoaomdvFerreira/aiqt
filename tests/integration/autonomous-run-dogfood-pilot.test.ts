@@ -149,9 +149,24 @@ describe("M36-WU05 dogfood pilot: full pipeline against a real disposable, non-A
     const branchBefore = execFileSync("git", ["branch", "--show-current"], { cwd: targetRepoDir!, encoding: "utf8" }).trim();
     const headBefore = execFileSync("git", ["rev-parse", "HEAD"], { cwd: targetRepoDir!, encoding: "utf8" }).trim();
 
+    // M37-WU03 correction: commits the rename on the run's own branch,
+    // not merely staging it -- a bare `git mv` with no commit leaves the
+    // worktree genuinely dirty, and `git worktree remove` (never passed
+    // --force by this repository, by design) legitimately refuses to
+    // remove a dirty worktree. This scenario previously asserted
+    // cleanupStatus:"cleaned" while leaving the worktree dirty, which
+    // only ever passed because produceAutonomousEvidencePacket itself
+    // had a real bug (found while building M37-WU03's own tests): it
+    // discarded removeAutonomousWorktree's result entirely and
+    // hardcoded "cleaned". Both are fixed now -- see
+    // autonomous-run-evidence-binding-service.ts's own comment at the
+    // fix site.
     const packet = produceAutonomousEvidencePacket(
       baseParams({
-        agentAdapter: new DeterministicStubAgentAdapter([{ command: "git", args: ["mv", "CONTRIBUTNIG.md", "CONTRIBUTING.md"] }]),
+        agentAdapter: new DeterministicStubAgentAdapter([
+          { command: "git", args: ["mv", "CONTRIBUTNIG.md", "CONTRIBUTING.md"] },
+          { command: "git", args: ["commit", "-m", "rename contributing guide"] },
+        ]),
         targetedValidationCommands: [{ command: "git", args: ["status"] }],
       }),
     );
@@ -186,7 +201,13 @@ describe("M36-WU05 dogfood pilot: full pipeline against a real disposable, non-A
     // Only the first (allowed) command actually ran before the destructive
     // one was denied and the run stopped.
     expect(packet.commandsExecuted).toEqual(["git mv CONTRIBUTNIG.md CONTRIBUTING.md"]);
-    expect(packet.workspace?.cleanupStatus).toBe("cleaned");
+    // M37-WU03 correction: the run was denied immediately after an
+    // uncommitted rename already ran, leaving the worktree genuinely
+    // dirty -- `git worktree remove` (never passed --force by this
+    // repository) legitimately fails here. This is expected, honest
+    // behavior for a mid-run denial, not a defect; see Scenario 1's own
+    // comment for the underlying bug this corrects.
+    expect(packet.workspace?.cleanupStatus).toBe("cleanup_failed");
   });
 
   it("Scenario 3 -- cancelled run: a pre-aborted cancellation signal stops the run before any command executes, resultState:cancelled", () => {

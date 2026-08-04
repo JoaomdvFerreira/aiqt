@@ -218,12 +218,19 @@ describe("aiqt autonomous CLI lifecycle (M37-WU01, real disposable target reposi
     expect((result.data as { approval: { approvedBy: string } }).approval.approvedBy).toBe("interactive");
   });
 
-  it("run refuses without --simulate (fail-closed: no adapter configured)", async () => {
+  it("run without --simulate (M37-WU03) creates a bounded agent request and pauses awaiting import -- it never produces a fake result and never creates a real worktree itself", async () => {
     const classifyResult = await classifyLowRiskNoApprovalNeeded();
     const runId = (classifyResult.data as { runId: string }).runId;
     const result = runAutonomousRun(ctx(), { run: runId, evidenceDir: evidenceDir!, configPath: relaxedConfigPath! });
-    expect(result.status).toBe("blocked");
-    expect(result.summary).toMatch(/no coding-agent adapter is configured/i);
+    expect(result.status).toBe("needs_input");
+    expect(result.exitCode).toBe(10);
+    expect((result.data as { agentRequestId: string }).agentRequestId).toMatch(/^agentreq-/);
+
+    const { loadAutonomousRunRecord } = await import("../../src/services/autonomous-run-store.js");
+    const loaded = loadAutonomousRunRecord(runId, evidenceDir!);
+    if (!loaded.ok) throw new Error("run record unexpectedly missing");
+    expect(loaded.record.status).toBe("executing");
+    expect(loaded.record.agentRequestId).not.toBeNull();
   });
 
   it("run --simulate produces a preview evidence packet that never claims a real result", async () => {

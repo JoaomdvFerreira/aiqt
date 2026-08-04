@@ -38,6 +38,10 @@ describe("M36-WU01: autonomous-run lifecycle transition validity", () => {
     expect(isValidRunStatusTransition("classified", "preparing_workspace")).toBe(true);
   });
 
+  it("M37-WU03 correction: executing may transition directly to blocked (a command denied mid-execution never reaches validating/reviewing)", () => {
+    expect(isValidRunStatusTransition("executing", "blocked")).toBe(true);
+  });
+
   it("rejects a self-transition for every status", () => {
     for (const status of ALL_STATUSES) {
       expect(isValidRunStatusTransition(status, status)).toBe(false);

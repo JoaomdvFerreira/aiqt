@@ -10,10 +10,12 @@ import { buildProgram } from "../../src/cli/register-commands.js";
  * built by register-commands.ts -- no subprocess spawn needed for this
  * class of check (buildProgram() runs entirely in-process).
  */
-const EXPECTED_SUBCOMMANDS = ["inspect", "classify", "approve", "run", "status", "cancel", "result", "cleanup"];
+// M37-WU03 added "agent-import" (the ninth command) alongside the 8
+// originally required by WU37-01.
+const EXPECTED_SUBCOMMANDS = ["inspect", "classify", "approve", "run", "status", "cancel", "result", "cleanup", "agent-import"];
 
 describe("aiqt autonomous CLI registration (M37-WU01)", () => {
-  it("registers the autonomous command family with exactly the 8 required subcommands", () => {
+  it("registers the autonomous command family with exactly the 9 expected subcommands", () => {
     const program = buildProgram();
     const autonomousCommand = program.commands.find((c) => c.name() === "autonomous");
     expect(autonomousCommand).toBeDefined();

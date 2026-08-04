@@ -412,6 +412,8 @@ export interface RawAutonomousClassifyOptions {
   requestedPermission?: string[];
   prohibitedArea?: string[];
   validationAvailable?: boolean;
+  targetedValidationCommand?: string[];
+  authoritativeValidationCommand?: string[];
   config?: string;
   evidenceDir?: string;
 }
@@ -457,6 +459,15 @@ export interface RawAutonomousResultOptions {
 export interface RawAutonomousCleanupOptions {
   json?: boolean;
   run?: string;
+  config?: string;
+  evidenceDir?: string;
+}
+
+export interface RawAutonomousAgentImportOptions {
+  json?: boolean;
+  run?: string;
+  fromFile?: string;
+  stdin?: boolean;
   config?: string;
   evidenceDir?: string;
 }

@@ -61,6 +61,7 @@ import {
   type RawAutonomousCancelOptions,
   type RawAutonomousResultOptions,
   type RawAutonomousCleanupOptions,
+  type RawAutonomousAgentImportOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -143,6 +144,7 @@ import { runAutonomousStatus } from "./commands/autonomous-status.command.js";
 import { runAutonomousCancel } from "./commands/autonomous-cancel.command.js";
 import { runAutonomousResult } from "./commands/autonomous-result.command.js";
 import { runAutonomousCleanup } from "./commands/autonomous-cleanup.command.js";
+import { runAutonomousAgentImport } from "./commands/autonomous-agent-import.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman, renderResultFooter } from "../core/output/human-output.js";
@@ -1479,6 +1481,8 @@ export function buildProgram(): Command {
     .option("--requested-permission <text>", "a requested elevated permission (repeatable, direct-flags input)", collectRepeatable, [] as string[])
     .option("--prohibited-area <tag>", "a prohibited-area tag this candidate touches (repeatable, operator-declared)", collectRepeatable, [] as string[])
     .option("--validation-available", "declare that a validation command is available for this candidate (fail-closed default: false)", false)
+    .option("--targeted-validation-command <text>", "a real targeted validation command for a real run's completion, as a single \"cmd arg1 arg2\" string (repeatable, no quoting support)", collectRepeatable, [] as string[])
+    .option("--authoritative-validation-command <text>", "a real authoritative validation command, same format (repeatable)", collectRepeatable, [] as string[])
     .option("--config <path>", "operator configuration file path (defaults to ./aiqt.autonomous.config.json if present)")
     .option("--evidence-dir <path>", "override the resolved evidence output directory")
     .action(async (raw: RawAutonomousClassifyOptions) => {
@@ -1496,6 +1500,8 @@ export function buildProgram(): Command {
         requestedPermission: raw.requestedPermission,
         prohibitedArea: raw.prohibitedArea,
         validationAvailable: Boolean(raw.validationAvailable),
+        targetedValidationCommand: raw.targetedValidationCommand,
+        authoritativeValidationCommand: raw.authoritativeValidationCommand,
         configPath: raw.config,
         evidenceDir: raw.evidenceDir,
       });
@@ -1580,6 +1586,21 @@ export function buildProgram(): Command {
     .action((raw: RawAutonomousCleanupOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runAutonomousCleanup(ctx, { run: raw.run, configPath: raw.config, evidenceDir: raw.evidenceDir });
+      emit(result, ctx.json);
+    });
+
+  autonomousCommand
+    .command("agent-import")
+    .description("Import a coding-agent response for a run's pending agent request, then execute its proposed commands for real (M37-WU03: the only command that creates a real worktree)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--run <runId>", "the run id whose pending agent request this response answers")
+    .option("--from-file <path>", "load the agent response from a JSON file")
+    .option("--stdin", "read the agent response JSON from standard input", false)
+    .option("--config <path>", "operator configuration file path (defaults to ./aiqt.autonomous.config.json if present)")
+    .option("--evidence-dir <path>", "override the resolved evidence output directory")
+    .action(async (raw: RawAutonomousAgentImportOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runAutonomousAgentImport(ctx, { run: raw.run, fromFile: raw.fromFile, stdin: Boolean(raw.stdin), configPath: raw.config, evidenceDir: raw.evidenceDir });
       emit(result, ctx.json);
     });
 

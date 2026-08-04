@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -470,11 +470,12 @@ describe("M37-WU01 boundary scan: public CLI never reaches the real M36 executio
     }
   });
 
-  it("autonomous-run.command.ts requires --simulate and never defaults to a real-execution path (the --simulate check happens before any evidence packet is produced)", () => {
-    const text = readFileSync(join(repoRoot, "src", "cli", "commands", "autonomous-run.command.ts"), "utf8");
-    expect(text).toMatch(/if\s*\(!options\.simulate\)/);
-    expect(text).toMatch(/simulateAutonomousRun/);
-  });
+  // "autonomous-run.command.ts requires --simulate and never defaults to
+  // a real-execution path" was a true WU37-01 invariant (this file's own
+  // literal `if (!options.simulate)` fail-closed refusal). M37-WU03
+  // deliberately replaces that refusal with the real (request/import,
+  // still-no-worktree) orchestration path -- see this file's WU37-03
+  // section below for the invariant that replaces it.
 
   it("autonomous-inspect.command.ts and autonomous-classify.command.ts both call the self-management guard before using a repository path", () => {
     for (const relPath of ["src/cli/commands/autonomous-inspect.command.ts", "src/cli/commands/autonomous-classify.command.ts"]) {
@@ -555,14 +556,9 @@ describe("M37-WU02 boundary scan: the coding-agent adapter never spawns a proces
     expect(text).not.toMatch(/providerId:\s*z\.string\(\)/); // must be a fixed literal, not a free-form string
   });
 
-  it("no CLI command wires the agent adapter yet (invoking it is explicitly WU37-03 scope, not WU37-02)", () => {
-    const commandsDir = join(repoRoot, "src", "cli", "commands");
-    const offenders = readdirSync(commandsDir).filter((f) => {
-      const text = readFileSync(join(commandsDir, f), "utf8");
-      return /autonomous-agent-request-builder|autonomous-agent-response-import/.test(text);
-    });
-    expect(offenders).toEqual([]);
-  });
+  // "No CLI command wires the agent adapter yet" was a true WU37-02
+  // invariant -- M37-WU03 deliberately lifts it (see this file's
+  // M37-WU03 section below).
 
   it("no function anywhere in the M37-WU02 call graph can merge, push, or deploy", () => {
     const codeOnly = (text: string) =>
@@ -579,6 +575,100 @@ describe("M37-WU02 boundary scan: the coding-agent adapter never spawns a proces
   });
 
   it("the AIQT repository root still has no .aiqt/ directory as a result of the M37-WU02 adapter existing", () => {
+    expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
+  });
+});
+
+/**
+ * M37-WU03 (build spec: "End-to-End CLI Orchestration and Resumability").
+ * This is the first Work Unit in which any CLI command performs a real
+ * `git worktree add`/executes a real command -- deliberately, via
+ * M36-WU04's already-reviewed produceAutonomousEvidencePacket, invoked
+ * from exactly one command file (autonomous-agent-import.command.ts).
+ * These guards prove the real-execution surface stays confined to that
+ * one file, no other M37 command reaches it directly, and every other
+ * established invariant (self-management guard, no merge/push, no new
+ * runtime dependency) still holds.
+ */
+const M37_WU03_REAL_EXECUTION_FILE = "src/cli/commands/autonomous-agent-import.command.ts";
+
+const M37_WU03_NON_EXECUTION_FILES = [
+  "src/cli/commands/autonomous-classify.command.ts",
+  "src/cli/commands/autonomous-run.command.ts",
+  "src/cli/commands/autonomous-cancel.command.ts",
+  "src/cli/commands/autonomous-cleanup.command.ts",
+  "src/services/autonomous-agent-request-store.ts",
+  "src/workflow/autonomous-imported-response-agent-adapter.ts",
+];
+
+describe("M37-WU03 boundary scan: real worktree creation/command execution stays confined to exactly one command file", () => {
+  it("produceAutonomousEvidencePacket/createAutonomousWorktree/runAutonomousCommand are referenced ONLY by autonomous-agent-import.command.ts, never by any other M37 command file (code only -- a doc comment explaining what is deliberately NOT called does not itself violate this)", () => {
+    const codeOnly = (text: string) =>
+      text
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+        .join("\n");
+    const realExecutionSymbols = ["produceAutonomousEvidencePacket", "createAutonomousWorktree", "runAutonomousCommand", "gitWorktreeAdd", "gitWorktreeRemove"];
+    const importText = readFileSync(join(repoRoot, M37_WU03_REAL_EXECUTION_FILE), "utf8");
+    expect(importText).toMatch(/produceAutonomousEvidencePacket/);
+
+    for (const relPath of M37_WU03_NON_EXECUTION_FILES) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      for (const symbol of realExecutionSymbols) {
+        expect(text.includes(symbol), `${relPath} unexpectedly references real-execution symbol: ${symbol}`).toBe(false);
+      }
+    }
+  });
+
+  it("autonomous-imported-response-agent-adapter.ts never invokes a model, network, or dynamic-code-execution surface -- it only replays an already-imported command list", () => {
+    const text = readFileSync(join(repoRoot, "src", "workflow", "autonomous-imported-response-agent-adapter.ts"), "utf8");
+    const surfaces = [/@anthropic-ai\//, /\bfetch\s*\(/, /\bexecFileSync\b|\bspawnSync\b|\bexecFile\b|\bspawn\b|\bexecSync\b/, /\beval\s*\(/];
+    for (const pattern of surfaces) expect(pattern.test(text)).toBe(false);
+  });
+
+  it("autonomous-run.command.ts's real (non-simulate) path never itself creates a worktree or executes a command -- it only builds and persists an agent request (code only)", () => {
+    const codeOnly = (text: string) =>
+      text
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+        .join("\n");
+    const text = codeOnly(readFileSync(join(repoRoot, "src", "cli", "commands", "autonomous-run.command.ts"), "utf8"));
+    expect(text).toMatch(/buildAutonomousAgentRequest/);
+    expect(text).not.toMatch(/produceAutonomousEvidencePacket|createAutonomousWorktree|runAutonomousCommand/);
+  });
+
+  it("autonomous-agent-import.command.ts and autonomous-run.command.ts both call the self-management guard before real execution / real request creation", () => {
+    for (const relPath of [M37_WU03_REAL_EXECUTION_FILE, "src/cli/commands/autonomous-run.command.ts"]) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      expect(text, `${relPath} should call isAiqtOwnRepository`).toMatch(/isAiqtOwnRepository/);
+    }
+  });
+
+  it("autonomous-agent-import.command.ts refuses a non-absolute worktreeRoot before any real execution occurs", () => {
+    const text = readFileSync(join(repoRoot, M37_WU03_REAL_EXECUTION_FILE), "utf8");
+    expect(text).toMatch(/isAbsolute\(config\.worktreeRoot\)/);
+  });
+
+  it("no function anywhere in the M37-WU03 call graph can merge, push, or deploy (structural check, comments excluded)", () => {
+    const codeOnly = (text: string) =>
+      text
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+        .join("\n");
+    for (const relPath of [M37_WU03_REAL_EXECUTION_FILE, ...M37_WU03_NON_EXECUTION_FILES]) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(text, `${relPath} should not invoke a git merge/push/deploy or a merge/push/deploy-capable function`).not.toMatch(
+        /["'`]merge["'`]|\.merge\(|gitMerge|["'`]push["'`]|\.push\(\s*origin|gitPush|\bdeploy\(/i,
+      );
+    }
+  });
+
+  it("package.json declares no new runtime dependency for M37-WU03 (still exactly @inquirer/prompts, commander, zod)", () => {
+    const packageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { dependencies: Record<string, string> };
+    expect(Object.keys(packageJson.dependencies).sort()).toEqual(["@inquirer/prompts", "commander", "zod"]);
+  });
+
+  it("the AIQT repository root still has no .aiqt/ directory as a result of the M37-WU03 real-execution wiring existing", () => {
     expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
   });
 });

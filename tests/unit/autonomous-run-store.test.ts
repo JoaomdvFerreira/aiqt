@@ -53,6 +53,9 @@ function record(overrides: Partial<AutonomousRunRecord> = {}): AutonomousRunReco
     approval: null,
     evidencePacket: null,
     auditLog: [],
+    agentRequestId: null,
+    targetedValidationCommands: [],
+    authoritativeValidationCommands: [],
     ...overrides,
   };
 }

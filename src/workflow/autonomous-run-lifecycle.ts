@@ -13,7 +13,7 @@ import { isTerminalRunStatus, RESULT_STATE_TERMINAL_STATUS } from "../schema/aut
  * preparing_workspace -> executing -> validating -> reviewing ->
  * completed | blocked | failed | cancelled | budget_exhausted
  *
- * Two deliberate branch points beyond the straight-line spec example:
+ * Three deliberate branch points beyond the straight-line spec example:
  * - `classified` can go straight to a terminal status without
  *   `awaiting_approval` (a low-risk-autonomous candidate needs no human
  *   approval step) or straight to `blocked`/`failed` (a prohibited or
@@ -21,6 +21,17 @@ import { isTerminalRunStatus, RESULT_STATE_TERMINAL_STATUS } from "../schema/aut
  * - `cancelled` and `budget_exhausted` are reachable from every
  *   non-terminal status, since a human operator or a budget check can
  *   interrupt a run at any stage, not only at a specific one.
+ * - `executing -> blocked` (M37-WU03 correction, recorded honestly
+ *   rather than silently added): M36-WU04's own produceAutonomousEvidencePacket
+ *   reports resultState:"blocked" the moment a proposed command is
+ *   denied by command policy mid-execution -- a real, legitimate
+ *   stopping point that never reaches `validating`/`reviewing` at all.
+ *   This table originally only reached `blocked` via `reviewing`
+ *   (build spec's straight-line example), which never actually
+ *   happens for that outcome in the real evidence-binding
+ *   implementation -- discovered wiring WU37-03's real (non-simulated)
+ *   completion path against M36-WU04's already-existing, unmodified
+ *   behavior.
  */
 const ALLOWED_TRANSITIONS: Readonly<Record<AutonomousRunStatus, ReadonlySet<AutonomousRunStatus>>> = {
   created: new Set(["preflight", "cancelled", "failed"]),
@@ -28,7 +39,7 @@ const ALLOWED_TRANSITIONS: Readonly<Record<AutonomousRunStatus, ReadonlySet<Auto
   classified: new Set(["awaiting_approval", "preparing_workspace", "blocked", "failed", "cancelled"]),
   awaiting_approval: new Set(["preparing_workspace", "blocked", "cancelled"]),
   preparing_workspace: new Set(["executing", "blocked", "failed", "cancelled"]),
-  executing: new Set(["validating", "failed", "cancelled", "budget_exhausted"]),
+  executing: new Set(["validating", "blocked", "failed", "cancelled", "budget_exhausted"]),
   validating: new Set(["reviewing", "failed", "cancelled", "budget_exhausted"]),
   reviewing: new Set(["completed", "blocked", "failed", "cancelled"]),
   completed: new Set(),

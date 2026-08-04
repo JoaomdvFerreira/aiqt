@@ -103,9 +103,24 @@ describe("produceAutonomousEvidencePacket (M36-WU04, real disposable repository)
   }
 
   it("resultState:passed when the repair changes a file, targeted validation passes, and no findings are raised", () => {
+    // M37-WU03 correction: the proposed commands now COMMIT the rename
+    // on the run's own branch, not merely stage it -- a bare `git mv`
+    // with no commit leaves the worktree genuinely dirty, and
+    // `git worktree remove` (never passed --force by this repository,
+    // by design) legitimately refuses to remove a dirty worktree. This
+    // test previously asserted cleanupStatus:"cleaned" while leaving the
+    // worktree dirty, which only ever passed because
+    // produceAutonomousEvidencePacket itself had a real bug (found while
+    // building M37-WU03's own tests): it discarded removeAutonomousWorktree's
+    // result entirely and hardcoded "cleaned" unconditionally. Both are
+    // fixed now -- see autonomous-run-evidence-binding-service.ts's own
+    // comment at the fix site.
     const packet = produceAutonomousEvidencePacket(
       baseParams({
-        agentAdapter: new DeterministicStubAgentAdapter([{ command: "git", args: ["mv", "README.md", "README2.md"] }]),
+        agentAdapter: new DeterministicStubAgentAdapter([
+          { command: "git", args: ["mv", "README.md", "README2.md"] },
+          { command: "git", args: ["commit", "-m", "rename readme"] },
+        ]),
         targetedValidationCommands: [{ command: "git", args: ["status"] }],
       }),
     );
@@ -115,6 +130,17 @@ describe("produceAutonomousEvidencePacket (M36-WU04, real disposable repository)
     expect(packet.diffSummary?.changedFiles).toBe(1);
     expect(packet.filesChanged.length).toBeGreaterThan(0);
     expect(packet.workspace?.cleanupStatus).toBe("cleaned");
+  });
+
+  it("reports cleanupStatus:cleanup_failed (never a false 'cleaned') when the worktree is left genuinely dirty -- regression test for the real defect described above", () => {
+    const packet = produceAutonomousEvidencePacket(
+      baseParams({
+        agentAdapter: new DeterministicStubAgentAdapter([{ command: "git", args: ["mv", "README.md", "README2.md"] }]),
+        targetedValidationCommands: [{ command: "git", args: ["status"] }],
+      }),
+    );
+    expect(packet.resultState).toBe("passed"); // the repair + validation still succeeded -- only cleanup failed
+    expect(packet.workspace?.cleanupStatus).toBe("cleanup_failed");
   });
 
   it("resultState:validation_failed when no targeted validation commands are ever supplied (no pass without validation)", () => {

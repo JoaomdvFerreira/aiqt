@@ -74,9 +74,10 @@ describe("M33-WU05: CLI contract matrix -- every actionable command exposes --js
   });
 });
 
-// 66 actionable (leaf) commands as of M37-WU01 (58 as of M33-WU05, +8 for
-// the new `aiqt autonomous inspect|classify|approve|run|status|cancel|
-// result|cleanup` family) -- distinct from the *.command.ts file count
-// (some files export multiple registered commands, e.g. workspace.command.ts
+// 67 actionable (leaf) commands as of M37-WU03 (58 as of M33-WU05, +8 for
+// the M37-WU01 `aiqt autonomous inspect|classify|approve|run|status|
+// cancel|result|cleanup` family, +1 for M37-WU03's `aiqt autonomous
+// agent-import`) -- distinct from the *.command.ts file count (some
+// files export multiple registered commands, e.g. workspace.command.ts
 // covers prepare/status/release/recover).
-const EXPECTED_COMMAND_COUNT = 66;
+const EXPECTED_COMMAND_COUNT = 67;

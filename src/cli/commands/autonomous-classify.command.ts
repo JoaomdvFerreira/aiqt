@@ -13,6 +13,7 @@ import { readStdinText, isStdinInteractiveTty, type StdinLike } from "../../core
 import type { AutonomousRunRecord, AutonomousRunAuditEntry } from "../../schema/autonomous-run-record.schema.js";
 import { PROHIBITED_AREA_TAGS, type ProhibitedAreaTag, type AutonomousRunStatus } from "../../schema/autonomous-run.schema.js";
 import { ALWAYS_DENIED_COMMAND_CLASSES } from "../../schema/autonomous-run.schema.js";
+import type { AutonomousAgentProposedCommand } from "../../schema/autonomous-agent-request.schema.js";
 
 /**
  * M37-WU01 (build spec: "aiqt autonomous classify"; "Candidate input").
@@ -36,6 +37,9 @@ export interface AutonomousClassifyOptions {
   requestedPermission?: string[];
   prohibitedArea?: string[];
   validationAvailable?: boolean;
+  /** M37-WU03: real validation commands for a real (non-simulated) run's completion path. Each entry is a single "cmd arg1 arg2" string, whitespace-split -- no quoting support, intentionally simple. */
+  targetedValidationCommand?: string[];
+  authoritativeValidationCommand?: string[];
   configPath?: string;
   evidenceDir?: string;
 }
@@ -46,6 +50,12 @@ interface Deps {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+/** "git status" -> {command:"git", args:["status"]}. No quoting/escaping support -- a deliberately simple whitespace split, matching this flag's documented "no quoting support" limitation. */
+function parseCommandString(text: string): AutonomousAgentProposedCommand {
+  const parts = text.trim().split(/\s+/).filter((p) => p.length > 0);
+  return { command: parts[0] ?? "", args: parts.slice(1) };
 }
 
 function auditEntry(event: AutonomousRunAuditEntry["event"], detail: string): AutonomousRunAuditEntry {
@@ -110,6 +120,12 @@ export async function runAutonomousClassify(ctx: CommandContext, options: Autono
       ExitCode.InvalidInput,
       "AUTONOMOUS-CLASSIFY-INVALID-PROHIBITED-AREA",
     );
+  }
+
+  const targetedValidationCommands = (options.targetedValidationCommand ?? []).map(parseCommandString);
+  const authoritativeValidationCommands = (options.authoritativeValidationCommand ?? []).map(parseCommandString);
+  if ([...targetedValidationCommands, ...authoritativeValidationCommands].some((c) => c.command === "")) {
+    return autonomousFailure("A --targeted-validation-command/--authoritative-validation-command value was empty.", ExitCode.InvalidInput, "AUTONOMOUS-CLASSIFY-EMPTY-VALIDATION-COMMAND");
   }
 
   const configOutcome = resolveOperatorConfigOrFail({
@@ -182,6 +198,9 @@ export async function runAutonomousClassify(ctx: CommandContext, options: Autono
     approval: null,
     evidencePacket: null,
     auditLog,
+    agentRequestId: null,
+    targetedValidationCommands,
+    authoritativeValidationCommands,
   };
 
   saveAutonomousRunRecord(record, config.evidenceOutputDir);

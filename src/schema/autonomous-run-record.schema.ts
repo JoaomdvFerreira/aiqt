@@ -8,6 +8,7 @@ import {
   AutonomousEvidencePacketSchema,
   AutonomousRunEventTypeSchema,
 } from "./autonomous-run.schema.js";
+import { AutonomousAgentProposedCommandSchema } from "./autonomous-agent-request.schema.js";
 
 /**
  * M37-WU01: the persisted, CLI-visible record of one autonomous run --
@@ -58,6 +59,25 @@ export const AutonomousRunRecordSchema = z
     approval: AutonomousApprovalRecordSchema.nullable(),
     evidencePacket: AutonomousEvidencePacketSchema.nullable(),
     auditLog: z.array(AutonomousRunAuditEntrySchema),
+    /**
+     * M37-WU03: the id of the AutonomousAgentRequest (M37-WU02) built for
+     * this run's real (non-simulated) execution, once `aiqt autonomous
+     * run` (without --simulate) has created one. Null until then, and
+     * for every simulated run.
+     */
+    agentRequestId: z.string().min(1).nullable(),
+    /**
+     * M37-WU03: real validation commands, supplied at classify time
+     * (`--targeted-validation-command`/`--authoritative-validation-
+     * command`), used only by the real (non-simulated) completion path
+     * (autonomous-agent-import.command.ts) -- an empty
+     * targetedValidationCommands list preserves M36-WU04's own "no pass
+     * without validation" invariant unchanged (runAutonomousValidation
+     * itself still enforces this; this record only carries the operator's
+     * declared commands through to that call).
+     */
+    targetedValidationCommands: z.array(AutonomousAgentProposedCommandSchema),
+    authoritativeValidationCommands: z.array(AutonomousAgentProposedCommandSchema),
   })
   .strict();
 export type AutonomousRunRecord = z.infer<typeof AutonomousRunRecordSchema>;
