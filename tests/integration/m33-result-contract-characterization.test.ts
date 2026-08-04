@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
+import { HEAVY_SPAWNING_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { spawnSync } from "node:child_process";
 import { writeFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -12,7 +13,7 @@ import { makeTempDir, removeDir } from "../helpers.js";
 // docs/engineering/m30-correction-node22-integration-timeouts.md for why
 // this repository's convention is a per-file testTimeout override rather
 // than a global one.
-vi.setConfig({ testTimeout: 20000 });
+vi.setConfig({ testTimeout: HEAVY_SPAWNING_TEST_TIMEOUT_MS });
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");

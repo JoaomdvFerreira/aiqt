@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
+import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { spawnSync } from "node:child_process";
 import { writeFileSync, readFileSync, chmodSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -14,7 +15,7 @@ import { makeTempDir, removeDir } from "../helpers.js";
 // inherent subprocess-spawn cost, not product or test-setup
 // inefficiency -- see
 // docs/engineering/m30-correction-node22-integration-timeouts.md.
-vi.setConfig({ testTimeout: 15000 });
+vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");

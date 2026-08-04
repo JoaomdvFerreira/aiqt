@@ -383,3 +383,99 @@ no platform exclusion added.
   current source of truth for that leg.
 - The three static architecture/security allowlists (§4) remain a live,
   undiscovered-file risk until WU34-03's dynamic-discovery migration lands.
+
+## 9. WU34-02 addendum — implementation, a corrected inventory gap, and residual measurement
+
+### 9.1 Implemented: `tests/workload-timeout-policy.ts`, the single shared policy source
+
+Two exported constants: `SPAWNING_SUITE_TEST_TIMEOUT_MS = 15000` (§6.1's
+class-scoped value, applied to all 33 known-spawning files) and
+`HEAVY_SPAWNING_TEST_TIMEOUT_MS = 25000` (the documented per-file exception
+tier, applied to the 2 files whose own heaviest test measurably needs more
+headroom: `m33-result-contract-characterization.test.ts` and
+`evidence-advisory-hardening.test.ts` — the latter promoted during this
+Work Unit after measurement showed only ~1.1-1.3x headroom at the class
+default). All 29 previously-unprotected spawning files plus the 4
+pre-existing `vi.setConfig` overrides now import these named constants
+instead of a locally hardcoded literal — one source of truth, not ~30
+scattered copies of the same number. `vitest.config.ts`'s global default
+(5000ms) is unchanged.
+
+### 9.2 Corrected inventory gap: a second, differently-shaped inline-timeout pattern
+
+§2's "exactly 2 inline sites" was **incomplete**. Grepping specifically for
+`vi.setConfig`-style patterns during WU34-01 missed a second, differently-
+shaped per-`it()` inline timeout convention already in wide use:
+`}, <milliseconds>);` on the line closing the test callback (vs. the
+`\n  <milliseconds>,\n);` shape the WU34-01 regex was anchored to). A full
+grep for this second shape during WU34-02 found **81 occurrences across 18
+files**, not 2. Of those 18 files, **12 were already correctly classified**
+as process-spawning (their inline timeouts sit alongside real
+`spawnSync`/`execFileSync` calls, e.g. `cli.test.ts`, `evidence-gate-
+simulate.test.ts`, `execution-full-lifecycle.test.ts`). **6 files were not
+previously inventoried at all**: `checkpoint-advisory-issues-feedback.test.ts`,
+`checkpoint-evidence-advisory.test.ts`,
+`checkpoint-required-evidence-enforcement.test.ts`,
+`evidence-gate-enforcement-activation-review.test.ts`,
+`evidence-gate-exception-lifecycle.test.ts`, `gate-k-dogfood.test.ts`.
+
+**Verified these 6 files do not spawn any subprocess** (`grep -c
+"spawnSync\|execFileSync\|tsxCli"` → 0 for all 6) — they call command
+functions directly, in-process (`runInit`, `runCheckpoint`,
+`runEvidenceGatePolicyImport`, etc., imported straight from
+`src/cli/commands/*.js`). Their existing 20000-40000ms per-test overrides
+are therefore sized for a **different cost driver** than every other
+override in this document: real, but purely in-process, multi-step
+filesystem I/O and computation (many sequential real file writes/reads and
+command-function calls within one test), not subprocess-spawn latency. They
+remain classified as **filesystem integration** (§1), not reclassified as
+spawning. None of these 6 files or their tests appeared as a failure in any
+full-suite measurement run in this Work Unit or WU34-01 — they are already
+adequately provisioned by whoever originally sized them, and are reported
+here for inventory completeness, not because they needed fixing.
+
+**Not migrated onto the shared `SPAWNING_SUITE_TEST_TIMEOUT_MS`/
+`HEAVY_SPAWNING_TEST_TIMEOUT_MS` constants** in this Work Unit: these 81
+sites' values (a mix of 20000/30000/40000/60000ms, evidently each
+individually judged against that specific test's real cost) are not the
+same policy as the subprocess-spawn class this Work Unit's evidence base
+(§3) is about, and touching 81 already-correctly-functioning sites across
+18 files carries real risk for zero measured reliability benefit — no
+regression was observed from leaving them as-is. Consolidating this second,
+distinct "heavy in-process workflow" class onto its own shared constant(s)
+is recorded as a legitimate future cleanup opportunity, not required for
+WU34-02's or WU34-03's acceptance criteria.
+
+### 9.3 Full-suite measurement after the class-scoped policy landed
+
+| Run | Files | Tests | Failures |
+| --- | --- | --- | --- |
+| 1 (before promoting `evidence-advisory-hardening.test.ts` to HEAVY) | 230/231 | 2385/2386 | 1 (the known heaviest test) |
+| 2 (after promoting to HEAVY tier, 25000ms) | 229/231 | 2384/2386 | 2 (both pure timeout; machine load higher this run) |
+| 3 | **231/231** | **2386/2386** | **0 — fully clean** |
+| 4 | 230/231 | 2385/2386 | 1 (`evidence-advisory-hardening.test.ts`'s own **pre-existing 30000ms inline override**, not the new file-level 25000ms constant, still occasionally insufficient under this run's peak load) |
+
+Run 4's residual confirms a real, honest finding: even a generously-sized,
+already-existing 30000ms per-test budget (on an 11-13s isolated floor, ~2.3-
+2.7x headroom) can still occasionally miss under sustained heavy concurrent
+load on a contended development machine. This is not evidence the WU34-02
+policy is wrong — it is exactly the kind of residual variance the build
+spec's WU34-03 "5 consecutive runs" gate exists to characterize honestly
+rather than paper over with an ever-larger single-run timeout. No further
+timeout increase was applied chasing this single run; doing so would be the
+reactive per-file-patching-as-primary-strategy pattern this milestone
+explicitly rejects (§1). Real CI (dedicated, typically less contended than
+this session's dev machine after multiple consecutive hour-plus validation
+runs) remains the authoritative environment for WU34-03's reliability gate.
+
+### 9.4 Explicit scope confirmation
+
+Changed in WU34-02: `tests/workload-timeout-policy.ts` (new), the 32 test
+files' `vi.setConfig` calls (29 newly added, 3 migrated from a hardcoded
+literal to the shared constant, 1 promoted from `SPAWNING_SUITE_TEST_TIMEOUT_MS`
+to `HEAVY_SPAWNING_TEST_TIMEOUT_MS`), and this document plus the
+characterization test's recorded baselines. **Not changed:**
+`vitest.config.ts`'s global default, `package.json` scripts,
+`.github/workflows/validate.yml`, any test's assertions, any test skipped,
+any platform exclusion, schema version, package version, any runtime
+dependency.

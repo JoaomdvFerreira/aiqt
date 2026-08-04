@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -7,6 +8,12 @@ import { buildInitialStateModel, writeStateModel, readStateModel } from "../../s
 import { prepareIsolatedWorkspace } from "../../src/workspaces/workspace-service.js";
 import { deriveDefaultWorkspaceRoot } from "../../src/workspaces/workspace-path-policy.js";
 import { makeTempDir, removeDir } from "../helpers.js";
+
+// M34-WU02: this file spawns real subprocesses (CLI and/or git); see
+// docs/engineering/m34-validation-workload-policy.md Sec 6.1 for the
+// measured justification. Uses the shared class constant, not a locally
+// hardcoded literal.
+vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 
 const T1 = "2026-01-01T00:00:00.000Z";
 

@@ -1,4 +1,5 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -14,6 +15,12 @@ import { runImport } from "../../src/cli/commands/import.command.js";
 import { normalizeInitOptions } from "../../src/cli/options.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
 import { makeTempDir, removeDir, contextFor } from "../helpers.js";
+
+// M34-WU02: this file spawns real subprocesses (CLI and/or git); see
+// docs/engineering/m34-validation-workload-policy.md Sec 6.1 for the
+// measured justification. Uses the shared class constant, not a locally
+// hardcoded literal.
+vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");

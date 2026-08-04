@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -16,6 +17,12 @@ import {
   gitWorktreeRemove,
   GitRunnerError,
 } from "../../src/workspaces/git-command-runner.js";
+
+// M34-WU02: this file spawns real subprocesses (CLI and/or git); see
+// docs/engineering/m34-validation-workload-policy.md Sec 6.1 for the
+// measured justification. Uses the shared class constant, not a locally
+// hardcoded literal.
+vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 import { makeTempDir, removeDir } from "../helpers.js";
 
 /**

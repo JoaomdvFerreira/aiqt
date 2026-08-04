@@ -1,9 +1,20 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { HEAVY_SPAWNING_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { spawnSync, execFileSync } from "node:child_process";
 import { writeFileSync, readFileSync, chmodSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeTempDir, removeDir } from "../helpers.js";
+
+// M34-WU02: this file spawns real subprocesses (CLI and/or git); see
+// docs/engineering/m34-validation-workload-policy.md Sec 6.1 for the
+// measured justification. Uses the shared class constant, not a locally
+// hardcoded literal.
+// M34-WU02: promoted to the HEAVY tier -- this file's heaviest test measured
+// 11.6-13.2s isolated, only ~1.1-1.3x headroom over the 15000ms class
+// default (docs/engineering/m34-validation-workload-policy.md Sec 3/6.1),
+// and was observed to still occasionally exceed it under real full-suite load.
+vi.setConfig({ testTimeout: HEAVY_SPAWNING_TEST_TIMEOUT_MS });
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");

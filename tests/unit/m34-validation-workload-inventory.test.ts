@@ -91,13 +91,17 @@ const KNOWN_SPAWNING_FILES = [
   "tests/integration/workspace-packet-status-integration.test.ts",
 ].sort();
 
-/** The exact 4 files carrying a per-file vi.setConfig({testTimeout}) override. */
-const KNOWN_TIMEOUT_OVERRIDE_FILES = [
-  "tests/integration/execution-adapter-claude-code-import.test.ts",
-  "tests/integration/execution-external-import.test.ts",
-  "tests/integration/execution-hardening.test.ts",
-  "tests/integration/m33-result-contract-characterization.test.ts",
-].sort();
+/**
+ * M34-WU02: every one of the 33 known-spawning files now carries a per-file
+ * `vi.setConfig({ testTimeout: ... })` override sourced from the shared
+ * tests/workload-timeout-policy.ts constants (see
+ * docs/engineering/m34-validation-workload-policy.md Sec 6.1) -- this is
+ * the exact set as KNOWN_SPAWNING_FILES. Before WU34-02, only 4 of these 33
+ * had an override (all pre-existing, from M30/M33); the other 29 relied on
+ * the unmodified 5000ms global default, which is the root cause
+ * characterized in WU34-01.
+ */
+const KNOWN_TIMEOUT_OVERRIDE_FILES = [...KNOWN_SPAWNING_FILES].sort();
 
 describe("M34-WU01: every process-spawning test file is classified (no silent new subprocess-spawning file)", () => {
   it("the set of test files that spawn git or the CLI matches the recorded workload-policy baseline exactly", () => {
@@ -136,8 +140,8 @@ describe("M34-WU01: every process-spawning test file is classified (no silent ne
   });
 });
 
-describe("M34-WU01: timeout-override inventory (no override outside the approved, recorded set)", () => {
-  it("the set of files with a per-file vi.setConfig({testTimeout}) override matches the recorded baseline exactly", () => {
+describe("M34-WU02: every known-spawning file now has a class-scoped timeout override (no file outside the approved, recorded set)", () => {
+  it("the set of files with a per-file vi.setConfig({testTimeout}) override now equals the full spawning-file set", () => {
     const allFiles = walkTestFiles(testsDir);
     const overrideFiles = allFiles
       .filter((f) => /vi\.setConfig\(\s*\{\s*testTimeout:/.test(readFileSync(f, "utf8")))
@@ -145,40 +149,114 @@ describe("M34-WU01: timeout-override inventory (no override outside the approved
       .sort();
     expect(
       overrideFiles,
-      "A test file's testTimeout override set changed. This Work Unit (WU34-01) " +
-        "does not add or remove any override -- if this fails, something outside " +
-        "this Work Unit's scope touched timeout configuration. Update the recorded " +
-        "baseline in docs/engineering/m34-validation-workload-policy.md Sec 2 and " +
-        "KNOWN_TIMEOUT_OVERRIDE_FILES here only as part of a reviewed WU34-02+ change.",
+      "A test file's testTimeout override set changed. Update the recorded " +
+        "baseline in docs/engineering/m34-validation-workload-policy.md Sec 2/6.1 and " +
+        "KNOWN_TIMEOUT_OVERRIDE_FILES here only as part of a reviewed change.",
     ).toEqual(KNOWN_TIMEOUT_OVERRIDE_FILES);
   });
 
-  it("the 2 known per-it() inline numeric timeout arguments are still the only such sites", () => {
-    // A trailing numeric literal as the it() callback's sibling argument,
-    // anchored to a line ending in `,\n    <digits>,\n  );` immediately
-    // after a callback's closing brace -- deliberately narrow (a general
-    // regex over arbitrary code bodies is too fragile/false-positive-prone
-    // to be a reliable inventory signal here; this anchors on the specific
-    // known sites' shape instead of attempting an exhaustive AST-level
-    // check). Two sites are known: tests/integration/cli.test.ts (a real
-    // CLI-subprocess-spawning test, M21 vitest-3-upgrade rationale) and
-    // tests/unit/execution-metadata-limits-stress.test.ts (a pure-CPU
-    // combinatorial stress test with no subprocess spawn at all -- found
-    // BY this characterization test during M34-WU01, not previously
-    // recorded in any prior milestone's timeout inventory).
+  it("every override uses the shared workload-timeout-policy constants, not a locally hardcoded literal", () => {
+    const allFiles = walkTestFiles(testsDir);
+    const offenders: string[] = [];
+    for (const f of allFiles) {
+      const text = readFileSync(f, "utf8");
+      if (/vi\.setConfig\(\s*\{\s*testTimeout:\s*\d/.test(text)) {
+        offenders.push(relPath(f));
+      }
+    }
+    expect(
+      offenders,
+      "A file's vi.setConfig({testTimeout}) uses a hardcoded numeric literal instead of " +
+        "importing SPAWNING_SUITE_TEST_TIMEOUT_MS/HEAVY_SPAWNING_TEST_TIMEOUT_MS from " +
+        "tests/workload-timeout-policy.ts -- this defeats the single-source-of-truth " +
+        "policy WU34-02 established.",
+    ).toEqual([]);
+  });
+
+  /**
+   * M34-WU02 correction: the WU34-01 draft of this test only matched one
+   * inline-timeout shape (`\n  <digits>,\n);`, found via
+   * tests/integration/cli.test.ts and
+   * tests/unit/execution-metadata-limits-stress.test.ts) and MISSED a
+   * second, equally common shape already in wide use across this suite:
+   * `}, <digits>);` on the line that closes the it() callback. A full scan
+   * for the second shape during WU34-02 found 81 occurrences across 18
+   * files -- 12 already correctly classified as process-spawning (their
+   * inline timeouts sit beside real spawnSync/execFileSync calls), and 6
+   * previously uninventoried files that call command functions directly
+   * in-process (verified zero spawnSync/execFileSync/tsxCli references) and
+   * whose slowness is real in-process filesystem I/O and computation, not
+   * subprocess latency -- docs/engineering/m34-validation-workload-policy.md
+   * Sec 9.2 records the full accounting and why these 6 remain classified
+   * as filesystem-integration rather than reclassified as spawning.
+   */
+  const KNOWN_SAME_LINE_INLINE_TIMEOUT_COUNTS: Record<string, number> = {
+    "tests/integration/checkpoint-advisory-issues-feedback.test.ts": 8,
+    "tests/integration/checkpoint-evidence-advisory.test.ts": 13,
+    "tests/integration/checkpoint-required-evidence-enforcement.test.ts": 9,
+    "tests/integration/cli.test.ts": 4,
+    "tests/integration/evidence-advisory-hardening.test.ts": 3,
+    "tests/integration/evidence-gate-enforcement-activation-review.test.ts": 5,
+    "tests/integration/evidence-gate-exception-lifecycle.test.ts": 6,
+    "tests/integration/evidence-gate-full-lifecycle.test.ts": 1,
+    "tests/integration/evidence-gate-hardening.test.ts": 7,
+    "tests/integration/evidence-gate-simulate.test.ts": 11,
+    "tests/integration/execution-adapter-claude-code-full-lifecycle.test.ts": 1,
+    "tests/integration/execution-external-hardening.test.ts": 6,
+    "tests/integration/execution-full-lifecycle.test.ts": 1,
+    "tests/integration/execution-metadata-runlog-recovery.test.ts": 1,
+    "tests/integration/execution-next-cancel-safeguard.test.ts": 1,
+    "tests/integration/execution-workflow-integration.test.ts": 1,
+    "tests/integration/gate-k-dogfood.test.ts": 1,
+    "tests/integration/required-evidence-hardening.test.ts": 2,
+  };
+
+  /** The 2 sites already known from the WU34-01 draft of this test (a different closing shape). */
+  const KNOWN_TRAILING_LINE_INLINE_TIMEOUT_FILES = [
+    "tests/integration/cli.test.ts",
+    "tests/unit/execution-metadata-limits-stress.test.ts",
+  ].sort();
+
+  it("the 'same-line' inline-timeout shape (}, <ms>);) matches the corrected 18-file/81-occurrence baseline exactly", () => {
+    const allFiles = walkTestFiles(testsDir);
+    const actual: Record<string, number> = {};
+    for (const f of allFiles) {
+      const text = readFileSync(f, "utf8");
+      const matches = [...text.matchAll(/\}, \d{4,7}\);/g)];
+      if (matches.length > 0) actual[relPath(f)] = matches.length;
+    }
+    expect(
+      actual,
+      "The set (or per-file count) of same-line inline it() timeout arguments changed. " +
+        "Update KNOWN_SAME_LINE_INLINE_TIMEOUT_COUNTS here and " +
+        "docs/engineering/m34-validation-workload-policy.md Sec 9.2 deliberately.",
+    ).toEqual(KNOWN_SAME_LINE_INLINE_TIMEOUT_COUNTS);
+  });
+
+  it("the 'trailing-line' inline-timeout shape (\\n  <ms>,\\n);) matches the recorded 2-file baseline exactly", () => {
     const allFiles = walkTestFiles(testsDir);
     const offenders: string[] = [];
     for (const f of allFiles) {
       const text = readFileSync(f, "utf8");
       const matches = [...text.matchAll(/\n\s*(\d{4,7}),\n\s*\);/g)];
-      if (matches.length > 0) offenders.push(`${relPath(f)} (${matches.length})`);
+      if (matches.length > 0) offenders.push(relPath(f));
     }
-    expect(
-      offenders,
-      "A new per-it() inline numeric timeout argument appeared (or a known one " +
-        "disappeared). Update this test and Sec 2 of the policy doc deliberately if " +
-        "this is an intentional, reviewed change.",
-    ).toEqual(["tests/integration/cli.test.ts (1)", "tests/unit/execution-metadata-limits-stress.test.ts (1)"]);
+    expect(offenders.sort()).toEqual(KNOWN_TRAILING_LINE_INLINE_TIMEOUT_FILES);
+  });
+
+  it("the 6 newly-inventoried in-process (non-spawning) heavy-timeout files genuinely spawn no subprocess", () => {
+    const nonSpawningHeavyFiles = [
+      "tests/integration/checkpoint-advisory-issues-feedback.test.ts",
+      "tests/integration/checkpoint-evidence-advisory.test.ts",
+      "tests/integration/checkpoint-required-evidence-enforcement.test.ts",
+      "tests/integration/evidence-gate-enforcement-activation-review.test.ts",
+      "tests/integration/evidence-gate-exception-lifecycle.test.ts",
+      "tests/integration/gate-k-dogfood.test.ts",
+    ];
+    for (const f of nonSpawningHeavyFiles) {
+      const text = readFileSync(join(repoRoot, f), "utf8");
+      expect(hasGitSpawn(text) || hasCliSpawn(text), `${f} should not spawn a subprocess`).toBe(false);
+    }
   });
 });
 
