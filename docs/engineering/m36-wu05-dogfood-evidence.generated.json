@@ -1,0 +1,658 @@
+{
+  "scenario_1_successful_low_risk_run": {
+    "packet": {
+      "runId": "dogfood-run-1-1785860549231",
+      "candidate": {
+        "issueId": "DOGFOOD-1",
+        "source": "manual",
+        "repository": "dogfood/target-repo",
+        "baseRef": "HEAD",
+        "objective": "Rename a stray typo-named file to its corrected name",
+        "acceptanceCriteria": [
+          "the target file no longer exists under its typo name",
+          "targeted validation passes"
+        ],
+        "constraints": [],
+        "requestedPermissions": []
+      },
+      "safetyAssessment": {
+        "riskClass": "low_risk_autonomous",
+        "prohibitedAreas": [],
+        "requiredApprovals": [],
+        "commandPolicyProfile": "default",
+        "networkPolicy": "denied",
+        "reason": "Dogfood pilot: no prohibited areas detected in this candidate."
+      },
+      "workspace": {
+        "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-target-44A7ET",
+        "baseRef": "HEAD",
+        "baseCommit": "b69a7365aceb293a724e950814ad44dc78694b6c",
+        "branch": "autonomous/dogfood-1-dogfood-run-1-1785860549231",
+        "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-ws-root-k9Qx7f\\dogfood-run-1-1785860549231",
+        "createdFiles": [],
+        "cleanupStatus": "cleaned"
+      },
+      "commandsExecuted": [
+        "git mv CONTRIBUTNIG.md CONTRIBUTING.md"
+      ],
+      "filesChanged": [
+        "CONTRIBUTING.md"
+      ],
+      "diffSummary": {
+        "changedFiles": 1,
+        "insertedLines": 0,
+        "deletedLines": 0,
+        "unexpectedFiles": []
+      },
+      "validation": {
+        "targetedTestsPassed": true,
+        "authoritativeValidationPassed": null,
+        "durationSeconds": 0.069
+      },
+      "findings": [],
+      "residualRisk": "Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+      "resultState": "passed",
+      "recommendedHumanAction": "review_and_merge"
+    },
+    "commandResult": {
+      "status": "passed",
+      "action": "execution",
+      "projectStatus": null,
+      "currentMilestoneId": null,
+      "currentWorkUnitId": null,
+      "summary": "Autonomous run dogfood-run-1-1785860549231 for issue \"DOGFOOD-1\" finished with result state \"passed\": Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+      "completedActions": [
+        "git mv CONTRIBUTNIG.md CONTRIBUTING.md"
+      ],
+      "changedFiles": [
+        "CONTRIBUTING.md"
+      ],
+      "affectedItems": [],
+      "blockingIssues": [],
+      "warnings": [],
+      "requiresHumanInput": false,
+      "nextRecommendedCommand": null,
+      "exitCode": 0,
+      "data": {
+        "runId": "dogfood-run-1-1785860549231",
+        "candidate": {
+          "issueId": "DOGFOOD-1",
+          "source": "manual",
+          "repository": "dogfood/target-repo",
+          "baseRef": "HEAD",
+          "objective": "Rename a stray typo-named file to its corrected name",
+          "acceptanceCriteria": [
+            "the target file no longer exists under its typo name",
+            "targeted validation passes"
+          ],
+          "constraints": [],
+          "requestedPermissions": []
+        },
+        "safetyAssessment": {
+          "riskClass": "low_risk_autonomous",
+          "prohibitedAreas": [],
+          "requiredApprovals": [],
+          "commandPolicyProfile": "default",
+          "networkPolicy": "denied",
+          "reason": "Dogfood pilot: no prohibited areas detected in this candidate."
+        },
+        "workspace": {
+          "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-target-44A7ET",
+          "baseRef": "HEAD",
+          "baseCommit": "b69a7365aceb293a724e950814ad44dc78694b6c",
+          "branch": "autonomous/dogfood-1-dogfood-run-1-1785860549231",
+          "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-ws-root-k9Qx7f\\dogfood-run-1-1785860549231",
+          "createdFiles": [],
+          "cleanupStatus": "cleaned"
+        },
+        "commandsExecuted": [
+          "git mv CONTRIBUTNIG.md CONTRIBUTING.md"
+        ],
+        "filesChanged": [
+          "CONTRIBUTING.md"
+        ],
+        "diffSummary": {
+          "changedFiles": 1,
+          "insertedLines": 0,
+          "deletedLines": 0,
+          "unexpectedFiles": []
+        },
+        "validation": {
+          "targetedTestsPassed": true,
+          "authoritativeValidationPassed": null,
+          "durationSeconds": 0.069
+        },
+        "findings": [],
+        "residualRisk": "Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+        "resultState": "passed",
+        "recommendedHumanAction": "review_and_merge"
+      }
+    }
+  },
+  "scenario_2_blocked_unsafe_run": {
+    "packet": {
+      "runId": "dogfood-run-2-1785860552413",
+      "candidate": {
+        "issueId": "DOGFOOD-1",
+        "source": "manual",
+        "repository": "dogfood/target-repo",
+        "baseRef": "HEAD",
+        "objective": "Rename a stray typo-named file to its corrected name",
+        "acceptanceCriteria": [
+          "the target file no longer exists under its typo name",
+          "targeted validation passes"
+        ],
+        "constraints": [],
+        "requestedPermissions": []
+      },
+      "safetyAssessment": {
+        "riskClass": "low_risk_autonomous",
+        "prohibitedAreas": [],
+        "requiredApprovals": [],
+        "commandPolicyProfile": "default",
+        "networkPolicy": "denied",
+        "reason": "Dogfood pilot: no prohibited areas detected in this candidate."
+      },
+      "workspace": {
+        "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-target-YcAXZt",
+        "baseRef": "HEAD",
+        "baseCommit": "da9dad169a164d763422335ca82e6a108fd22652",
+        "branch": "autonomous/dogfood-1-dogfood-run-2-1785860552413",
+        "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-ws-root-9CABsK\\dogfood-run-2-1785860552413",
+        "createdFiles": [],
+        "cleanupStatus": "cleaned"
+      },
+      "commandsExecuted": [
+        "git mv CONTRIBUTNIG.md CONTRIBUTING.md"
+      ],
+      "filesChanged": [
+        "CONTRIBUTING.md"
+      ],
+      "diffSummary": {
+        "changedFiles": 1,
+        "insertedLines": 0,
+        "deletedLines": 0,
+        "unexpectedFiles": []
+      },
+      "findings": [
+        "destructive commands are always denied, regardless of policy."
+      ],
+      "residualRisk": "A proposed command was denied by execution policy: destructive commands are always denied, regardless of policy.. The candidate as scoped cannot proceed autonomously.",
+      "resultState": "blocked",
+      "recommendedHumanAction": "discard"
+    },
+    "commandResult": {
+      "status": "blocked",
+      "action": "execution",
+      "projectStatus": null,
+      "currentMilestoneId": null,
+      "currentWorkUnitId": null,
+      "summary": "Autonomous run dogfood-run-2-1785860552413 for issue \"DOGFOOD-1\" finished with result state \"blocked\": A proposed command was denied by execution policy: destructive commands are always denied, regardless of policy.. The candidate as scoped cannot proceed autonomously.",
+      "completedActions": [
+        "git mv CONTRIBUTNIG.md CONTRIBUTING.md"
+      ],
+      "changedFiles": [
+        "CONTRIBUTING.md"
+      ],
+      "affectedItems": [],
+      "blockingIssues": [],
+      "warnings": [
+        {
+          "id": "AUTONOMOUS-RUN-FINDING-1",
+          "severity": "medium",
+          "area": "autonomous-run",
+          "message": "destructive commands are always denied, regardless of policy.",
+          "agentCanFix": false
+        }
+      ],
+      "requiresHumanInput": false,
+      "nextRecommendedCommand": null,
+      "exitCode": 2,
+      "data": {
+        "runId": "dogfood-run-2-1785860552413",
+        "candidate": {
+          "issueId": "DOGFOOD-1",
+          "source": "manual",
+          "repository": "dogfood/target-repo",
+          "baseRef": "HEAD",
+          "objective": "Rename a stray typo-named file to its corrected name",
+          "acceptanceCriteria": [
+            "the target file no longer exists under its typo name",
+            "targeted validation passes"
+          ],
+          "constraints": [],
+          "requestedPermissions": []
+        },
+        "safetyAssessment": {
+          "riskClass": "low_risk_autonomous",
+          "prohibitedAreas": [],
+          "requiredApprovals": [],
+          "commandPolicyProfile": "default",
+          "networkPolicy": "denied",
+          "reason": "Dogfood pilot: no prohibited areas detected in this candidate."
+        },
+        "workspace": {
+          "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-target-YcAXZt",
+          "baseRef": "HEAD",
+          "baseCommit": "da9dad169a164d763422335ca82e6a108fd22652",
+          "branch": "autonomous/dogfood-1-dogfood-run-2-1785860552413",
+          "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-ws-root-9CABsK\\dogfood-run-2-1785860552413",
+          "createdFiles": [],
+          "cleanupStatus": "cleaned"
+        },
+        "commandsExecuted": [
+          "git mv CONTRIBUTNIG.md CONTRIBUTING.md"
+        ],
+        "filesChanged": [
+          "CONTRIBUTING.md"
+        ],
+        "diffSummary": {
+          "changedFiles": 1,
+          "insertedLines": 0,
+          "deletedLines": 0,
+          "unexpectedFiles": []
+        },
+        "findings": [
+          "destructive commands are always denied, regardless of policy."
+        ],
+        "residualRisk": "A proposed command was denied by execution policy: destructive commands are always denied, regardless of policy.. The candidate as scoped cannot proceed autonomously.",
+        "resultState": "blocked",
+        "recommendedHumanAction": "discard"
+      }
+    }
+  },
+  "scenario_3_cancelled_run": {
+    "packet": {
+      "runId": "dogfood-run-3-1785860553754",
+      "candidate": {
+        "issueId": "DOGFOOD-1",
+        "source": "manual",
+        "repository": "dogfood/target-repo",
+        "baseRef": "HEAD",
+        "objective": "Rename a stray typo-named file to its corrected name",
+        "acceptanceCriteria": [
+          "the target file no longer exists under its typo name",
+          "targeted validation passes"
+        ],
+        "constraints": [],
+        "requestedPermissions": []
+      },
+      "safetyAssessment": {
+        "riskClass": "low_risk_autonomous",
+        "prohibitedAreas": [],
+        "requiredApprovals": [],
+        "commandPolicyProfile": "default",
+        "networkPolicy": "denied",
+        "reason": "Dogfood pilot: no prohibited areas detected in this candidate."
+      },
+      "workspace": {
+        "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-target-xenIPh",
+        "baseRef": "HEAD",
+        "baseCommit": "483c1d1099bfee5628fc082c38010b32cc519e27",
+        "branch": "autonomous/dogfood-1-dogfood-run-3-1785860553754",
+        "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-ws-root-3rVON4\\dogfood-run-3-1785860553754",
+        "createdFiles": [],
+        "cleanupStatus": "cleaned"
+      },
+      "commandsExecuted": [],
+      "filesChanged": [],
+      "diffSummary": {
+        "changedFiles": 0,
+        "insertedLines": 0,
+        "deletedLines": 0,
+        "unexpectedFiles": []
+      },
+      "findings": [
+        "Cancelled by cancellationSignal before the next command ran."
+      ],
+      "residualRisk": "Run was cancelled before completion: Cancelled by cancellationSignal before the next command ran.. Evidence is incomplete by design.",
+      "resultState": "cancelled",
+      "recommendedHumanAction": "discard"
+    },
+    "commandResult": {
+      "status": "blocked",
+      "action": "execution",
+      "projectStatus": null,
+      "currentMilestoneId": null,
+      "currentWorkUnitId": null,
+      "summary": "Autonomous run dogfood-run-3-1785860553754 for issue \"DOGFOOD-1\" finished with result state \"cancelled\": Run was cancelled before completion: Cancelled by cancellationSignal before the next command ran.. Evidence is incomplete by design.",
+      "completedActions": [],
+      "changedFiles": [],
+      "affectedItems": [],
+      "blockingIssues": [],
+      "warnings": [
+        {
+          "id": "AUTONOMOUS-RUN-FINDING-1",
+          "severity": "medium",
+          "area": "autonomous-run",
+          "message": "Cancelled by cancellationSignal before the next command ran.",
+          "agentCanFix": false
+        }
+      ],
+      "requiresHumanInput": false,
+      "nextRecommendedCommand": null,
+      "exitCode": 2,
+      "data": {
+        "runId": "dogfood-run-3-1785860553754",
+        "candidate": {
+          "issueId": "DOGFOOD-1",
+          "source": "manual",
+          "repository": "dogfood/target-repo",
+          "baseRef": "HEAD",
+          "objective": "Rename a stray typo-named file to its corrected name",
+          "acceptanceCriteria": [
+            "the target file no longer exists under its typo name",
+            "targeted validation passes"
+          ],
+          "constraints": [],
+          "requestedPermissions": []
+        },
+        "safetyAssessment": {
+          "riskClass": "low_risk_autonomous",
+          "prohibitedAreas": [],
+          "requiredApprovals": [],
+          "commandPolicyProfile": "default",
+          "networkPolicy": "denied",
+          "reason": "Dogfood pilot: no prohibited areas detected in this candidate."
+        },
+        "workspace": {
+          "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-target-xenIPh",
+          "baseRef": "HEAD",
+          "baseCommit": "483c1d1099bfee5628fc082c38010b32cc519e27",
+          "branch": "autonomous/dogfood-1-dogfood-run-3-1785860553754",
+          "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-ws-root-3rVON4\\dogfood-run-3-1785860553754",
+          "createdFiles": [],
+          "cleanupStatus": "cleaned"
+        },
+        "commandsExecuted": [],
+        "filesChanged": [],
+        "diffSummary": {
+          "changedFiles": 0,
+          "insertedLines": 0,
+          "deletedLines": 0,
+          "unexpectedFiles": []
+        },
+        "findings": [
+          "Cancelled by cancellationSignal before the next command ran."
+        ],
+        "residualRisk": "Run was cancelled before completion: Cancelled by cancellationSignal before the next command ran.. Evidence is incomplete by design.",
+        "resultState": "cancelled",
+        "recommendedHumanAction": "discard"
+      }
+    }
+  },
+  "scenario_4_budget_exhausted_run": {
+    "packet": {
+      "runId": "dogfood-run-4-1785860558763",
+      "candidate": {
+        "issueId": "DOGFOOD-1",
+        "source": "manual",
+        "repository": "dogfood/target-repo",
+        "baseRef": "HEAD",
+        "objective": "Rename a stray typo-named file to its corrected name",
+        "acceptanceCriteria": [
+          "the target file no longer exists under its typo name",
+          "targeted validation passes"
+        ],
+        "constraints": [],
+        "requestedPermissions": []
+      },
+      "safetyAssessment": {
+        "riskClass": "low_risk_autonomous",
+        "prohibitedAreas": [],
+        "requiredApprovals": [],
+        "commandPolicyProfile": "default",
+        "networkPolicy": "denied",
+        "reason": "Dogfood pilot: no prohibited areas detected in this candidate."
+      },
+      "workspace": {
+        "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-target-Qmrwbw",
+        "baseRef": "HEAD",
+        "baseCommit": "7838fef5b05bd6348d5600596d0899b0a0a213b4",
+        "branch": "autonomous/dogfood-1-dogfood-run-4-1785860558763",
+        "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-ws-root-4gWnMN\\dogfood-run-4-1785860558763",
+        "createdFiles": [],
+        "cleanupStatus": "cleaned"
+      },
+      "commandsExecuted": [
+        "git mv CONTRIBUTNIG.md CONTRIBUTING.md"
+      ],
+      "filesChanged": [
+        "CONTRIBUTING.md"
+      ],
+      "diffSummary": {
+        "changedFiles": 1,
+        "insertedLines": 0,
+        "deletedLines": 0,
+        "unexpectedFiles": []
+      },
+      "findings": [
+        "Budget would be exhausted by running the next command: commandCount."
+      ],
+      "residualRisk": "Run stopped after exhausting its budget: Budget would be exhausted by running the next command: commandCount.. Partial evidence only.",
+      "resultState": "budget_exhausted",
+      "recommendedHumanAction": "rerun_with_modified_budget"
+    },
+    "commandResult": {
+      "status": "blocked",
+      "action": "execution",
+      "projectStatus": null,
+      "currentMilestoneId": null,
+      "currentWorkUnitId": null,
+      "summary": "Autonomous run dogfood-run-4-1785860558763 for issue \"DOGFOOD-1\" finished with result state \"budget_exhausted\": Run stopped after exhausting its budget: Budget would be exhausted by running the next command: commandCount.. Partial evidence only.",
+      "completedActions": [
+        "git mv CONTRIBUTNIG.md CONTRIBUTING.md"
+      ],
+      "changedFiles": [
+        "CONTRIBUTING.md"
+      ],
+      "affectedItems": [],
+      "blockingIssues": [],
+      "warnings": [
+        {
+          "id": "AUTONOMOUS-RUN-FINDING-1",
+          "severity": "medium",
+          "area": "autonomous-run",
+          "message": "Budget would be exhausted by running the next command: commandCount.",
+          "agentCanFix": false
+        }
+      ],
+      "requiresHumanInput": false,
+      "nextRecommendedCommand": null,
+      "exitCode": 2,
+      "data": {
+        "runId": "dogfood-run-4-1785860558763",
+        "candidate": {
+          "issueId": "DOGFOOD-1",
+          "source": "manual",
+          "repository": "dogfood/target-repo",
+          "baseRef": "HEAD",
+          "objective": "Rename a stray typo-named file to its corrected name",
+          "acceptanceCriteria": [
+            "the target file no longer exists under its typo name",
+            "targeted validation passes"
+          ],
+          "constraints": [],
+          "requestedPermissions": []
+        },
+        "safetyAssessment": {
+          "riskClass": "low_risk_autonomous",
+          "prohibitedAreas": [],
+          "requiredApprovals": [],
+          "commandPolicyProfile": "default",
+          "networkPolicy": "denied",
+          "reason": "Dogfood pilot: no prohibited areas detected in this candidate."
+        },
+        "workspace": {
+          "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-target-Qmrwbw",
+          "baseRef": "HEAD",
+          "baseCommit": "7838fef5b05bd6348d5600596d0899b0a0a213b4",
+          "branch": "autonomous/dogfood-1-dogfood-run-4-1785860558763",
+          "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-ws-root-4gWnMN\\dogfood-run-4-1785860558763",
+          "createdFiles": [],
+          "cleanupStatus": "cleaned"
+        },
+        "commandsExecuted": [
+          "git mv CONTRIBUTNIG.md CONTRIBUTING.md"
+        ],
+        "filesChanged": [
+          "CONTRIBUTING.md"
+        ],
+        "diffSummary": {
+          "changedFiles": 1,
+          "insertedLines": 0,
+          "deletedLines": 0,
+          "unexpectedFiles": []
+        },
+        "findings": [
+          "Budget would be exhausted by running the next command: commandCount."
+        ],
+        "residualRisk": "Run stopped after exhausting its budget: Budget would be exhausted by running the next command: commandCount.. Partial evidence only.",
+        "resultState": "budget_exhausted",
+        "recommendedHumanAction": "rerun_with_modified_budget"
+      }
+    }
+  },
+  "scenario_5_validation_failed_run": {
+    "packet": {
+      "runId": "dogfood-run-5-1785860560011",
+      "candidate": {
+        "issueId": "DOGFOOD-1",
+        "source": "manual",
+        "repository": "dogfood/target-repo",
+        "baseRef": "HEAD",
+        "objective": "Rename a stray typo-named file to its corrected name",
+        "acceptanceCriteria": [
+          "the target file no longer exists under its typo name",
+          "targeted validation passes"
+        ],
+        "constraints": [],
+        "requestedPermissions": []
+      },
+      "safetyAssessment": {
+        "riskClass": "low_risk_autonomous",
+        "prohibitedAreas": [],
+        "requiredApprovals": [],
+        "commandPolicyProfile": "default",
+        "networkPolicy": "denied",
+        "reason": "Dogfood pilot: no prohibited areas detected in this candidate."
+      },
+      "workspace": {
+        "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-target-yPPq3O",
+        "baseRef": "HEAD",
+        "baseCommit": "615cf2a8c4ae5fa7d8c391c3eb167ed75bc16717",
+        "branch": "autonomous/dogfood-1-dogfood-run-5-1785860560011",
+        "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-ws-root-E07Fzj\\dogfood-run-5-1785860560011",
+        "createdFiles": [],
+        "cleanupStatus": "cleaned"
+      },
+      "commandsExecuted": [
+        "git mv CONTRIBUTNIG.md CONTRIBUTING.md"
+      ],
+      "filesChanged": [
+        "CONTRIBUTING.md"
+      ],
+      "diffSummary": {
+        "changedFiles": 1,
+        "insertedLines": 0,
+        "deletedLines": 0,
+        "unexpectedFiles": []
+      },
+      "validation": {
+        "targetedTestsPassed": false,
+        "authoritativeValidationPassed": null,
+        "durationSeconds": 0.054
+      },
+      "findings": [
+        "Targeted validation did not pass (or no targeted validation command was ever supplied)."
+      ],
+      "residualRisk": "Targeted or authoritative validation did not pass -- the repair attempt is not verified.",
+      "resultState": "validation_failed",
+      "recommendedHumanAction": "request_changes"
+    },
+    "commandResult": {
+      "status": "failed",
+      "action": "execution",
+      "projectStatus": null,
+      "currentMilestoneId": null,
+      "currentWorkUnitId": null,
+      "summary": "Autonomous run dogfood-run-5-1785860560011 for issue \"DOGFOOD-1\" finished with result state \"validation_failed\": Targeted or authoritative validation did not pass -- the repair attempt is not verified.",
+      "completedActions": [
+        "git mv CONTRIBUTNIG.md CONTRIBUTING.md"
+      ],
+      "changedFiles": [
+        "CONTRIBUTING.md"
+      ],
+      "affectedItems": [],
+      "blockingIssues": [],
+      "warnings": [
+        {
+          "id": "AUTONOMOUS-RUN-FINDING-1",
+          "severity": "medium",
+          "area": "autonomous-run",
+          "message": "Targeted validation did not pass (or no targeted validation command was ever supplied).",
+          "agentCanFix": false
+        }
+      ],
+      "requiresHumanInput": false,
+      "nextRecommendedCommand": null,
+      "exitCode": 1,
+      "data": {
+        "runId": "dogfood-run-5-1785860560011",
+        "candidate": {
+          "issueId": "DOGFOOD-1",
+          "source": "manual",
+          "repository": "dogfood/target-repo",
+          "baseRef": "HEAD",
+          "objective": "Rename a stray typo-named file to its corrected name",
+          "acceptanceCriteria": [
+            "the target file no longer exists under its typo name",
+            "targeted validation passes"
+          ],
+          "constraints": [],
+          "requestedPermissions": []
+        },
+        "safetyAssessment": {
+          "riskClass": "low_risk_autonomous",
+          "prohibitedAreas": [],
+          "requiredApprovals": [],
+          "commandPolicyProfile": "default",
+          "networkPolicy": "denied",
+          "reason": "Dogfood pilot: no prohibited areas detected in this candidate."
+        },
+        "workspace": {
+          "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-target-yPPq3O",
+          "baseRef": "HEAD",
+          "baseCommit": "615cf2a8c4ae5fa7d8c391c3eb167ed75bc16717",
+          "branch": "autonomous/dogfood-1-dogfood-run-5-1785860560011",
+          "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-dogfood-ws-root-E07Fzj\\dogfood-run-5-1785860560011",
+          "createdFiles": [],
+          "cleanupStatus": "cleaned"
+        },
+        "commandsExecuted": [
+          "git mv CONTRIBUTNIG.md CONTRIBUTING.md"
+        ],
+        "filesChanged": [
+          "CONTRIBUTING.md"
+        ],
+        "diffSummary": {
+          "changedFiles": 1,
+          "insertedLines": 0,
+          "deletedLines": 0,
+          "unexpectedFiles": []
+        },
+        "validation": {
+          "targetedTestsPassed": false,
+          "authoritativeValidationPassed": null,
+          "durationSeconds": 0.054
+        },
+        "findings": [
+          "Targeted validation did not pass (or no targeted validation command was ever supplied)."
+        ],
+        "residualRisk": "Targeted or authoritative validation did not pass -- the repair attempt is not verified.",
+        "resultState": "validation_failed",
+        "recommendedHumanAction": "request_changes"
+      }
+    }
+  }
+}

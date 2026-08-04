@@ -63,8 +63,8 @@ function hasCliSpawn(text: string): boolean {
  * The 33 files known to spawn a real subprocess (git and/or the CLI) as of
  * the M34-WU01 baseline (docs/engineering/m34-validation-workload-policy.md
  * Sec 1/5), plus the 1 built-binary smoke file WU34-03 added, the 2
- * autonomous-run files M36-WU02 added, the 2 more M36-WU03 added, and the
- * 3 more M36-WU04 added (41 total). A
+ * autonomous-run files M36-WU02 added, the 2 more M36-WU03 added, the
+ * 3 more M36-WU04 added, and the 1 more M36-WU05 added (42 total). A
  * file added to or removed from this set must be a deliberate, reviewed
  * change to the policy document -- this test does not silently absorb a new
  * spawning file into "already accounted for".
@@ -128,6 +128,11 @@ const KNOWN_SPAWNING_FILES = [
   "tests/integration/autonomous-run-diff-summary.test.ts",
   "tests/integration/autonomous-run-evidence-binding-service.test.ts",
   "tests/integration/autonomous-run-validation-service.test.ts",
+  // M36-WU05 (+1): the dogfood pilot suite runs the full pipeline
+  // (initGitFixtureRepo for its fixture, plus the same runAutonomousCommand
+  // pattern already covered by hasGitSpawn/hasCliSpawn) against a real
+  // disposable target repository.
+  "tests/integration/autonomous-run-dogfood-pilot.test.ts",
 ].sort();
 
 /**

@@ -356,3 +356,27 @@ describe("M36-WU04 boundary scan: diff/validation/review/evidence-binding stay w
     expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
   });
 });
+
+/**
+ * M36-WU05 (build spec Sec 7 WU36-05 Scope: "dogfood pilot, recovery, and
+ * closure"; acceptance criterion: "AIQT repository never self-managed by
+ * the runner"). WU36-05 added no new src/ files -- the dogfood pilot
+ * (tests/integration/autonomous-run-dogfood-pilot.test.ts) exercises the
+ * already-reviewed WU36-01..04 pipeline end-to-end against a disposable,
+ * non-AIQT target repository. This guard is the structural half of the
+ * self-management proof; the dogfood suite's own "AIQT repository is
+ * never self-managed" test is the behavioral half (asserts the target
+ * directory is never this repository's own working tree and no .aiqt/
+ * appears here as a result of running it).
+ */
+describe("M36-WU05: closure -- still no CLI command surface, still no .aiqt/, across the whole milestone", () => {
+  it("no CLI command references 'autonomous' at the close of M36", () => {
+    const commandsDir = join(repoRoot, "src", "cli", "commands");
+    const offenders = readdirSync(commandsDir).filter((f) => /autonomous/i.test(readFileSync(join(commandsDir, f), "utf8")));
+    expect(offenders).toEqual([]);
+  });
+
+  it("the AIQT repository root has no .aiqt/ directory at the close of M36", () => {
+    expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
+  });
+});
