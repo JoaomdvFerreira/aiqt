@@ -144,6 +144,19 @@
       "supporting": [],
       "notes": "The sole GitHub Actions workflow (name: Validate), matrix build on Node 22 and 24 -- no other workflow files exist."
     },
+    "commandResultContract": {
+      "primary": "src/core/output/result.ts",
+      "supporting": [
+        "src/core/output/issue.ts",
+        "src/core/output/aiqt-error.ts",
+        "src/core/output/exit-codes.ts",
+        "src/core/output/json-output.ts",
+        "src/core/output/human-output.ts",
+        "src/cli/register-commands.ts",
+        "src/cli/command-context.ts"
+      ],
+      "notes": "M33 candidate authoritative CommandResult/Issue/AiqtError/ExitCode shape (result.ts's CommandResult/makeResult/errorToResult already match the M33 spec's canonical interface field-for-field as of M33-WU01). renderJson()/renderHuman() are the sole shared renderers; emit() in register-commands.ts (line ~139) is the sole shared stream router (stdout when exitCode===Success, else stderr) and is bypassed by 7 raw-text command sites and by commander's own .exitOverride() parser-error path in src/index.ts, both of which are NOT yet migrated as of M33-WU01 -- see docs/engineering/m33-wu01-command-result-contract.md for the full inventory, characterized contradictions, and target contract. Do not treat this entry as already-unified: WU33-01 is inventory-only."
+    },
     "historicalCompatibilityFixtures": {
       "primary": "tests/integration/cli.test.ts",
       "supporting": [
