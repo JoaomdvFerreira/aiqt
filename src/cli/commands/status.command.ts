@@ -2,11 +2,12 @@ import type { CommandContext } from "../command-context.js";
 import {
   makeResult,
   errorToResult,
+  missingProjectResult,
   type CommandResult,
 } from "../../core/output/result.js";
 import type { Issue } from "../../core/output/issue.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
-import { loadProject } from "./load-project.js";
+import { aiqtDirExists, loadProject } from "./load-project.js";
 import { workUnitCountsByStatus } from "../../workflow/statuses.js";
 import { resolveRoots } from "../../workflow/root-resolution.js";
 import { computeEffectiveReadinessForState } from "../../workflow/effective-readiness.js";
@@ -126,6 +127,14 @@ function buildParallelStatusResult(state: StateModel, implementationRoot: string
 }
 
 export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): CommandResult {
+  // M33-WU02: matches review/next/manage/export's bespoke missing-project
+  // pre-check so all five agree on issue-id shape, severity, area, and
+  // nextRecommendedCommand (M33-WU01 Contradiction E) instead of falling
+  // through to loadProject()'s generic AIQT-DIR-MISSING/errorToResult path,
+  // which never populated nextRecommendedCommand.
+  if (!aiqtDirExists(ctx)) {
+    return missingProjectResult("status", "STATUS");
+  }
   try {
     const { paths, project, state, runlogHealth, warnings } = loadProject(ctx);
 

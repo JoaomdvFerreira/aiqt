@@ -84,7 +84,7 @@ describe("M33-WU01: Contradiction A -- parser-level JSON loss", () => {
   });
 });
 
-describe("M33-WU01: Contradiction B (live sample) -- exit 10 body-field contradiction", () => {
+describe("M33-WU02: Contradiction B closed (live sample) -- exit 10 now agrees across families", () => {
   let dir: string;
   afterEach(() => removeDir(dir));
 
@@ -101,14 +101,14 @@ describe("M33-WU01: Contradiction B (live sample) -- exit 10 body-field contradi
     expect(body.requiresHumanInput).toBe(true);
   });
 
-  it("evidence import (non-core family) pairs the SAME exit 10 with failed/requiresHumanInput:false", () => {
+  it("evidence import (non-core family) now pairs the SAME exit 10 with the SAME needs_input/requiresHumanInput:true, via familyFailureResult", () => {
     dir = makeTempDir();
     expect(runCli(["init", "--json"], dir).status).toBe(0);
     const res = runCli(["evidence", "import", "--json"], dir);
     const body = JSON.parse(res.stderr);
     expect(res.status).toBe(10);
-    expect(body.status).toBe("failed");
-    expect(body.requiresHumanInput).toBe(false);
+    expect(body.status).toBe("needs_input");
+    expect(body.requiresHumanInput).toBe(true);
   });
 });
 
@@ -185,18 +185,18 @@ describe("M33-WU01: Contradiction D -- specialized-command bypass drops warnings
   });
 });
 
-describe("M33-WU01: Contradiction E -- missing-project results disagree across command families", () => {
+describe("M33-WU02: Contradiction E closed -- missing-project results now agree on the actionable recommendation", () => {
   let dir: string;
   afterEach(() => removeDir(dir));
 
-  it("status, review, and evidence gate policy show disagree on issue id / area / nextRecommendedCommand for the identical missing-project input", () => {
+  it("status, review, and evidence gate policy show retain distinct, family-specific issue ids/areas (by design, M33 Sec 5.10 requires same semantic CATEGORY not identical ids) but now all agree nextRecommendedCommand is \"aiqt init\"", () => {
     dir = makeTempDir(); // deliberately never initialized
 
     const statusRes = runCli(["status", "--json"], dir);
     const statusBody = JSON.parse(statusRes.stdout === "" ? statusRes.stderr : statusRes.stdout);
-    expect(statusBody.blockingIssues[0].id).toBe("AIQT-DIR-MISSING");
-    expect(statusBody.blockingIssues[0].area).toBe("filesystem");
-    expect(statusBody.nextRecommendedCommand).toBeNull();
+    expect(statusBody.blockingIssues[0].id).toBe("STATUS-NO-PROJECT");
+    expect(statusBody.blockingIssues[0].area).toBe("workflow");
+    expect(statusBody.nextRecommendedCommand).toBe("aiqt init");
 
     const reviewRes = runCli(["review", "--json"], dir);
     const reviewBody = JSON.parse(reviewRes.stdout === "" ? reviewRes.stderr : reviewRes.stdout);
@@ -208,10 +208,10 @@ describe("M33-WU01: Contradiction E -- missing-project results disagree across c
     const gateBody = JSON.parse(gateRes.stdout === "" ? gateRes.stderr : gateRes.stdout);
     expect(gateBody.blockingIssues[0].id).toBe("EVIDENCE-GATE-POLICY-SHOW-NO-PROJECT");
     expect(gateBody.blockingIssues[0].area).toBe("evidence-gate");
-    // Characterizes the gap: unlike review, this family never sets an
-    // actionable recommendation even though the underlying situation
-    // (missing .aiqt/) is identical.
-    expect(gateBody.nextRecommendedCommand).toBeNull();
+    // M33-WU02: familyFailureResult's automatic NO-PROJECT/DIR-MISSING
+    // detection now populates this the same way review's bespoke branch
+    // always did -- closing the M33-WU01 Contradiction E gap.
+    expect(gateBody.nextRecommendedCommand).toBe("aiqt init");
 
     // All three exit 3, so the disagreement is entirely in the body, not
     // the process exit code.

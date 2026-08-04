@@ -1,17 +1,11 @@
 import type { CommandContext } from "../command-context.js";
-import { makeResult, type CommandResult } from "../../core/output/result.js";
+import { makeResult, type CommandResult, familyFailureResult } from "../../core/output/result.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
 import { aiqtDirExists, loadProject } from "./load-project.js";
 import { getEvidenceGatePolicies, getActivePolicyRef } from "../../services/evidence-gate-policy-service.js";
 
 function failure(summary: string, exitCode: number, issueId: string): CommandResult {
-  return makeResult({
-    status: "failed",
-    action: "evidence",
-    summary,
-    exitCode,
-    blockingIssues: [{ id: issueId, severity: "high", area: "evidence-gate", message: summary, agentCanFix: false }],
-  });
+  return familyFailureResult({ action: "evidence", area: "evidence-gate", summary, exitCode, issueId });
 }
 
 /** aiqt evidence gate policy list [--json] (M28 §4.1): read-only. Never materializes evidenceGate on a project that lacks it. */

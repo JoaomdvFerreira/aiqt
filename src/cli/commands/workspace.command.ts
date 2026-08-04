@@ -1,5 +1,5 @@
 import type { CommandContext } from "../command-context.js";
-import { makeResult, type CommandResult } from "../../core/output/result.js";
+import { makeResult, type CommandResult, familyFailureResult } from "../../core/output/result.js";
 import type { Issue } from "../../core/output/issue.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
 import { aiqtDirExists, loadProject } from "./load-project.js";
@@ -46,13 +46,7 @@ import type { ManagedWorkspace } from "../../schema/managed-workspace.schema.js"
 const PREPARE_PROHIBITED_STATUSES = new Set(["planned", "done", "replanned", "cancelled"]);
 
 function failure(summary: string, exitCode: number, issueId: string): CommandResult {
-  return makeResult({
-    status: exitCode === ExitCode.WorkflowBlocked ? "blocked" : "failed",
-    action: "workspace",
-    summary,
-    exitCode,
-    blockingIssues: [{ id: issueId, severity: "high", area: "workspace", message: summary, agentCanFix: false }],
-  });
+  return familyFailureResult({ action: "workspace", area: "workspace", summary, exitCode, issueId });
 }
 
 function noProjectFailure(): CommandResult {

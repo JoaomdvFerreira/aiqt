@@ -1,5 +1,5 @@
 import type { CommandContext } from "../command-context.js";
-import { makeResult, type CommandResult } from "../../core/output/result.js";
+import { makeResult, type CommandResult, familyFailureResult } from "../../core/output/result.js";
 import type { Issue } from "../../core/output/issue.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
 import { aiqtDirExists, loadProject } from "./load-project.js";
@@ -32,13 +32,7 @@ export interface RunExecutionImportDeps {
 }
 
 function failure(summary: string, exitCode: number, issueId: string): CommandResult {
-  return makeResult({
-    status: exitCode === ExitCode.WorkflowBlocked ? "blocked" : "failed",
-    action: "execution",
-    summary,
-    exitCode,
-    blockingIssues: [{ id: issueId, severity: "high", area: "execution", message: summary, agentCanFix: false }],
-  });
+  return familyFailureResult({ action: "execution", area: "execution", summary, exitCode, issueId });
 }
 
 function isValidIsoTimestamp(value: string): boolean {

@@ -1,5 +1,5 @@
 import type { CommandContext } from "../command-context.js";
-import { makeResult, errorToResult, type CommandResult } from "../../core/output/result.js";
+import { makeResult, errorToResult, familyFailureResult, type CommandResult } from "../../core/output/result.js";
 import type { Issue } from "../../core/output/issue.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
 import { aiqtDirExists, loadProject } from "./load-project.js";
@@ -39,13 +39,7 @@ export interface RunEvidenceImportDeps {
 }
 
 function failure(summary: string, exitCode: number, issueId: string, extra?: Partial<Issue>): CommandResult {
-  return makeResult({
-    status: "failed",
-    action: "evidence",
-    summary,
-    exitCode,
-    blockingIssues: [{ id: issueId, severity: "high", area: "input", message: summary, agentCanFix: false, ...extra }],
-  });
+  return familyFailureResult({ action: "evidence", area: "input", summary, exitCode, issueId, extraIssueFields: extra });
 }
 
 /**

@@ -84,6 +84,94 @@ export function makeResult<TData = unknown>(
 }
 
 /**
+ * M33-WU02: the single authoritative convergence point for every command
+ * family's local `failure(summary, exitCode, issueId)` helper (see
+ * docs/engineering/m33-wu01-command-result-contract.md Sec 1.2/3.B for the
+ * pre-migration inventory). Centralizing status derivation here enforces the
+ * M33 Sec 5.2 exit-10 invariant (`exitCode === 10 <=> status ===
+ * "needs_input" && requiresHumanInput === true`) for every call site that
+ * routes through it, without requiring each of the ~29 call sites to be
+ * individually rewritten.
+ *
+ * Also enforces the M33 Sec 5.10 missing-project contract: any issueId
+ * matching the repository's existing `<CMD>-NO-PROJECT` / `AIQT-DIR-MISSING`
+ * convention automatically receives the actionable `nextRecommendedCommand:
+ * "aiqt init"` recommendation, closing the gap where local failure()
+ * helpers previously never set it (M33-WU01 Contradiction E).
+ */
+export function familyFailureResult(params: {
+  action: WorkflowAction;
+  area: string;
+  summary: string;
+  exitCode: number;
+  issueId: string;
+  extraIssueFields?: Partial<Issue>;
+  projectStatus?: ProjectStatus | null;
+  currentMilestoneId?: string | null;
+  currentWorkUnitId?: string | null;
+}): CommandResult {
+  const status: CommandStatus =
+    params.exitCode === ExitCode.WorkflowBlocked
+      ? "blocked"
+      : params.exitCode === ExitCode.HumanInputRequired
+        ? "needs_input"
+        : "failed";
+  const isMissingProject = /NO-PROJECT|DIR-MISSING/.test(params.issueId);
+  return makeResult({
+    status,
+    action: params.action,
+    projectStatus: params.projectStatus ?? null,
+    currentMilestoneId: params.currentMilestoneId ?? null,
+    currentWorkUnitId: params.currentWorkUnitId ?? null,
+    summary: params.summary,
+    exitCode: params.exitCode,
+    requiresHumanInput: status === "needs_input",
+    nextRecommendedCommand: isMissingProject ? "aiqt init" : null,
+    blockingIssues: [
+      {
+        id: params.issueId,
+        severity: "high",
+        area: params.area,
+        message: params.summary,
+        agentCanFix: false,
+        ...params.extraIssueFields,
+      },
+    ],
+  });
+}
+
+/**
+ * M33-WU02 Sec 5.10: the shared missing-project result for commands using
+ * the repository's existing bespoke pre-check pattern (`if
+ * (!aiqtDirExists(ctx)) return ...`), as used by review/next/manage/export.
+ * Consistent issue-id shape (`<CMD>-NO-PROJECT`), severity, area, exit code,
+ * and actionable `nextRecommendedCommand` across every command that adopts
+ * it -- closing M33-WU01 Contradiction E.
+ */
+export function missingProjectResult(
+  action: WorkflowAction,
+  issueIdPrefix: string,
+): CommandResult {
+  return makeResult({
+    status: "failed",
+    action,
+    summary: "No AIQT project found. Run aiqt init to create the canonical state files.",
+    nextRecommendedCommand: "aiqt init",
+    exitCode: ExitCode.InvalidInput,
+    blockingIssues: [
+      {
+        id: `${issueIdPrefix}-NO-PROJECT`,
+        severity: "high",
+        area: "workflow",
+        message: ".aiqt/ not found in the current folder.",
+        suggestedAction: "Run aiqt init.",
+        agentCanFix: false,
+      },
+    ],
+  });
+}
+
+/**
  * Convert a thrown error into a failed/blocked CommandResult. AiqtError carries
  * an exit code and optional Issue; any other error becomes a generic invalid
  * input failure with exit code 3.
