@@ -452,6 +452,8 @@ export interface RawAutonomousCancelOptions {
 export interface RawAutonomousResultOptions {
   json?: boolean;
   run?: string;
+  patch?: boolean;
+  prDraft?: boolean;
   config?: string;
   evidenceDir?: string;
 }

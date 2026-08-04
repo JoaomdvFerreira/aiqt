@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.27.0 (M37-WU03: end-to-end CLI orchestration and resumability added)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.27.0");
+  it("is the current released version 0.28.0 (M37-WU04: human approval and branch/patch handoff added)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.28.0");
   });
 });

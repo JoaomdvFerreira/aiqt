@@ -9,6 +9,7 @@ import { runAutonomousRun } from "../../src/cli/commands/autonomous-run.command.
 import { runAutonomousAgentImport } from "../../src/cli/commands/autonomous-agent-import.command.js";
 import { runAutonomousCancel } from "../../src/cli/commands/autonomous-cancel.command.js";
 import { runAutonomousCleanup } from "../../src/cli/commands/autonomous-cleanup.command.js";
+import { runAutonomousResult } from "../../src/cli/commands/autonomous-result.command.js";
 import { loadAutonomousRunRecord } from "../../src/services/autonomous-run-store.js";
 import { AUTONOMOUS_AGENT_PROVIDER_ID } from "../../src/schema/autonomous-agent-request.schema.js";
 
@@ -128,22 +129,119 @@ describe("aiqt autonomous real (non-simulated) execution (M37-WU03, real disposa
     expect(headAfter).toBe(headSha);
   });
 
-  it("reports cleanupStatus:cleanup_failed (not a false 'cleaned') when the worktree is left genuinely dirty -- regression test for a real M36-WU04 defect found while building this Work Unit's own tests (evidence-binding-service.ts previously discarded removeAutonomousWorktree's result entirely and hardcoded \"cleaned\")", async () => {
-    const classifyResult = await classify("ISSUE-DIRTY");
+  it("aiqt autonomous result --patch/--pr-draft returns a real patch and a PR draft for a completed real run, once the worktree is already gone (the branch survives in the target repo)", async () => {
+    const classifyResult = await classify("ISSUE-PATCH");
     const runId = (classifyResult.data as { runId: string }).runId;
     const runResult = startRun(runId);
     const requestId = (runResult.data as { agentRequestId: string }).agentRequestId;
 
-    // Rename WITHOUT committing -- leaves the worktree with a staged,
-    // uncommitted change, which `git worktree remove` (never passed
-    // --force by this repository, by design) genuinely refuses to
-    // remove.
+    const responsePath = join(makeTempDir("aiqt-real-response-"), "response.json");
+    const fs = await import("node:fs");
+    fs.writeFileSync(responsePath, JSON.stringify({ requestId, providerId: AUTONOMOUS_AGENT_PROVIDER_ID, commandsProposed: [{ command: "git", args: ["mv", "README.md", "README2.md"] }] }));
+    const importResult = await runAutonomousAgentImport(ctx(), { run: runId, fromFile: responsePath, evidenceDir: evidenceDir!, configPath: configPath! });
+    expect(importResult.status).toBe("passed");
+
+    const resultWithPatch = runAutonomousResult(ctx(), { run: runId, patch: true, evidenceDir: evidenceDir!, configPath: configPath! });
+    expect(resultWithPatch.status).toBe("passed");
+    const patch = (resultWithPatch.data as { patch: string }).patch;
+    expect(patch).toContain("README.md");
+    expect(patch).toContain("README2.md");
+
+    const resultWithPrDraft = runAutonomousResult(ctx(), { run: runId, prDraft: true, evidenceDir: evidenceDir!, configPath: configPath! });
+    const prDraft = (resultWithPrDraft.data as { prDraft: { title: string; body: string } }).prDraft;
+    expect(prDraft.title).toContain("rename the readme");
+    expect(prDraft.body).toMatch(/nothing has been merged, pushed, or deployed/i);
+
+    // No merge, no push -- the branch exists in the target repo, main is
+    // still untouched, and nothing was pushed anywhere (this is a fully
+    // local, disposable target repo with no remote at all).
+    const branchNow = execFileSync("git", ["branch", "--show-current"], { cwd: targetRepo!, encoding: "utf8" }).trim();
+    expect(branchNow).toBe("main");
+  });
+
+  it("aiqt autonomous result --patch reports needs_input (not a patch) for a run with no evidence yet, and refuses once it has evidence but no workspace/branch to diff", async () => {
+    const classifyResult = await classify("ISSUE-NO-WORKSPACE");
+    const runId = (classifyResult.data as { runId: string }).runId;
+
+    // No evidence at all yet -- --patch is simply not reachable, the
+    // same needs_input as a plain `result` call without --patch.
+    const beforeRun = runAutonomousResult(ctx(), { run: runId, patch: true, evidenceDir: evidenceDir!, configPath: configPath! });
+    expect(beforeRun.status).toBe("needs_input");
+
+    // A workspace_failed outcome (invalid worktree root) DOES reach a
+    // terminal evidencePacket, but with no `workspace` field at all --
+    // --patch must refuse cleanly rather than crash on a missing branch.
+    const { saveAutonomousRunRecord } = await import("../../src/services/autonomous-run-store.js");
+    const loaded = loadAutonomousRunRecord(runId, evidenceDir!);
+    if (!loaded.ok) throw new Error("run record unexpectedly missing");
+    saveAutonomousRunRecord(
+      {
+        ...loaded.record,
+        status: "failed",
+        evidencePacket: {
+          runId,
+          candidate: loaded.record.candidate,
+          safetyAssessment: loaded.record.safetyAssessment,
+          commandsExecuted: [],
+          filesChanged: [],
+          findings: [],
+          residualRisk: "Workspace could not be prepared.",
+          resultState: "failed",
+          recommendedHumanAction: "provide_missing_input",
+        },
+      },
+      evidenceDir!,
+    );
+    const afterFailure = runAutonomousResult(ctx(), { run: runId, patch: true, evidenceDir: evidenceDir!, configPath: configPath! });
+    expect(afterFailure.status).toBe("failed");
+  });
+
+  it("a bare, uncommitted rename with no explicit commit in the proposed commands still reports cleanupStatus:cleaned -- M37-WU04's commit-preparation step (git add -A && git commit) auto-commits it before cleanup runs", async () => {
+    const classifyResult = await classify("ISSUE-BARE-RENAME");
+    const runId = (classifyResult.data as { runId: string }).runId;
+    const runResult = startRun(runId);
+    const requestId = (runResult.data as { agentRequestId: string }).agentRequestId;
+
     const responsePath = join(makeTempDir("aiqt-real-response-"), "response.json");
     const fs = await import("node:fs");
     fs.writeFileSync(responsePath, JSON.stringify({ requestId, providerId: AUTONOMOUS_AGENT_PROVIDER_ID, commandsProposed: [{ command: "git", args: ["mv", "README.md", "README2.md"] }] }));
 
     const importResult = await runAutonomousAgentImport(ctx(), { run: runId, fromFile: responsePath, evidenceDir: evidenceDir!, configPath: configPath! });
-    expect(importResult.status).toBe("passed"); // the repair + validation still succeeded -- only cleanup failed
+    expect(importResult.status).toBe("passed");
+    expect((importResult.data as { workspace: { cleanupStatus: string } }).workspace.cleanupStatus).toBe("cleaned");
+
+    const worktreeListing = execFileSync("git", ["worktree", "list", "--porcelain"], { cwd: targetRepo!, encoding: "utf8" });
+    const worktreeLines = worktreeListing.match(/^worktree .+$/gm) ?? [];
+    expect(worktreeLines, `expected only the main worktree to remain, got: ${JSON.stringify(worktreeLines)}`).toHaveLength(1);
+  });
+
+  it("reports cleanupStatus:cleanup_failed (not a false 'cleaned') for a run that never reaches commit-preparation at all -- an earlier command leaves an uncommitted change on disk before a later command is denied and the run stops -- regression test for a real M36-WU04 defect found while building this Work Unit's own tests (evidence-binding-service.ts previously discarded removeAutonomousWorktree's result entirely and hardcoded \"cleaned\")", async () => {
+    const classifyResult = await classify("ISSUE-DIRTY");
+    const runId = (classifyResult.data as { runId: string }).runId;
+    const runResult = startRun(runId);
+    const requestId = (runResult.data as { agentRequestId: string }).agentRequestId;
+
+    // The rename runs (uncommitted), then the destructive command is
+    // denied and the run stops before ever reaching commit-preparation
+    // (which only ever runs for a "completed" outcome) -- the worktree
+    // is left genuinely dirty, and `git worktree remove` (never passed
+    // --force by this repository, by design) genuinely refuses to
+    // remove it.
+    const responsePath = join(makeTempDir("aiqt-real-response-"), "response.json");
+    const fs = await import("node:fs");
+    fs.writeFileSync(
+      responsePath,
+      JSON.stringify({
+        requestId,
+        providerId: AUTONOMOUS_AGENT_PROVIDER_ID,
+        commandsProposed: [
+          { command: "git", args: ["mv", "README.md", "README2.md"] },
+          { command: "rm", args: ["-rf", "."] },
+        ],
+      }),
+    );
+
+    const importResult = await runAutonomousAgentImport(ctx(), { run: runId, fromFile: responsePath, evidenceDir: evidenceDir!, configPath: configPath! });
     expect((importResult.data as { workspace: { cleanupStatus: string } }).workspace.cleanupStatus).toBe("cleanup_failed");
 
     const loaded = loadAutonomousRunRecord(runId, evidenceDir!);

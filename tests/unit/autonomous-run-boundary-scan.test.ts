@@ -672,3 +672,91 @@ describe("M37-WU03 boundary scan: real worktree creation/command execution stays
     expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
   });
 });
+
+/**
+ * M37-WU04 (build spec: "Human Approval and Branch/Patch Handoff").
+ * Commit preparation (git add -A && git commit, a fixed, deterministic
+ * message, reusing WU36-03's already-policy-checked runAutonomousCommand)
+ * and patch export (a real, read-only git diff between two refs) are
+ * the two places this Work Unit adds new git-touching capability. These
+ * guards prove: commit preparation is confined to exactly one function
+ * in evidence-binding-service.ts and never sets an arbitrary/operator-
+ * controlled commit message; patch export never mutates anything; the
+ * PR draft generator is pure text; and no push, merge, or real Git-host
+ * integration exists anywhere.
+ */
+const M37_WU04_FILES = ["src/services/autonomous-run-patch-export-service.ts", "src/workflow/autonomous-run-pr-draft.ts"];
+
+describe("M37-WU04 boundary scan: commit preparation, patch export, and PR draft stay read-only/deterministic, no push or real Git-host integration", () => {
+  it("no M37-WU04 file references a process-spawn (beyond the already-reviewed git-command-runner.ts/autonomous-command-runner.ts imports), network, model-invocation, or dynamic-code-execution surface", () => {
+    const surfaces: { pattern: RegExp; label: string }[] = [
+      { pattern: /\bexecFileSync\b|\bspawnSync\b|\bexecFile\b|\bspawn\b|\bexecSync\b/, label: "a direct child_process execution function" },
+      { pattern: /from\s+["']node:child_process["']/, label: "node:child_process import" },
+      { pattern: /@anthropic-ai\/(claude-agent-sdk|sdk)/, label: "Claude/Anthropic SDK dependency (model invocation)" },
+      { pattern: /\bnode:net\b|\bnode:http\b|\bnode:https\b|\bfetch\s*\(|\bWebSocket\b/, label: "a network surface" },
+      { pattern: /\beval\s*\(|new\s+Function\s*\(|\bvm\.(Script|createContext|runIn)/, label: "dynamic code execution" },
+    ];
+    for (const relPath of M37_WU04_FILES) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      for (const { pattern, label } of surfaces) {
+        expect(pattern.test(text), `${relPath} unexpectedly matched forbidden pattern: ${label}`).toBe(false);
+      }
+    }
+  });
+
+  it("autonomous-run-pr-draft.ts is pure text generation -- no fs, no child_process, no git-command-runner import, no network", () => {
+    const text = readFileSync(join(repoRoot, "src", "workflow", "autonomous-run-pr-draft.ts"), "utf8");
+    expect(text).not.toMatch(/from\s+["']node:fs["']|from\s+["']node:child_process["']|git-command-runner\.js|autonomous-command-runner\.js/);
+  });
+
+  it("autonomous-run-patch-export-service.ts only imports read-only git-command-runner exports (gitDiffPatch, gitCheckRefFormatBranch, GitRunnerError) -- never a mutating one", () => {
+    const text = readFileSync(join(repoRoot, "src", "services", "autonomous-run-patch-export-service.ts"), "utf8");
+    const importMatch = text.match(/import\s*\{([^}]*)\}\s*from\s*["'].*git-command-runner\.js["']/);
+    expect(importMatch, "autonomous-run-patch-export-service.ts should import from git-command-runner.js").not.toBeNull();
+    const imported = importMatch![1].split(",").map((s) => s.trim());
+    const allowed = ["gitDiffPatch", "gitCheckRefFormatBranch", "GitRunnerError"];
+    const unexpected = imported.filter((name) => !allowed.includes(name));
+    expect(unexpected, `autonomous-run-patch-export-service.ts imports unexpected git-command-runner exports: ${unexpected.join(", ")}`).toEqual([]);
+    expect(text).not.toMatch(/\bgitWorktreeAdd\b|\bgitWorktreeRemove\b/);
+  });
+
+  it("commit preparation (autonomous-run-evidence-binding-service.ts's commitAutonomousRunChanges) never accepts an arbitrary/operator-controlled commit message -- the message is always the fixed template built from candidate.issueId/objective, never raw external input", () => {
+    const text = readFileSync(join(repoRoot, "src", "services", "autonomous-run-evidence-binding-service.ts"), "utf8");
+    expect(text).toMatch(/AIQT autonomous repair for \$\{candidate\.issueId\}/);
+    // The commit message is truncated to a bounded length -- never an
+    // unbounded string passed straight through.
+    expect(text).toMatch(/MAX_COMMIT_MESSAGE_CHARS/);
+  });
+
+  it("commit preparation is never counted against the run's own command budget -- it runs after runAutonomousCommandLoop has already finished, not inside its budget-checked loop", () => {
+    const text = readFileSync(join(repoRoot, "src", "services", "autonomous-run-evidence-binding-service.ts"), "utf8");
+    const loopFnIndex = text.indexOf("runAutonomousCommandLoop({");
+    const commitFnCallIndex = text.indexOf("commitAutonomousRunChanges(worktreePath, policy, candidate);");
+    expect(loopFnIndex).toBeGreaterThan(-1);
+    expect(commitFnCallIndex).toBeGreaterThan(loopFnIndex);
+  });
+
+  it("no function anywhere in the M37-WU04 call graph can merge, push, or deploy (structural check, comments excluded)", () => {
+    const codeOnly = (text: string) =>
+      text
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+        .join("\n");
+    const files = [...M37_WU04_FILES, "src/services/autonomous-run-evidence-binding-service.ts", "src/cli/commands/autonomous-result.command.ts"];
+    for (const relPath of files) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(text, `${relPath} should not invoke a git merge/push/deploy or a merge/push/deploy-capable function`).not.toMatch(
+        /["'`]merge["'`]|\.merge\(|gitMerge|["'`]push["'`]|\.push\(\s*origin|gitPush|\bdeploy\(/i,
+      );
+    }
+  });
+
+  it("package.json declares no new runtime dependency for M37-WU04 (still exactly @inquirer/prompts, commander, zod)", () => {
+    const packageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { dependencies: Record<string, string> };
+    expect(Object.keys(packageJson.dependencies).sort()).toEqual(["@inquirer/prompts", "commander", "zod"]);
+  });
+
+  it("the AIQT repository root still has no .aiqt/ directory as a result of the M37-WU04 handoff artifacts existing", () => {
+    expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
+  });
+});

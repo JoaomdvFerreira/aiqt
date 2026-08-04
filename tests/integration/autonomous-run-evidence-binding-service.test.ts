@@ -132,14 +132,28 @@ describe("produceAutonomousEvidencePacket (M36-WU04, real disposable repository)
     expect(packet.workspace?.cleanupStatus).toBe("cleaned");
   });
 
-  it("reports cleanupStatus:cleanup_failed (never a false 'cleaned') when the worktree is left genuinely dirty -- regression test for the real defect described above", () => {
+  it("a bare, uncommitted rename with no explicit commit in the proposed commands still reports cleanupStatus:cleaned -- M37-WU04's commit-preparation step (git add -A && git commit) auto-commits it before cleanup runs, closing the dirty-worktree gap the fix above exists for", () => {
     const packet = produceAutonomousEvidencePacket(
       baseParams({
         agentAdapter: new DeterministicStubAgentAdapter([{ command: "git", args: ["mv", "README.md", "README2.md"] }]),
         targetedValidationCommands: [{ command: "git", args: ["status"] }],
       }),
     );
-    expect(packet.resultState).toBe("passed"); // the repair + validation still succeeded -- only cleanup failed
+    expect(packet.resultState).toBe("passed");
+    expect(packet.workspace?.cleanupStatus).toBe("cleaned");
+  });
+
+  it("reports cleanupStatus:cleanup_failed (never a false 'cleaned') for a run that never reaches commit-preparation at all -- an earlier command leaves an uncommitted change on disk before a later command is denied and the run stops (commit-preparation only ever runs for a \"completed\" outcome)", () => {
+    const packet = produceAutonomousEvidencePacket(
+      baseParams({
+        agentAdapter: new DeterministicStubAgentAdapter([
+          { command: "git", args: ["mv", "README.md", "README2.md"] },
+          { command: "rm", args: ["-rf", "."] },
+        ]),
+        targetedValidationCommands: [{ command: "git", args: ["status"] }],
+      }),
+    );
+    expect(packet.resultState).toBe("blocked");
     expect(packet.workspace?.cleanupStatus).toBe("cleanup_failed");
   });
 

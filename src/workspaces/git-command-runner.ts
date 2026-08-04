@@ -160,6 +160,20 @@ export function gitDiffNumstat(cwd: string, baseRef: string): string {
   return execGit(["diff", "--numstat", baseRef], { cwd }).stdout;
 }
 
+/**
+ * M37-WU04: `git diff <baseRef> <headRef>` -- the full unified patch
+ * text between two refs, read-only. Distinct from gitDiffNumstat (which
+ * only reports per-file counts against the *working tree*): patch
+ * export needs the real diff content between two committed refs in the
+ * source repository, computed AFTER the run's own worktree has already
+ * been removed -- only the run's `autonomous/`-prefixed branch survives
+ * there (M25 never deletes branches on worktree removal), so this reads
+ * directly against the source repository, not any worktree.
+ */
+export function gitDiffPatch(cwd: string, baseRef: string, headRef: string): string {
+  return execGit(["diff", baseRef, headRef], { cwd }).stdout;
+}
+
 export function gitLsFilesOthersExcludeStandard(cwd: string): string[] {
   const out = execGit(["ls-files", "--others", "--exclude-standard"], { cwd }).stdout;
   return out

@@ -1565,14 +1565,16 @@ export function buildProgram(): Command {
 
   autonomousCommand
     .command("result")
-    .description("Return the current or terminal evidence packet for a run, wrapped in the M33 result contract")
+    .description("Return the current or terminal evidence packet for a run, wrapped in the M33 result contract (--patch/--pr-draft add integration handoff artifacts)")
     .option("--json", "emit machine-readable JSON output", false)
     .option("--run <runId>", "the run id to report")
+    .option("--patch", "include a real, read-only unified diff patch between the run's base commit and its branch (requires the run to have reached real execution)", false)
+    .option("--pr-draft", "include a generated PR title/body draft (pure text -- never opens, pushes, or contacts any Git host)", false)
     .option("--config <path>", "operator configuration file path (defaults to ./aiqt.autonomous.config.json if present)")
     .option("--evidence-dir <path>", "override the resolved evidence output directory")
     .action((raw: RawAutonomousResultOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
-      const result = runAutonomousResult(ctx, { run: raw.run, configPath: raw.config, evidenceDir: raw.evidenceDir });
+      const result = runAutonomousResult(ctx, { run: raw.run, patch: Boolean(raw.patch), prDraft: Boolean(raw.prDraft), configPath: raw.config, evidenceDir: raw.evidenceDir });
       emit(result, ctx.json);
     });
 

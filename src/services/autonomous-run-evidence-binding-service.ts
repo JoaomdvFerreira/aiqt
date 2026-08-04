@@ -16,7 +16,7 @@ import {
 import { removeAutonomousWorktree } from "../workspaces/autonomous-worktree-lifecycle.js";
 import { captureAutonomousDiffSummary, listAutonomousChangedFilePaths } from "../workflow/autonomous-run-diff-summary.js";
 import { runAutonomousValidation, type AutonomousValidationResult } from "./autonomous-run-validation-service.js";
-import type { AutonomousCommandRequest } from "../workspaces/autonomous-command-runner.js";
+import { runAutonomousCommand, type AutonomousCommandRequest } from "../workspaces/autonomous-command-runner.js";
 import { reviewAutonomousRun } from "../workflow/autonomous-run-self-review.js";
 
 /**
@@ -67,6 +67,49 @@ const NOT_VALIDATED: AutonomousValidationResult = {
 
 function emptyDiffSummary(): AutonomousDiffSummary {
   return { changedFiles: 0, insertedLines: 0, deletedLines: 0, unexpectedFiles: [] };
+}
+
+const MAX_COMMIT_MESSAGE_CHARS = 500;
+
+/**
+ * M37-WU04 ("commit preparation"). Reuses WU36-03's already-reviewed,
+ * policy-checked runAutonomousCommand for two fixed, deterministic
+ * commands (`git add -A`, `git commit -m <bounded message>`) --
+ * intentionally NOT a new mutating primitive in git-command-runner.ts
+ * (M25's own 2-function mutating allowlist stays exactly worktree add/
+ * remove); this reuses the exact same command-execution surface an
+ * agent's own proposed commands already go through, just with a
+ * fixed, AIQT-authored command list instead of an imported one.
+ *
+ * Purpose: without this, a "completed" outcome whose proposed commands
+ * never included their own `git commit` would either (a) leave the
+ * worktree dirty, causing `git worktree remove` to fail (the real
+ * M36-WU04/WU37-03 defect this milestone already found and fixed once --
+ * a run genuinely reporting cleanup_failed is correct behavior for a
+ * dirty worktree, but an operator should not need every agent response
+ * to remember to commit for cleanup to succeed), or (b) on a
+ * (coincidentally) clean tree, leave the branch with no real commit at
+ * all once the worktree is removed -- an empty, unreviewable handoff.
+ * This step runs regardless of resultState (not only "passed") so a
+ * validation_failed/review_rejected run's branch is still reviewable via
+ * a patch export.
+ *
+ * Deliberately NOT counted against the run's own command budget
+ * (`checkBudget`) -- this is AIQT's own housekeeping action taken after
+ * the agent's bounded command loop has already finished, not a further
+ * agent-proposed action.
+ *
+ * Best-effort: if either command is denied by policy or fails for any
+ * reason, this function does nothing further -- cleanup proceeds exactly
+ * as it would have without this step (worst case, cleanup_failed on a
+ * still-dirty tree, identical to pre-WU37-04 behavior).
+ */
+function commitAutonomousRunChanges(worktreePath: string, policy: AutonomousExecutionPolicy, candidate: AutonomousCandidate): void {
+  const addResult = runAutonomousCommand({ command: "git", args: ["add", "-A"] }, worktreePath, policy);
+  if (addResult.status !== "executed" || addResult.exitCode !== 0) return;
+
+  const message = `AIQT autonomous repair for ${candidate.issueId}: ${candidate.objective}`.slice(0, MAX_COMMIT_MESSAGE_CHARS);
+  runAutonomousCommand({ command: "git", args: ["commit", "-m", message] }, worktreePath, policy);
 }
 
 /**
@@ -194,6 +237,10 @@ export function produceAutonomousEvidencePacket(params: BindAutonomousRunEvidenc
       });
       const review = reviewAutonomousRun({ diffSummary, validation, budgets });
       findings = review.findings;
+
+      if (diffSummary.changedFiles > 0) {
+        commitAutonomousRunChanges(worktreePath, policy, candidate);
+      }
     }
   } finally {
     cleanupOk = removeAutonomousWorktree(sourceRepositoryPath, worktreePath).ok;
