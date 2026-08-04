@@ -142,12 +142,27 @@ matrix (see `package.json#engines`). Milestone specifications live in
 
 ```bash
 pnpm install
-pnpm typecheck   # tsc --noEmit
-pnpm lint        # eslint .
-pnpm test        # vitest run
-pnpm build       # tsc
-pnpm validate    # typecheck + lint + test + version:check
+pnpm typecheck      # tsc --noEmit
+pnpm lint           # eslint .
+pnpm build          # tsc -- must run before `test` so dist/ exists for
+                     # tests/integration/built-binary-smoke.test.ts
+pnpm test           # vitest run
+pnpm validate       # typecheck + lint + build + test + version:check,
+                     # in this order -- the same sequence CI runs
+pnpm test:repeated  # runs `vitest run` N times consecutively (default 5)
+                     # and classifies failures as timeout/assertion/other;
+                     # use this, not one manual re-run, to check reliability
 ```
+
+`pnpm validate` is the single authoritative local validation command; CI
+(`.github/workflows/validate.yml`) runs the identical sequence on the same
+supported Node.js versions (`package.json#engines`, currently 22 and 24).
+See [`docs/engineering/m34-validation-workload-policy.md`](docs/engineering/m34-validation-workload-policy.md)
+for this repository's test-workload classification, per-class timeout
+policy, and troubleshooting guidance if `pnpm test` fails locally with a
+`Test timed out` error (usually a machine-load symptom under the
+process-spawning integration classes, not a regression — see that
+document's Sec 10.3 before raising any timeout value).
 
 See [`docs/versioning.md`](docs/versioning.md) for this project's semantic
 versioning and release-tagging rules, and [`SECURITY.md`](SECURITY.md) for

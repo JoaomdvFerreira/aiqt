@@ -62,11 +62,15 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Build
+        # M34-WU04: Build now runs before Test (previously the reverse) so
+        # tests/integration/built-binary-smoke.test.ts (M34-WU03) has a real
+        # dist/index.js to exercise -- CI now validates the artifact it
+        # would actually ship, not just source run through tsx.
+        run: pnpm build
+
       - name: Test
         run: pnpm test
-
-      - name: Build
-        run: pnpm build
 
       - name: Version check (local consistency)
         # M21-WU03: version governance is a single repository-wide policy
