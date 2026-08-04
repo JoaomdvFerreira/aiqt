@@ -4,7 +4,7 @@ import { spawnSync, execFileSync } from "node:child_process";
 import { writeFileSync, readFileSync, chmodSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { makeTempDir, removeDir } from "../helpers.js";
+import { makeTempDir, removeDir, initGitFixtureRepo } from "../helpers.js";
 
 // M34-WU02: this file spawns real subprocesses (CLI and/or git); see
 // docs/engineering/m34-validation-workload-policy.md Sec 6.1 for the
@@ -24,13 +24,7 @@ function runCli(args: string[], cwd: string) {
 const T1 = "2026-01-01T00:00:00.000Z";
 
 function initGitRepo(dir: string): void {
-  execFileSync("git", ["init", "--quiet", "-b", "main"], { cwd: dir });
-  execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: dir });
-  execFileSync("git", ["config", "user.name", "Test"], { cwd: dir });
-  execFileSync("git", ["config", "core.autocrlf", "false"], { cwd: dir });
-  writeFileSync(join(dir, "README.md"), "hello\n");
-  execFileSync("git", ["add", "README.md"], { cwd: dir });
-  execFileSync("git", ["commit", "--quiet", "-m", "initial"], { cwd: dir });
+  initGitFixtureRepo(dir);
 }
 
 function commitAiqtState(dir: string, message = "aiqt state"): void {

@@ -4,7 +4,9 @@ import { spawnSync } from "node:child_process";
 import { writeFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { makeTempDir, removeDir } from "../helpers.js";
+import { makeTempDir, removeDir, contextFor } from "../helpers.js";
+import { runReviewCommand } from "../../src/cli/commands/review.command.js";
+import { runStatus } from "../../src/cli/commands/status.command.js";
 
 // M33-WU01: these tests characterize (do not fix) the CLI result/stream
 // contradictions inventoried in
@@ -363,12 +365,22 @@ describe("M33-WU01: read-only rendering performs no mutation", () => {
     const stateBefore = readFileSync(statePath, "utf8");
     const runlogBefore = readFileSync(runlogPath, "utf8");
 
-    runCli(["review"], dir);
-    runCli(["review", "--json"], dir);
-    runCli(["status"], dir);
-    runCli(["status", "--json"], dir);
-    runCli(["status", "--parallel"], dir);
-    runCli(["status", "--parallel", "--json"], dir);
+    // M35-WU03: these 6 calls only ever check state.json/runlog.jsonl
+    // file content, never process-level stdout/stderr routing -- unlike
+    // this file's other tests, which specifically characterize the CLI's
+    // subprocess-level stream contract and must stay real subprocess
+    // spawns. runReviewCommand/runStatus are the exact functions
+    // register-commands.ts dispatches to for these commands (verified
+    // against its own wiring), so this preserves the same real,
+    // production code path under test while cutting 6 of this test's 7
+    // subprocess launches (build spec Sec 7, WU35-03's "CLI subprocess ->
+    // service-level test" example).
+    runReviewCommand(contextFor(dir, false));
+    runReviewCommand(contextFor(dir, true));
+    runStatus(contextFor(dir, false));
+    runStatus(contextFor(dir, true));
+    runStatus(contextFor(dir, false), { parallel: true });
+    runStatus(contextFor(dir, true), { parallel: true });
 
     expect(readFileSync(statePath, "utf8")).toBe(stateBefore);
     expect(readFileSync(runlogPath, "utf8")).toBe(runlogBefore);

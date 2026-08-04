@@ -8,7 +8,7 @@ import { buildInitialStateModel, writeStateModel, readStateModel } from "../../s
 import { prepareIsolatedWorkspace, releaseIsolatedWorkspace } from "../../src/workspaces/workspace-service.js";
 import { deriveDefaultWorkspaceRoot } from "../../src/workspaces/workspace-path-policy.js";
 import { acquireWorkspaceOperationLock } from "../../src/workspaces/workspace-operation-lock.js";
-import { makeTempDir, removeDir } from "../helpers.js";
+import { makeTempDir, removeDir, initGitFixtureRepo } from "../helpers.js";
 
 // M34-WU02: this file spawns real subprocesses (CLI and/or git); see
 // docs/engineering/m34-validation-workload-policy.md Sec 6.1 for the
@@ -31,14 +31,7 @@ describe("workspace hardening (M25-WU08)", () => {
     repoRootDir = makeTempDir("aiqt-wt-hardening-");
     implRoot = join(repoRootDir, "app");
     mkdirSync(implRoot, { recursive: true });
-    execFileSync("git", ["init", "--quiet", "-b", "main"], { cwd: implRoot });
-    execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: implRoot });
-    execFileSync("git", ["config", "user.name", "Test"], { cwd: implRoot });
-    execFileSync("git", ["config", "core.autocrlf", "false"], { cwd: implRoot });
-    writeFileSync(join(implRoot, "README.md"), "hello\n");
-    execFileSync("git", ["add", "README.md"], { cwd: implRoot });
-    execFileSync("git", ["commit", "--quiet", "-m", "initial"], { cwd: implRoot });
-    headSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: implRoot, encoding: "utf8" }).trim();
+    headSha = initGitFixtureRepo(implRoot);
 
     const paths = resolveAiqtPaths(implRoot);
     mkdirSync(paths.aiqtDir, { recursive: true });

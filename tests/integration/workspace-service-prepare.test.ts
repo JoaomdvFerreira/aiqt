@@ -7,7 +7,7 @@ import { resolveAiqtPaths } from "../../src/core/filesystem/paths.js";
 import { buildInitialStateModel, writeStateModel, readStateModel } from "../../src/state/workflow-state-store.js";
 import { prepareIsolatedWorkspace } from "../../src/workspaces/workspace-service.js";
 import { deriveDefaultWorkspaceRoot } from "../../src/workspaces/workspace-path-policy.js";
-import { makeTempDir, removeDir } from "../helpers.js";
+import { makeTempDir, removeDir, initGitFixtureRepo } from "../helpers.js";
 
 // M34-WU02: this file spawns real subprocesses (CLI and/or git); see
 // docs/engineering/m34-validation-workload-policy.md Sec 6.1 for the
@@ -31,18 +31,12 @@ describe("prepareIsolatedWorkspace (M25-WU04, real disposable repository)", () =
     repoRootDir = makeTempDir("aiqt-wt-prepare-");
     implRoot = join(repoRootDir, "app");
     mkdirSync(implRoot, { recursive: true });
-    execFileSync("git", ["init", "--quiet", "-b", "main"], { cwd: implRoot });
-    execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: implRoot });
-    execFileSync("git", ["config", "user.name", "Test"], { cwd: implRoot });
-    // Disable line-ending normalization for this disposable fixture repo --
-    // otherwise a Windows global `core.autocrlf=true` can make a freshly
-    // committed text file appear "dirty" to `git diff --quiet` purely from
-    // CRLF/LF conversion, with zero real edits.
-    execFileSync("git", ["config", "core.autocrlf", "false"], { cwd: implRoot });
-    writeFileSync(join(implRoot, "README.md"), "hello\n");
-    execFileSync("git", ["add", "README.md"], { cwd: implRoot });
-    execFileSync("git", ["commit", "--quiet", "-m", "initial"], { cwd: implRoot });
-    headSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: implRoot, encoding: "utf8" }).trim();
+    // initGitFixtureRepo (tests/helpers.ts) disables core.autocrlf on this
+    // disposable fixture repo -- otherwise a Windows global
+    // `core.autocrlf=true` can make a freshly committed text file appear
+    // "dirty" to `git diff --quiet` purely from CRLF/LF conversion, with
+    // zero real edits.
+    headSha = initGitFixtureRepo(implRoot);
 
     const paths = resolveAiqtPaths(implRoot);
     mkdirSync(paths.aiqtDir, { recursive: true });

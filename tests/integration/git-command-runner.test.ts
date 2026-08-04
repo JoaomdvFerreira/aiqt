@@ -23,7 +23,7 @@ import {
 // measured justification. Uses the shared class constant, not a locally
 // hardcoded literal.
 vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
-import { makeTempDir, removeDir } from "../helpers.js";
+import { makeTempDir, removeDir, initGitFixtureRepo } from "../helpers.js";
 
 /**
  * M25 §25.5/§25.18: a real disposable Git repository fixture, not a
@@ -36,13 +36,7 @@ describe("git-command-runner (M25 §8, disposable repository)", () => {
 
   beforeAll(() => {
     repoDir = makeTempDir("aiqt-git-runner-");
-    execFileSync("git", ["init", "--quiet", "-b", "main"], { cwd: repoDir });
-    execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: repoDir });
-    execFileSync("git", ["config", "user.name", "Test"], { cwd: repoDir });
-    writeFileSync(join(repoDir, "README.md"), "hello\n");
-    execFileSync("git", ["add", "README.md"], { cwd: repoDir });
-    execFileSync("git", ["commit", "--quiet", "-m", "initial"], { cwd: repoDir });
-    headSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoDir, encoding: "utf8" }).trim();
+    headSha = initGitFixtureRepo(repoDir);
   });
 
   afterAll(() => {

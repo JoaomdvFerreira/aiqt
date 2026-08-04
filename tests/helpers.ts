@@ -5,7 +5,9 @@ import {
   readdirSync,
   statSync,
   copyFileSync,
+  writeFileSync,
 } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,4 +54,29 @@ export function copyFixture(name: string): string {
 
 export function contextFor(cwd: string, json = false) {
   return makeContext({ cwd, json });
+}
+
+/**
+ * M35-WU03: shared Git-fixture-repository initializer, extracted from 5
+ * files (git-command-runner.test.ts, workspace-cli.test.ts,
+ * workspace-hardening.test.ts, workspace-service-prepare.test.ts,
+ * workspace-service-release-recovery.test.ts) that each independently
+ * repeated the identical init/config/commit sequence (build spec Sec 7,
+ * WU35-03's "repeated Git setup -> shared helper" example). Runs the same
+ * real `git` subprocess commands each caller previously ran inline --
+ * this deduplicates the setup code, it does not change what git commands
+ * execute or what state they leave behind. `core.autocrlf=false` is
+ * always set (harmless for callers that didn't previously set it) to
+ * avoid a Windows-specific CRLF-diff false positive on any caller that
+ * later checks `git diff --quiet`.
+ */
+export function initGitFixtureRepo(dir: string, commitMessage = "initial"): string {
+  execFileSync("git", ["init", "--quiet", "-b", "main"], { cwd: dir });
+  execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: dir });
+  execFileSync("git", ["config", "user.name", "Test"], { cwd: dir });
+  execFileSync("git", ["config", "core.autocrlf", "false"], { cwd: dir });
+  writeFileSync(join(dir, "README.md"), "hello\n");
+  execFileSync("git", ["add", "README.md"], { cwd: dir });
+  execFileSync("git", ["commit", "--quiet", "-m", commitMessage], { cwd: dir });
+  return execFileSync("git", ["rev-parse", "HEAD"], { cwd: dir, encoding: "utf8" }).trim();
 }
