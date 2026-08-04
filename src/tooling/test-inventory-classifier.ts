@@ -35,7 +35,18 @@ function hasGitSpawn(text: string): boolean {
   return /(?:execFileSync|spawnSync|execFile|spawn)\(\s*["']git["']/.test(text) || /\binitGitFixtureRepo\(/.test(text);
 }
 function hasCliSpawn(text: string): boolean {
-  return /spawnSync\(\s*process\.execPath/.test(text) || /tsxCli/.test(text) || /dist[\\/]index\.js/.test(text);
+  // M36-WU03: runAutonomousCommand/executeAutonomousRun (src/workspaces/
+  // autonomous-command-runner.ts, src/services/autonomous-run-execution-
+  // service.ts) wrap real execFileSync calls -- a test file calling only
+  // these, with no direct spawnSync/tsxCli/dist reference of its own,
+  // still spawns a real process transitively.
+  return (
+    /spawnSync\(\s*process\.execPath/.test(text) ||
+    /tsxCli/.test(text) ||
+    /dist[\\/]index\.js/.test(text) ||
+    /\brunAutonomousCommand\(/.test(text) ||
+    /\bexecuteAutonomousRun\(/.test(text)
+  );
 }
 function hasBuiltBinary(text: string): boolean {
   return /dist[\\/]index\.js/.test(text);
@@ -111,7 +122,7 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   { pattern: /^init|update|root-resolution|implementation-root/, domain: "project-bootstrap", criticality: "High-value" },
   { pattern: /package-version|semver|push-base|relevant-paths|versioning|^ids\.test/, domain: "release-tooling", criticality: "High-value" },
   { pattern: /^m34-validation-workload-inventory|^m35-test-inventory-classification/, domain: "validation-infrastructure", criticality: "Critical" },
-  { pattern: /^autonomous-run-|^autonomous-candidate-/, domain: "autonomous-run-safety", criticality: "Critical" },
+  { pattern: /^autonomous-/, domain: "autonomous-run-safety", criticality: "Critical" },
   { pattern: /dogfood/, domain: "self-consistency", criticality: "Normal" },
 ];
 

@@ -167,3 +167,101 @@ describe("M36-WU02 boundary scan: real repository preflight stays read-only, no 
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * M36-WU03 (build spec Sec 7 WU36-03 Scope: "worktree creation; command-
+ * policy enforcement"; threat model Sec 3.1 "default-branch mutation" /
+ * Sec 3.7 "arbitrary shell execution"): the first M36 Work Unit that
+ * actually creates a worktree and executes a repair-adjacent command.
+ * These 4 files are the entire real-execution surface; every other file
+ * in the codebase remains exactly as constrained as WU36-01/02 left it.
+ */
+const M36_WU03_FILES = [
+  "src/workflow/autonomous-run-branch-policy.ts",
+  "src/workflow/autonomous-run-agent-adapter.ts",
+  "src/workspaces/autonomous-worktree-lifecycle.ts",
+  "src/workspaces/autonomous-command-runner.ts",
+  "src/services/autonomous-run-execution-service.ts",
+];
+
+/** Exactly the git-command-runner exports autonomous-worktree-lifecycle.ts is allowed to call -- includes the 2-function mutating allowlist (gitWorktreeAdd/gitWorktreeRemove) plus 3 read-only checks, and nothing else. */
+const ALLOWED_WORKTREE_LIFECYCLE_GIT_FUNCTIONS = ["gitWorktreeAdd", "gitWorktreeRemove", "gitIsInsideWorkTree", "gitCheckRefFormatBranch", "GitRunnerError"];
+
+describe("M36-WU03 boundary scan: real worktree creation and command execution stay exactly as bounded as designed", () => {
+  it("no M36-WU03 file references a model-invocation, network, or dynamic-code-execution surface", () => {
+    const surfaces: { pattern: RegExp; label: string }[] = [
+      { pattern: /@anthropic-ai\/(claude-agent-sdk|sdk)/, label: "Claude/Anthropic SDK dependency (model invocation)" },
+      { pattern: /\bnode:net\b|\bnode:http\b|\bnode:https\b|\bfetch\s*\(|\bWebSocket\b/, label: "a network surface" },
+      { pattern: /\beval\s*\(|new\s+Function\s*\(|\bvm\.(Script|createContext|runIn)/, label: "dynamic code execution" },
+      { pattern: /\bimport\s*\(/, label: "dynamic import()" },
+      { pattern: /\brequire\s*\(/, label: "require() (this codebase is ESM-only)" },
+    ];
+    for (const relPath of M36_WU03_FILES) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      for (const { pattern, label } of surfaces) {
+        expect(pattern.test(text), `${relPath} unexpectedly matched forbidden pattern: ${label}`).toBe(false);
+      }
+    }
+  });
+
+  it("no M36-WU03 file imports a CLI command module (no CLI dispatch capability -- still no command surface to invoke a run)", () => {
+    for (const relPath of M36_WU03_FILES) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      expect(text, `${relPath} should not import a CLI command module`).not.toMatch(/from\s+["'].*cli\/commands/);
+    }
+  });
+
+  it("autonomous-worktree-lifecycle.ts is the ONLY M36-WU03 file that imports gitWorktreeAdd/gitWorktreeRemove (the mutating allowlist stays confined to exactly one module)", () => {
+    for (const relPath of M36_WU03_FILES) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      const usesMutating = /\bgitWorktreeAdd\b|\bgitWorktreeRemove\b/.test(text);
+      if (relPath === "src/workspaces/autonomous-worktree-lifecycle.ts") {
+        expect(usesMutating, `${relPath} should import the mutating worktree functions`).toBe(true);
+      } else {
+        expect(usesMutating, `${relPath} should NOT import the mutating worktree functions`).toBe(false);
+      }
+    }
+  });
+
+  it("autonomous-worktree-lifecycle.ts imports only the allowed git-command-runner exports", () => {
+    const text = readFileSync(join(repoRoot, "src", "workspaces", "autonomous-worktree-lifecycle.ts"), "utf8");
+    const importMatch = text.match(/import\s*\{([^}]*)\}\s*from\s*["']\.\/git-command-runner\.js["']/);
+    expect(importMatch, "autonomous-worktree-lifecycle.ts should import from ./git-command-runner.js").not.toBeNull();
+    const imported = importMatch![1].split(",").map((s) => s.trim());
+    const unexpected = imported.filter((name) => !ALLOWED_WORKTREE_LIFECYCLE_GIT_FUNCTIONS.includes(name));
+    expect(unexpected, `autonomous-worktree-lifecycle.ts imports unexpected git-command-runner exports: ${unexpected.join(", ")}`).toEqual([]);
+  });
+
+  it("autonomous-command-runner.ts never sets shell: true anywhere (the one real command-execution call site stays shell-free, matching git-command-runner.ts's own established pattern)", () => {
+    const text = readFileSync(join(repoRoot, "src", "workspaces", "autonomous-command-runner.ts"), "utf8");
+    expect(text).toMatch(/shell:\s*false/);
+    expect(text).not.toMatch(/shell:\s*true/);
+  });
+
+  it("autonomous-command-runner.ts exposes no generic string-command passthrough (execFileSync's first two arguments are always the structured request's own command/args fields, never a caller-supplied joined string)", () => {
+    const text = readFileSync(join(repoRoot, "src", "workspaces", "autonomous-command-runner.ts"), "utf8");
+    expect(text).toMatch(/execFileSync\(request\.command,\s*\[\.\.\.request\.args\]/);
+  });
+
+  it("no function anywhere in the M36-WU03 call graph can merge a branch (structural check: no git-merge invocation or gitMerge-style function, comments excluded)", () => {
+    const codeOnly = (text: string) =>
+      text
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+        .join("\n");
+    for (const relPath of M36_WU03_FILES) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(text, `${relPath} should not invoke a git merge or a merge-capable function`).not.toMatch(/["'`]merge["'`]|\.merge\(|gitMerge/i);
+    }
+  });
+
+  it("no CLI command references 'autonomous' after WU36-03 either (re-verified once more)", () => {
+    const commandsDir = join(repoRoot, "src", "cli", "commands");
+    const offenders = readdirSync(commandsDir).filter((f) => /autonomous/i.test(readFileSync(join(commandsDir, f), "utf8")));
+    expect(offenders).toEqual([]);
+  });
+
+  it("the AIQT repository root still has no .aiqt/ directory as a result of any M36 Work Unit so far", () => {
+    expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
+  });
+});

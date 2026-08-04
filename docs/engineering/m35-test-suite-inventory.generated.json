@@ -1,30 +1,30 @@
 {
   "summary": {
-    "generatedAt": "2026-08-04T14:51:49.481Z",
-    "totalFiles": 241,
-    "totalTestsStatic": 2353,
+    "generatedAt": "2026-08-04T15:25:04.459Z",
+    "totalFiles": 244,
+    "totalTestsStatic": 2382,
     "totalTestsActual": 2401,
     "byLayer": {
-      "unit": 128,
-      "integration": 113
+      "unit": 129,
+      "integration": 115
     },
     "byWorkloadClass": {
       "filesystem-integration": 77,
       "git-worktree-integration": 6,
+      "cli-subprocess-integration": 11,
+      "evidence-execution-workspace-integration": 21,
       "built-binary-smoke": 1,
-      "cli-subprocess-integration": 10,
-      "evidence-execution-workspace-integration": 20,
-      "fast-unit": 127
+      "fast-unit": 128
     },
     "byCriticality": {
       "Normal": 85,
-      "Critical": 69,
+      "Critical": 72,
       "High-value": 87
     },
     "byDomain": {
       "work-packet-lifecycle": 19,
       "security-boundary": 14,
-      "autonomous-run-safety": 6,
+      "autonomous-run-safety": 9,
       "built-binary": 1,
       "canonical-state": 4,
       "evidence-binding": 25,
@@ -170,6 +170,54 @@
         "inlinePerTest": false
       },
       "lineCount": 135
+    },
+    {
+      "path": "tests/integration/autonomous-command-runner.test.ts",
+      "layer": "integration",
+      "workloadClass": "cli-subprocess-integration",
+      "domain": "autonomous-run-safety",
+      "criticality": "Critical",
+      "testCountStatic": 6,
+      "testCountActual": null,
+      "durationMs": null,
+      "runStatus": null,
+      "subprocessUsage": {
+        "git": false,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 107
+    },
+    {
+      "path": "tests/integration/autonomous-run-execution-service.test.ts",
+      "layer": "integration",
+      "workloadClass": "evidence-execution-workspace-integration",
+      "domain": "autonomous-run-safety",
+      "criticality": "Critical",
+      "testCountStatic": 9,
+      "testCountActual": null,
+      "durationMs": null,
+      "runStatus": null,
+      "subprocessUsage": {
+        "git": true,
+        "cli": true,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 265
     },
     {
       "path": "tests/integration/autonomous-run-preflight.test.ts",
@@ -2889,7 +2937,7 @@
       "workloadClass": "fast-unit",
       "domain": "security-boundary",
       "criticality": "Critical",
-      "testCountStatic": 7,
+      "testCountStatic": 11,
       "testCountActual": null,
       "durationMs": null,
       "runStatus": null,
@@ -2905,7 +2953,31 @@
         "vitestSetConfig": false,
         "inlinePerTest": false
       },
-      "lineCount": 115
+      "lineCount": 170
+    },
+    {
+      "path": "tests/unit/autonomous-run-branch-policy.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "autonomous-run-safety",
+      "criticality": "Critical",
+      "testCountStatic": 10,
+      "testCountActual": null,
+      "durationMs": null,
+      "runStatus": null,
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 59
     },
     {
       "path": "tests/unit/autonomous-run-budget.test.ts",
@@ -4537,7 +4609,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 314
+      "lineCount": 331
     },
     {
       "path": "tests/unit/m35-test-inventory-classification.test.ts",

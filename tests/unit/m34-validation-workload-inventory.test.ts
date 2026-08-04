@@ -46,14 +46,25 @@ function hasGitSpawn(text: string): boolean {
 }
 
 function hasCliSpawn(text: string): boolean {
-  return /spawnSync\(\s*process\.execPath/.test(text) || /tsxCli/.test(text) || /dist[\\/]index\.js/.test(text);
+  // M36-WU03: runAutonomousCommand/executeAutonomousRun wrap real
+  // execFileSync calls -- a test file calling only these, with no direct
+  // spawnSync/tsxCli/dist reference of its own, still spawns a real
+  // process transitively.
+  return (
+    /spawnSync\(\s*process\.execPath/.test(text) ||
+    /tsxCli/.test(text) ||
+    /dist[\\/]index\.js/.test(text) ||
+    /\brunAutonomousCommand\(/.test(text) ||
+    /\bexecuteAutonomousRun\(/.test(text)
+  );
 }
 
 /**
  * The 33 files known to spawn a real subprocess (git and/or the CLI) as of
  * the M34-WU01 baseline (docs/engineering/m34-validation-workload-policy.md
- * Sec 1/5), plus the 1 built-binary smoke file WU34-03 added and the 2
- * autonomous-run files M36-WU02 added (36 total). A
+ * Sec 1/5), plus the 1 built-binary smoke file WU34-03 added, the 2
+ * autonomous-run files M36-WU02 added, and the 2 more M36-WU03 added
+ * (38 total). A
  * file added to or removed from this set must be a deliberate, reviewed
  * change to the policy document -- this test does not silently absorb a new
  * spawning file into "already accounted for".
@@ -101,6 +112,12 @@ const KNOWN_SPAWNING_FILES = [
   "tests/integration/execution-workflow-integration.test.ts",
   "tests/integration/required-evidence-hardening.test.ts",
   "tests/integration/workspace-packet-status-integration.test.ts",
+  // M36-WU03 (+2): autonomous-command-runner.test.ts spawns real commands
+  // via runAutonomousCommand (git --version, a denied rm, a nonexistent
+  // binary); autonomous-run-execution-service.test.ts spawns via both
+  // initGitFixtureRepo (setup) and executeAutonomousRun (the real loop).
+  "tests/integration/autonomous-command-runner.test.ts",
+  "tests/integration/autonomous-run-execution-service.test.ts",
 ].sort();
 
 /**

@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.22.0 (M36-WU02: candidate intake and real read-only repository preflight added)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.22.0");
+  it("is the current released version 0.23.0 (M36-WU03: isolated worktree creation and bounded command execution added)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.23.0");
   });
 });
