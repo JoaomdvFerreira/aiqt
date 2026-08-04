@@ -144,6 +144,15 @@
       "supporting": [],
       "notes": "The sole GitHub Actions workflow (name: Validate), matrix build on Node 22 and 24 -- no other workflow files exist."
     },
+    "testRuntimePolicy": {
+      "primary": "vitest.config.ts",
+      "supporting": [
+        "package.json",
+        ".github/workflows/validate.yml",
+        "docs/engineering/m34-validation-workload-policy.md"
+      ],
+      "notes": "M34-WU01: vitest.config.ts sets pool:'threads' (M21 rationale preserved in its own comment) but no global testTimeout/concurrency policy -- individual test files currently self-manage via per-file vi.setConfig({testTimeout}) (4 files as of M34-WU01: execution-adapter-claude-code-import.test.ts, execution-external-import.test.ts, execution-hardening.test.ts at 15000ms; m33-result-contract-characterization.test.ts at 20000ms). package.json#scripts.test ('vitest run', no flags) is the exact command .github/workflows/validate.yml's Test step runs, and Test runs BEFORE Build in CI -- the built dist/index.js is never exercised by any test today. docs/engineering/m34-validation-workload-policy.md is the WU34-01 characterization deliverable and the authoritative source for the target per-workload-class timeout/concurrency contract WU34-02 will implement; this owner-map entry is a pointer, not a restatement."
+    },
     "commandResultContract": {
       "primary": "src/core/output/result.ts",
       "supporting": [
