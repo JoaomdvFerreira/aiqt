@@ -86,7 +86,22 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   { pattern: /^next|packet|agent-packet|parallel-batch|parallel-eligibility|resource-claim|^agent-handoff|^agent-operating|work-unit-cancel-transition|start-continue/, domain: "work-packet-lifecycle", criticality: "Normal" },
   { pattern: /^plan|dependency-update|^import/, domain: "plan-lifecycle", criticality: "Normal" },
   { pattern: /^issue-|finding-|^review|warning-rules|guidance-rules|project-issue-foundation/, domain: "review-and-issues", criticality: "Normal" },
-  { pattern: /^prompt-|prompt\.command|component-system|design-system|skills-plan|skills-detection|select-relevant-skills|ui-heavy-detection|full-stack-detection/, domain: "prompt-generation", criticality: "Low-signal" },
+  {
+    pattern: /^prompt-|prompt\.command|component-system|design-system|skills-plan|skills-detection|select-relevant-skills|ui-heavy-detection|full-stack-detection/,
+    domain: "prompt-generation",
+    // M35-WU02: reclassified from Low-signal to Normal after direct
+    // investigation (docs/engineering/m35-test-suite-inventory.md Sec 5.3
+    // addendum) -- every sampled file across this domain (integration and
+    // unit, small and large) tested a real, distinct positive/negative
+    // behavioral branch or documented edge case, not generated-text
+    // wording or a private implementation detail. One file
+    // (prompt-out-path.test.ts) tests real path-traversal/prefix-confusion
+    // security validation and is arguably under-classified even at
+    // Normal, but this Work Unit did not individually re-classify single
+    // files within the domain -- see the inventory doc for the full
+    // reasoning and the files actually sampled.
+    criticality: "Normal",
+  },
   { pattern: /^status|^manage|^export/, domain: "read-only-views", criticality: "Normal" },
   { pattern: /^init|update|root-resolution|implementation-root/, domain: "project-bootstrap", criticality: "High-value" },
   { pattern: /package-version|semver|push-base|relevant-paths|versioning|^ids\.test/, domain: "release-tooling", criticality: "High-value" },

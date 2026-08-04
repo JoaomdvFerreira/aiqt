@@ -93,13 +93,15 @@ This reproduces M34's own classification almost exactly (M34 counted 34 known-sp
 | --- | --- | --- |
 | Critical | 61 | 26% |
 | High-value | 87 | 37% |
-| Normal | 67 | 29% |
-| Low-signal | 18 | 8% |
-| Duplicate | 0 (candidates identified below; none confirmed) | — |
-| Obsolete | 0 (candidates identified below; none confirmed) | — |
+| Normal | 85 | 36% |
+| Low-signal | 0 (see Sec 5A — corrected after WU35-02 investigation) | 0% |
+| Duplicate | 0 (candidates identified below; none confirmed after WU35-02 investigation) | — |
+| Obsolete | 0 (candidates identified below; none confirmed after WU35-02 investigation) | — |
 | Misplaced | 0 (investigated; none confirmed) | — |
 | Flaky | 1 (confirmed, see Sec 5.4) | <1% |
 | Performance-heavy | 30 (see Sec 5.1) | 13% |
+
+**These are the final, post-WU35-02 figures.** The WU35-01 baseline originally classified 18 files as Low-signal (`prompt-generation` domain) and 67 as Normal; WU35-02's direct investigation (Sec 5A) found the Low-signal classification did not hold up on inspection and corrected it, moving all 18 into Normal.
 
 The last four rows are not mutually exclusive with the first four (e.g. the one confirmed Flaky file is separately classified High-value; several Performance-heavy files are Critical). "Duplicate," "Obsolete," and "Misplaced" show 0 *confirmed* because this Work Unit's mandate is investigation, not deletion — every candidate below requires the owner review WU35-02 will perform before any status changes to "confirmed."
 
@@ -260,6 +262,20 @@ No behavior removed by M31–M34 was found to have an orphaned test still assert
 ## 6. Deletion-Evidence Policy Pointer
 
 See `docs/engineering/m35-test-rationalization-policy.md` for the full deletion-evidence contract required before any future removal or merge (build spec Sec 6), and the owner-review requirement for Critical/High-value tests.
+
+## 5A. WU35-02 addendum — investigation results
+
+WU35-02 investigated all four `investigate`-flagged clusters from Sec 5.4/5.5 and sampled the Sec 5.3 Low-signal domain by directly reading each cluster's actual test files (not filename pattern-matching). **Result: zero tests removed, zero tests merged, zero assertion changed. One domain's criticality classification corrected** (Sec 5.3 below). This is itself the honest evidence-based outcome the build spec's governing principle ("preserve signal... measure everything") anticipates — investigation does not automatically produce a reduction, and forcing one without genuine evidence would violate the explicit "no test removed merely to improve runtime" invariant (build spec Sec 3, #11).
+
+**Historical schema-compatibility quintet — confirmed NOT duplicate.** Reading all 5 files' `describe`/`it` blocks directly: `m24-historical-compatibility.test.ts` protects the absence of `executionMetadata` (added M24), `m25-historical-compatibility.test.ts` protects the absence of `workspace` (added M25), `m26-historical-compatibility.test.ts` protects the absence of `executionSessions` (added M26), `m22-historical-compatibility.test.ts` protects the absence of `projectIssues`/`projectIssueTransitions` (added M22), and `m22-compatibility.test.ts` is a materially different, broader M22-WU09 integration test (classification/promotion/compatibility behavior, not a pure schema-absence-tolerance check). This is a deliberate, systematic pattern — each milestone that adds a new schema field gets its own dedicated "does absence of my field break anything" test — not incidental duplication. **No action taken; all 5 files retained as Critical.**
+
+**`review-*` sextet — confirmed NOT duplicate.** Reading all 6 files' `describe`/`it` blocks directly: `review.command.test.ts` covers the core review flow and integrity findings; `review-acknowledge.command.test.ts` covers the `review acknowledge` subcommand specifically; `review-mode.command.test.ts` covers the `--mode` flag; `review-findings.test.ts` unit-tests `sortAndAssignFindingIds`; `review-next-command.test.ts` unit-tests `computeReviewNextCommand`/`computeRecommendedExportTargets`; `review-rules-finding-keys.test.ts` unit-tests finding-key determinism. Six genuinely distinct command surfaces and pure functions. **No action taken; all 6 files retained.**
+
+**`execution-adapter-claude-code-legacy-compat.test.ts` — confirmed NOT obsolete.** Reading the file directly: it tests that "a pre-M27R legacy `anthropic/claude-code` session remains valid, resumable by the Claude adapter, and is reported as `legacy_provider_specific_session`," and that a Claude-adapter resume can target a session created by the generic path. This is real, currently-reachable backward-compatibility behavior, not dead-code coverage. **No action taken; file retained as High-value.**
+
+**Low-signal `prompt-generation` domain (18 files) — heuristic classification corrected to Normal.** Sampled 4 files directly (2 mid-size integration files, 1 small unit file, 1 small unit file testing security-relevant path validation): `prompt-interview-design-system.test.ts` (positive/negative branches of design-discovery-question inclusion), `prompt-driver-design-system.test.ts` (positive/negative branches of design-system guidance plus a before-`aiqt init` precondition check), `full-stack-detection.test.ts` (case-insensitivity and full documented-keyword-enumeration edge cases on a pure detector function), and `prompt-out-path.test.ts` (path-traversal and string-prefix-confusion-attack rejection — genuinely security-relevant, arguably under-classified even at Normal). **None of the 4 sampled files showed weak assertions or private-implementation-detail-only testing** — the WU35-01 heuristic (classifying by domain-name association, "prompt generation sounds cosmetically low-value") did not hold up under direct reading. `src/tooling/test-inventory-classifier.ts`'s `prompt-generation` rule was corrected from `Low-signal` to `Normal` (see the rule's own in-line comment for the full reasoning). **No file removed, merged, or rewritten; this is a classification correction only**, made because continuing to carry an evidence-contradicted "Low-signal" label forward would itself be a documentation-accuracy regression. The remaining 14 unsampled files in this domain were not individually read — the corrected classification is a conservative floor (Normal), not a claim that every file is at least Normal-quality; a future Work Unit remains free to investigate further.
+
+Combined with Sec 5.6's existing negative finding (0 misplaced files, verified) and Sec 5.2's single confirmed-flaky file (unchanged by this addendum, deferred to WU35-03 per its own recommendation), **every candidate this milestone's inventory identified has now been either investigated to a confirmed non-actionable conclusion, or explicitly deferred to WU35-03 as a runtime/layer concern rather than a WU35-02 deletion concern.** WU35-02 accordingly closes with a test suite unchanged in file count and assertion content from WU35-01's end state (233 files), plus one corrected classification.
 
 ## 7. Regenerating This Inventory
 
