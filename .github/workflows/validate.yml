@@ -1,12 +1,36 @@
 name: Validate
 
 # M19: full repository validation plus version-governance enforcement.
-# M21-WU03: matrix-tests the currently supported Node.js runtime range
-# (verified live against endoflife.date during M21 Gate A, 2026-07-20:
-# Node 20 reached end of security support 2026-04-30 and is EOL; Node 22 is
-# Maintenance LTS through 2027-04-30 and Node 24 is Active LTS through
-# 2028-04-30). Version-governance enforcement runs once, on the primary
-# (highest) supported version, to avoid duplicate merge-gate evaluation.
+# M35-WU04: Node 24 is now the sole mandatory per-commit runtime (the
+# Preferred support policy chosen in docs/engineering/m35-test-suite-
+# inventory.md Sec 2: "Official runtime: Node 24, Node 22: unsupported").
+# Node 22 was removed from this workflow's matrix -- it is no longer
+# validated on any push or PR. No periodic/scheduled Node 22 compatibility
+# workflow was added; the Preferred policy explicitly does not require one.
+# If Node 22 support is ever reinstated, restore a `node-version` matrix
+# and the `matrix.node-version == 24` guards this file's single-job
+# predecessor used to carry.
+#
+# M35-WU04 topology change: the previous single sequential job (typecheck
+# -> lint -> build -> test -> version-check, ~9 minutes wall-clock on
+# Node 24 per docs/m34-ci-reliability-confirmation.md) is split into
+# parallel jobs so independent GitHub-hosted runners, not one runner's
+# CPU budget, absorb the suite's real cost:
+#   - quality: typecheck + lint (fast, no build output needed).
+#   - build: `pnpm build` once; dist/ is uploaded as an artifact and
+#     reused by test/version-check (build spec Sec 7 WU35-04, "reuse
+#     build outputs safely") instead of every job rebuilding it.
+#   - test: 3-way vitest --shard matrix (build spec Sec 7, "parallelize
+#     by workload where beneficial") -- measured locally at 69.5s/83.9s/
+#     136.5s per shard (233 files / 2408 tests total, unbalanced by
+#     vitest's default file-order sharding, still a large improvement
+#     over one ~500s sequential run); each shard needs the dist/
+#     artifact since any shard may contain
+#     tests/integration/built-binary-smoke.test.ts.
+#   - version-check: needs build AND test (preserves the original
+#     sequential semantics -- don't report a version-governance verdict
+#     if the suite itself already failed) plus the dist/ artifact
+#     (runVersionCheck checks builtRuntimeMatchesPackage).
 # Never publishes a package, creates a tag/release, or commits/mutates any
 # file -- read-only validation only. Requires no secrets.
 
@@ -16,82 +40,97 @@ on:
   pull_request:
 
 jobs:
-  validate:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  test:
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        node-version: [22, 24]
+        shard: [1, 2, 3]
     steps:
-      - name: Checkout (full history)
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          # M19 §18: full history retained even in the sharded test job --
+          # tests/unit/push-base.test.ts and similar exercise real git
+          # history resolution regardless of which shard picks them up.
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - run: node node_modules/vitest/vitest.mjs run --shard=${{ matrix.shard }}/3
+
+  version-check:
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
         with:
           # M19 §18: sufficient history to resolve the PR base and merge
           # base deterministically -- a shallow checkout cannot do this.
           fetch-depth: 0
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        # M21-WU10-fix: no `version:` input here. M19-RC1 pinned `version:
-        # 7` to match pnpm-lock.yaml's lockfileVersion 5.4 (the format
-        # written by pnpm 7.x) -- pnpm 9 rejected that lockfile outright
-        # and then failed --frozen-lockfile as if no lockfile existed at
-        # all. M21-WU02 later added an exact `packageManager: "pnpm@7.33.5"`
-        # to package.json for the same reason (truthful, exact package-
-        # manager metadata). pnpm/action-setup@v6 auto-detects the version
-        # from `packageManager` when present and *fails outright* if a
-        # `version:` input is also given and doesn't byte-for-byte match --
-        # this broke the very first CI run after M21-WU02+WU03 merged
-        # ("Multiple versions of pnpm specified"), surfaced immediately by
-        # this project's real-workflow verification discipline (gh run
-        # view). `packageManager` alone is now the single source of truth
-        # for both local installs and CI.
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24
           cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Build
-        # M34-WU04: Build now runs before Test (previously the reverse) so
-        # tests/integration/built-binary-smoke.test.ts (M34-WU03) has a real
-        # dist/index.js to exercise -- CI now validates the artifact it
-        # would actually ship, not just source run through tsx.
-        run: pnpm build
-
-      - name: Test
-        run: pnpm test
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
       - name: Version check (local consistency)
-        # M21-WU03: version governance is a single repository-wide policy
-        # decision, not a per-runtime one -- it runs once, on the primary
-        # (highest) supported Node version, to avoid evaluating the same
-        # merge gate twice per push/PR.
-        if: matrix.node-version == 24
         run: pnpm version:check
 
       - name: Fetch PR base branch
-        if: matrix.node-version == 24 && github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request'
         # M19 §18: use the pull request's actual base ref from event
         # metadata -- never assume origin/main for every PR.
         run: git fetch origin "${{ github.event.pull_request.base.ref }}":"refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
 
       - name: Version check (base comparison)
-        if: matrix.node-version == 24 && github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request'
         run: pnpm version:check -- --base "origin/${{ github.event.pull_request.base.ref }}" --json
 
       - name: Resolve direct-push comparison base
-        if: matrix.node-version == 24 && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: resolve_push_base
         # M19-RC1 §12: use GitHub's own authoritative github.event.before
         # (never HEAD~1, which is not authoritative under e.g. a squash
@@ -103,7 +142,7 @@ jobs:
         run: node node_modules/tsx/dist/cli.mjs src/tooling/resolve-push-base-cli.ts --before "${{ github.event.before }}" >> "$GITHUB_OUTPUT"
 
       - name: Version check (direct push to main, enforced)
-        if: matrix.node-version == 24 && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.resolve_push_base.outputs.action == 'compare'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.resolve_push_base.outputs.action == 'compare'
         # M19-RC1 §11/§14: this is a blocking merge gate, identical in kind
         # to the PR comparison step below -- no continue-on-error, no
         # `|| true`, no swallowed exit code. A relevant change pushed

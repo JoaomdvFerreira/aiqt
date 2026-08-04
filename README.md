@@ -134,7 +134,7 @@ AIQT is under active, spec-driven development. Each milestone is delivered
 against a written build specification, decomposed into small, independently
 committed and tagged Work Units, and closed only after full local validation,
 a clean-clone rebuild, and a green real CI run on the supported Node.js
-matrix (see `package.json#engines`). Milestone specifications live in
+version (see `package.json#engines`). Milestone specifications live in
 [`docs/`](docs/); engineering process and governance notes live in
 [`docs/engineering/`](docs/engineering/) and [`GOVERNANCE.md`](GOVERNANCE.md).
 
@@ -156,7 +156,8 @@ pnpm test:repeated  # runs `vitest run` N times consecutively (default 5)
 
 `pnpm validate` is the single authoritative local validation command; CI
 (`.github/workflows/validate.yml`) runs the identical sequence on the same
-supported Node.js versions (`package.json#engines`, currently 22 and 24).
+supported Node.js version (`package.json#engines`, currently 24 -- the sole
+mandatory per-commit runtime as of M35; Node 22 is unsupported).
 See [`docs/m34-validation-workload-policy.md`](docs/m34-validation-workload-policy.md)
 for this repository's test-workload classification, per-class timeout
 policy, and troubleshooting guidance if `pnpm test` fails locally with a
