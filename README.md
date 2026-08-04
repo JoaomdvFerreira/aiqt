@@ -157,7 +157,7 @@ pnpm test:repeated  # runs `vitest run` N times consecutively (default 5)
 `pnpm validate` is the single authoritative local validation command; CI
 (`.github/workflows/validate.yml`) runs the identical sequence on the same
 supported Node.js versions (`package.json#engines`, currently 22 and 24).
-See [`docs/engineering/m34-validation-workload-policy.md`](docs/engineering/m34-validation-workload-policy.md)
+See [`docs/m34-validation-workload-policy.md`](docs/m34-validation-workload-policy.md)
 for this repository's test-workload classification, per-class timeout
 policy, and troubleshooting guidance if `pnpm test` fails locally with a
 `Test timed out` error (usually a machine-load symptom under the

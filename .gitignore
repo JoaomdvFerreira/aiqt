@@ -45,3 +45,4 @@ docs/*
 !docs/m33-wu01-command-result-contract.md
 !docs/m34-closure-report.md
 !docs/m34-validation-workload-policy.md
+!docs/m34-ci-reliability-confirmation.md
