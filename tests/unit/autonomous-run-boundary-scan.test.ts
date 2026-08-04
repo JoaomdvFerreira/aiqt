@@ -112,3 +112,58 @@ describe("M36-WU01: no AIQT self-management path exists", () => {
     expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
   });
 });
+
+/**
+ * M36-WU02 (build spec Sec "Scope": "repository preflight"; acceptance
+ * criteria: "no workspace mutation occurs before approval"): unlike
+ * WU36-01's files, autonomous-run-preflight.ts DOES import from
+ * src/workspaces/ -- a deliberate, reviewed exception, since real
+ * preflight requires real (but read-only) repository inspection. This
+ * guard proves the exception stays exactly what it claims: read-only.
+ */
+const M36_WU02_SRC_FILES = ["src/workflow/autonomous-run-preflight.ts", "src/services/autonomous-candidate-intake-service.ts"];
+
+const WU02_MUTATING_SURFACES: { pattern: RegExp; label: string }[] = [
+  { pattern: /\bgitWorktreeAdd\b|\bgitWorktreeRemove\b/, label: "real worktree creation/removal (M25 git-command-runner)" },
+  { pattern: /\bprepareIsolatedWorkspace\b|\breleaseIsolatedWorkspace\b/, label: "real workspace lifecycle orchestration (M25)" },
+  { pattern: /from\s+["'].*cli\/commands/, label: "a CLI command module import (no CLI dispatch capability)" },
+  { pattern: /@anthropic-ai\/(claude-agent-sdk|sdk)/, label: "Claude/Anthropic SDK dependency (model invocation)" },
+  { pattern: /\bnode:net\b|\bnode:http\b|\bnode:https\b|\bfetch\s*\(/, label: "a network surface" },
+  { pattern: /\beval\s*\(|new\s+Function\s*\(/, label: "dynamic code execution" },
+];
+
+/** Exactly the read-only Git functions autonomous-run-preflight.ts is allowed to call -- any OTHER git-command-runner export appearing in these files is unexpected and must be reviewed. */
+const ALLOWED_GIT_FUNCTIONS = ["gitDiffQuietIsClean", "gitIsInsideWorkTree", "gitRevParse", "gitStatusPorcelain", "GitRunnerError"];
+
+describe("M36-WU02 boundary scan: real repository preflight stays read-only, no workspace mutation before approval", () => {
+  for (const relPath of M36_WU02_SRC_FILES) {
+    it(`${relPath} contains no mutating/network/model-invocation/CLI-dispatch surface`, () => {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      for (const { pattern, label } of WU02_MUTATING_SURFACES) {
+        expect(pattern.test(text), `${relPath} unexpectedly matched forbidden pattern: ${label}`).toBe(false);
+      }
+    });
+  }
+
+  it("autonomous-run-preflight.ts imports only the allowed read-only Git functions from git-command-runner.ts", () => {
+    const text = readFileSync(join(repoRoot, "src", "workflow", "autonomous-run-preflight.ts"), "utf8");
+    const importMatch = text.match(/import\s*\{([^}]*)\}\s*from\s*["'].*git-command-runner\.js["']/);
+    expect(importMatch, "autonomous-run-preflight.ts should import from git-command-runner.js").not.toBeNull();
+    const imported = importMatch![1].split(",").map((s) => s.trim());
+    const unexpected = imported.filter((name) => !ALLOWED_GIT_FUNCTIONS.includes(name));
+    expect(unexpected, `autonomous-run-preflight.ts imports unexpected git-command-runner exports: ${unexpected.join(", ")}`).toEqual([]);
+  });
+
+  it("neither WU36-02 file imports src/workspaces/workspace-service.ts, git-worktree-provider.ts, or workspace-operation-lock.ts (no orchestration/locking capability, only the one allowlisted read-only runner)", () => {
+    for (const relPath of M36_WU02_SRC_FILES) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      expect(text).not.toMatch(/workspace-service\.js|git-worktree-provider\.js|workspace-operation-lock\.js/);
+    }
+  });
+
+  it("no CLI command references 'autonomous' after WU36-02 either (re-verified, not just at WU36-01)", () => {
+    const commandsDir = join(repoRoot, "src", "cli", "commands");
+    const offenders = readdirSync(commandsDir).filter((f) => /autonomous/i.test(readFileSync(join(commandsDir, f), "utf8")));
+    expect(offenders).toEqual([]);
+  });
+});

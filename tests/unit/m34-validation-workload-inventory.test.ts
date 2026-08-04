@@ -38,7 +38,11 @@ function relPath(full: string): string {
 }
 
 function hasGitSpawn(text: string): boolean {
-  return /(?:execFileSync|spawnSync|execFile|spawn)\(\s*["']git["']/.test(text);
+  // M36-WU02: initGitFixtureRepo (tests/helpers.ts, M35-WU03) wraps a
+  // real `git init`/config/commit sequence -- a file calling only this
+  // shared helper, with no direct execFileSync("git", ...) of its own,
+  // still spawns git transitively and must classify as such.
+  return /(?:execFileSync|spawnSync|execFile|spawn)\(\s*["']git["']/.test(text) || /\binitGitFixtureRepo\(/.test(text);
 }
 
 function hasCliSpawn(text: string): boolean {
@@ -48,14 +52,19 @@ function hasCliSpawn(text: string): boolean {
 /**
  * The 33 files known to spawn a real subprocess (git and/or the CLI) as of
  * the M34-WU01 baseline (docs/engineering/m34-validation-workload-policy.md
- * Sec 1/5), plus the 1 built-binary smoke file WU34-03 added (34 total). A
+ * Sec 1/5), plus the 1 built-binary smoke file WU34-03 added and the 2
+ * autonomous-run files M36-WU02 added (36 total). A
  * file added to or removed from this set must be a deliberate, reviewed
  * change to the policy document -- this test does not silently absorb a new
  * spawning file into "already accounted for".
  */
 const KNOWN_SPAWNING_FILES = [
-  // Git/worktree integration (5)
+  // Git/worktree integration (7) -- +2 in M36-WU02: both call only the
+  // shared initGitFixtureRepo helper (no direct execFileSync("git", ...)
+  // of their own), detected via hasGitSpawn's initGitFixtureRepo pattern.
   "tests/integration/git-command-runner.test.ts",
+  "tests/integration/autonomous-run-preflight.test.ts",
+  "tests/integration/autonomous-candidate-intake-service.test.ts",
   "tests/integration/workspace-cli.test.ts",
   "tests/integration/workspace-hardening.test.ts",
   "tests/integration/workspace-service-prepare.test.ts",

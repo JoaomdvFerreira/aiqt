@@ -27,7 +27,12 @@ function relPath(repoRoot: string, full: string): string {
 }
 
 function hasGitSpawn(text: string): boolean {
-  return /(?:execFileSync|spawnSync|execFile|spawn)\(\s*["']git["']/.test(text);
+  // M36-WU02: initGitFixtureRepo (tests/helpers.ts, M35-WU03) wraps a
+  // real `git init`/config/commit sequence -- a file that calls only
+  // this shared helper, with no direct execFileSync("git", ...) literal
+  // of its own, still spawns git transitively and must classify as
+  // such, not silently fall through as non-spawning.
+  return /(?:execFileSync|spawnSync|execFile|spawn)\(\s*["']git["']/.test(text) || /\binitGitFixtureRepo\(/.test(text);
 }
 function hasCliSpawn(text: string): boolean {
   return /spawnSync\(\s*process\.execPath/.test(text) || /tsxCli/.test(text) || /dist[\\/]index\.js/.test(text);
@@ -106,7 +111,7 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   { pattern: /^init|update|root-resolution|implementation-root/, domain: "project-bootstrap", criticality: "High-value" },
   { pattern: /package-version|semver|push-base|relevant-paths|versioning|^ids\.test/, domain: "release-tooling", criticality: "High-value" },
   { pattern: /^m34-validation-workload-inventory|^m35-test-inventory-classification/, domain: "validation-infrastructure", criticality: "Critical" },
-  { pattern: /^autonomous-run-/, domain: "autonomous-run-safety", criticality: "Critical" },
+  { pattern: /^autonomous-run-|^autonomous-candidate-/, domain: "autonomous-run-safety", criticality: "Critical" },
   { pattern: /dogfood/, domain: "self-consistency", criticality: "Normal" },
 ];
 

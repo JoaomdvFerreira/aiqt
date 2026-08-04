@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.21.0 (M36-WU01: autonomous-run contract, threat model, and safety guards added)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.21.0");
+  it("is the current released version 0.22.0 (M36-WU02: candidate intake and real read-only repository preflight added)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.22.0");
   });
 });

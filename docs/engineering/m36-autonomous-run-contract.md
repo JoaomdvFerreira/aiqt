@@ -363,4 +363,30 @@ Two new entries added to `docs/engineering/repository-owner-map.json` (Sec 2.3's
 
 ## 8. Explicit Non-Enablement Statement
 
-As of this Work Unit: no CLI command can trigger an autonomous run; no code path creates a worktree for autonomous execution; no code path invokes a coding model; no code path executes an arbitrary or classified-as-allowed command against any real repository; no runlog event of any `autonomous_run.*` type has ever been written by any code in this repository. WU36-02 (Candidate Intake and Safety Classifier) is the next Work Unit and remains gated on this milestone's own build spec Sec 1 entry conditions plus this Work Unit's closure.
+As of WU36-01: no CLI command can trigger an autonomous run; no code path creates a worktree for autonomous execution; no code path invokes a coding model; no code path executes an arbitrary or classified-as-allowed command against any real repository; no runlog event of any `autonomous_run.*` type has ever been written by any code in this repository.
+
+## 9. WU36-02 addendum — real (read-only) preflight and candidate intake
+
+WU36-02 (Candidate Intake and Safety Classifier, build spec Sec 7) implements the "candidate intake; issue normalization; repository preflight; dirty-tree detection; base-ref verification; ... dry-run classification output" scope items on top of WU36-01's contract.
+
+### 9.1 What changed from WU36-01's posture
+
+WU36-01 deliberately imported nothing from `src/workspaces/` — no code existed that could inspect a real repository at all. WU36-02 adds exactly one file that does: `src/workflow/autonomous-run-preflight.ts`. This is a **reviewed, intentional, narrow exception**, not a relaxation of WU36-01's posture: `runRepositoryPreflight()` calls exactly 4 already-allowlisted, already-read-only Git functions (`gitIsInsideWorkTree`, `gitStatusPorcelain`, `gitDiffQuietIsClean`, `gitRevParse`) and nothing else — no worktree function, no workspace-service function, no write of any kind. `tests/unit/autonomous-run-boundary-scan.test.ts`'s new WU36-02 section (extending Sec 6's mechanism) proves this by import-allowlist, not by convention: the test parses the file's actual import statement and fails if any git-command-runner export beyond the 4 allowed ones ever appears.
+
+### 9.2 Candidate intake and one-issue-per-run
+
+`src/services/autonomous-candidate-intake-service.ts`'s `intakeCandidate()` is the single entry point: it validates a raw payload against `AutonomousCandidateSchema` (failing closed to `invalid_candidate_shape` on any parse error), runs real preflight against the caller-supplied repository path, and calls WU36-01's `classifyCandidate()` with the results. "One issue per run" is enforced by the function's own signature — it accepts one `IntakeCandidateInput` (one `rawCandidate`), never an array; `tests/integration/autonomous-candidate-intake-service.test.ts` asserts `intakeCandidate.length === 1` as a structural, not merely documentary, guarantee.
+
+### 9.3 Dry-run classification output
+
+`buildDryRunClassificationReport()` turns an intake result into a stable, JSON-serializable summary (`issueId`, `riskClass`, `canProceedWithoutApproval`, `requiresApproval`, `alwaysBlocked`, `reason`) — deliberately without a "proceed" action of any kind. No CLI command exposes this yet (re-verified by the boundary scan's repeated no-CLI-reference check); it exists as a directly-testable function result for this Work Unit's own tests and for a future Work Unit's eventual CLI/orchestration wiring to consume.
+
+### 9.4 Real disposable-repository test coverage
+
+`tests/integration/autonomous-run-preflight.test.ts` and `tests/integration/autonomous-candidate-intake-service.test.ts` exercise the above against a real, disposable Git repository (the M25/M35-WU03 `initGitFixtureRepo` pattern) — not mocks. Coverage includes: clean vs. dirty (untracked file, then modified tracked file) repositories; a resolvable named-branch ref vs. an unresolvable one; a non-Git directory (fails closed: `isGitRepository: false`, `repositoryDirty: true`, `baseRefResolvable: false`); and an explicit non-mutation check (5 consecutive preflight calls leave `HEAD` and `git status` unchanged).
+
+One classifier fix was required to support this: `src/tooling/test-inventory-classifier.ts`'s `hasGitSpawn()` (and the identical local copy in `tests/unit/m34-validation-workload-inventory.test.ts`) previously matched only a direct `execFileSync("git", ...)` literal in a test file's own text. `autonomous-candidate-intake-service.test.ts` spawns git only transitively (through `initGitFixtureRepo`, never a literal `execFileSync("git", ...)` in its own body), so both detectors were extended to also recognize `initGitFixtureRepo(` as a git-spawn signal — otherwise this file would have been silently misclassified as non-spawning despite genuinely running real subprocesses, and the M34 drift-detector guard (which independently re-scans and compares against a reviewed baseline) would have failed on the mismatch. `KNOWN_SPAWNING_FILES` in `tests/unit/m34-validation-workload-inventory.test.ts` was updated accordingly (33 → 35 files, plus the WU34-03 built-binary-smoke file, 36 total).
+
+### 9.5 Still not enabled
+
+No worktree is created. No branch is created. No command beyond the 4 read-only Git functions executes. No CLI command exists to invoke any of this. WU36-03 (Isolated Bounded Execution) remains the Work Unit where real worktree creation and bounded command execution are introduced, gated on WU36-02's own closure.

@@ -1,29 +1,30 @@
 {
   "summary": {
-    "generatedAt": "2026-08-04T14:15:43.383Z",
-    "totalFiles": 239,
-    "totalTestsStatic": 2337,
+    "generatedAt": "2026-08-04T14:51:49.481Z",
+    "totalFiles": 241,
+    "totalTestsStatic": 2353,
     "totalTestsActual": 2401,
     "byLayer": {
       "unit": 128,
-      "integration": 111
+      "integration": 113
     },
     "byWorkloadClass": {
       "filesystem-integration": 77,
+      "git-worktree-integration": 6,
       "built-binary-smoke": 1,
-      "cli-subprocess-integration": 13,
-      "evidence-execution-workspace-integration": 17,
-      "git-worktree-integration": 4,
+      "cli-subprocess-integration": 10,
+      "evidence-execution-workspace-integration": 20,
       "fast-unit": 127
     },
     "byCriticality": {
       "Normal": 85,
-      "Critical": 67,
+      "Critical": 69,
       "High-value": 87
     },
     "byDomain": {
       "work-packet-lifecycle": 19,
       "security-boundary": 14,
+      "autonomous-run-safety": 6,
       "built-binary": 1,
       "canonical-state": 4,
       "evidence-binding": 25,
@@ -41,7 +42,6 @@
       "review-and-issues": 16,
       "schema-compatibility": 14,
       "prompt-generation": 18,
-      "autonomous-run-safety": 4,
       "release-tooling": 6,
       "validation-infrastructure": 2
     },
@@ -146,6 +146,54 @@
         "inlinePerTest": false
       },
       "lineCount": 134
+    },
+    {
+      "path": "tests/integration/autonomous-candidate-intake-service.test.ts",
+      "layer": "integration",
+      "workloadClass": "git-worktree-integration",
+      "domain": "autonomous-run-safety",
+      "criticality": "Critical",
+      "testCountStatic": 9,
+      "testCountActual": null,
+      "durationMs": null,
+      "runStatus": null,
+      "subprocessUsage": {
+        "git": true,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 135
+    },
+    {
+      "path": "tests/integration/autonomous-run-preflight.test.ts",
+      "layer": "integration",
+      "workloadClass": "git-worktree-integration",
+      "domain": "autonomous-run-safety",
+      "criticality": "Critical",
+      "testCountStatic": 7,
+      "testCountActual": null,
+      "durationMs": null,
+      "runStatus": null,
+      "subprocessUsage": {
+        "git": true,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": true,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": true,
+        "inlinePerTest": false
+      },
+      "lineCount": 107
     },
     {
       "path": "tests/integration/built-binary-smoke.test.ts",
@@ -486,7 +534,7 @@
     {
       "path": "tests/integration/evidence-advisory-hardening.test.ts",
       "layer": "integration",
-      "workloadClass": "cli-subprocess-integration",
+      "workloadClass": "evidence-execution-workspace-integration",
       "domain": "evidence-binding",
       "criticality": "High-value",
       "testCountStatic": 4,
@@ -494,7 +542,7 @@
       "durationMs": 69383,
       "runStatus": "failed",
       "subprocessUsage": {
-        "git": false,
+        "git": true,
         "cli": true,
         "builtBinary": false
       },
@@ -2190,7 +2238,7 @@
     {
       "path": "tests/integration/required-evidence-hardening.test.ts",
       "layer": "integration",
-      "workloadClass": "cli-subprocess-integration",
+      "workloadClass": "evidence-execution-workspace-integration",
       "domain": "evidence-binding",
       "criticality": "High-value",
       "testCountStatic": 3,
@@ -2198,7 +2246,7 @@
       "durationMs": 28316,
       "runStatus": "passed",
       "subprocessUsage": {
-        "git": false,
+        "git": true,
         "cli": true,
         "builtBinary": false
       },
@@ -4470,7 +4518,7 @@
     {
       "path": "tests/unit/m34-validation-workload-inventory.test.ts",
       "layer": "unit",
-      "workloadClass": "cli-subprocess-integration",
+      "workloadClass": "evidence-execution-workspace-integration",
       "domain": "validation-infrastructure",
       "criticality": "Critical",
       "testCountStatic": 9,
@@ -4478,7 +4526,7 @@
       "durationMs": 482,
       "runStatus": "passed",
       "subprocessUsage": {
-        "git": false,
+        "git": true,
         "cli": true,
         "builtBinary": false
       },
@@ -4489,7 +4537,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 305
+      "lineCount": 314
     },
     {
       "path": "tests/unit/m35-test-inventory-classification.test.ts",
