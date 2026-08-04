@@ -40,7 +40,7 @@ export function buildAutonomousRunCommandResult(packet: AutonomousEvidencePacket
 
   return makeResult<AutonomousEvidencePacket>({
     status,
-    action: "execution",
+    action: "autonomous",
     summary: `Autonomous run ${packet.runId} for issue "${packet.candidate.issueId}" finished with result state "${packet.resultState}": ${packet.residualRisk}`,
     exitCode,
     completedActions: packet.commandsExecuted,

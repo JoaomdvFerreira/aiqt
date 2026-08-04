@@ -53,6 +53,14 @@ import {
   type RawExecutionExternalRequestOptions,
   type RawExecutionExternalImportOptions,
   type RawExecutionExternalStatusOptions,
+  type RawAutonomousInspectOptions,
+  type RawAutonomousClassifyOptions,
+  type RawAutonomousApproveOptions,
+  type RawAutonomousRunOptions,
+  type RawAutonomousStatusOptions,
+  type RawAutonomousCancelOptions,
+  type RawAutonomousResultOptions,
+  type RawAutonomousCleanupOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -127,6 +135,14 @@ import { runExecutionExternalRequest } from "./commands/execution-external-reque
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
 import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
 import { EXAMPLE_EXTERNAL_REQUEST } from "./commands/execution-external-example.js";
+import { runAutonomousInspect } from "./commands/autonomous-inspect.command.js";
+import { runAutonomousClassify } from "./commands/autonomous-classify.command.js";
+import { runAutonomousApprove } from "./commands/autonomous-approve.command.js";
+import { runAutonomousRun } from "./commands/autonomous-run.command.js";
+import { runAutonomousStatus } from "./commands/autonomous-status.command.js";
+import { runAutonomousCancel } from "./commands/autonomous-cancel.command.js";
+import { runAutonomousResult } from "./commands/autonomous-result.command.js";
+import { runAutonomousCleanup } from "./commands/autonomous-cleanup.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman, renderResultFooter } from "../core/output/human-output.js";
@@ -1422,6 +1438,149 @@ export function buildProgram(): Command {
       }
       process.stdout.write(JSON.stringify(EXAMPLE_CLAUDE_CODE_REQUEST, null, 2) + "\n");
       process.exitCode = ExitCode.Success;
+    });
+
+  // ---------------------------------------------------------------------
+  // M37-WU01: aiqt autonomous ... (public CLI, configuration, and
+  // simulation wiring for the M36 autonomous-run contract). No command
+  // below invokes a coding model, creates a real worktree, or executes a
+  // real repair command -- `aiqt autonomous run` operates in simulation
+  // mode only in this Work Unit (see autonomous-run.command.ts).
+  // ---------------------------------------------------------------------
+  const autonomousCommand = program
+    .command("autonomous")
+    .description("Inspect, classify, approve, and (simulated-only) run one bounded autonomous maintenance task against a target repository (M37-WU01)");
+
+  autonomousCommand
+    .command("inspect")
+    .description("Read-only preflight of a target repository (Git status, base-ref resolution) before classifying a candidate")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--repository <path>", "path to the target repository")
+    .option("--base-ref <ref>", "the base ref the candidate would work from")
+    .action((raw: RawAutonomousInspectOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runAutonomousInspect(ctx, { repository: raw.repository, baseRef: raw.baseRef });
+      emit(result, ctx.json);
+    });
+
+  autonomousCommand
+    .command("classify")
+    .description("Validate and classify one candidate, creating a new autonomous run record")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "load a JSON candidate input file")
+    .option("--stdin", "read the JSON candidate input from standard input", false)
+    .option("--issue-id <id>", "candidate issue id (direct-flags input)")
+    .option("--source <source>", "candidate source: issue|review_finding|manual|operator (direct-flags input)")
+    .option("--repository <path>", "path to the target repository (direct-flags input)")
+    .option("--base-ref <ref>", "the base ref the candidate would work from (direct-flags input)")
+    .option("--objective <text>", "the candidate's objective (direct-flags input)")
+    .option("--acceptance-criterion <text>", "an acceptance criterion (repeatable, direct-flags input)", collectRepeatable, [] as string[])
+    .option("--constraint <text>", "a constraint (repeatable, direct-flags input)", collectRepeatable, [] as string[])
+    .option("--requested-permission <text>", "a requested elevated permission (repeatable, direct-flags input)", collectRepeatable, [] as string[])
+    .option("--prohibited-area <tag>", "a prohibited-area tag this candidate touches (repeatable, operator-declared)", collectRepeatable, [] as string[])
+    .option("--validation-available", "declare that a validation command is available for this candidate (fail-closed default: false)", false)
+    .option("--config <path>", "operator configuration file path (defaults to ./aiqt.autonomous.config.json if present)")
+    .option("--evidence-dir <path>", "override the resolved evidence output directory")
+    .action(async (raw: RawAutonomousClassifyOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runAutonomousClassify(ctx, {
+        fromFile: raw.fromFile,
+        stdin: Boolean(raw.stdin),
+        issueId: raw.issueId,
+        source: raw.source,
+        repository: raw.repository,
+        baseRef: raw.baseRef,
+        objective: raw.objective,
+        acceptanceCriterion: raw.acceptanceCriterion,
+        constraint: raw.constraint,
+        requestedPermission: raw.requestedPermission,
+        prohibitedArea: raw.prohibitedArea,
+        validationAvailable: Boolean(raw.validationAvailable),
+        configPath: raw.config,
+        evidenceDir: raw.evidenceDir,
+      });
+      emit(result, ctx.json);
+    });
+
+  autonomousCommand
+    .command("approve")
+    .description("Approve a run currently awaiting approval (interactive confirmation, or --yes non-interactively)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--run <runId>", "the run id to approve")
+    .option("--yes", "approve non-interactively without a confirmation prompt", false)
+    .option("--config <path>", "operator configuration file path (defaults to ./aiqt.autonomous.config.json if present)")
+    .option("--evidence-dir <path>", "override the resolved evidence output directory")
+    .action(async (raw: RawAutonomousApproveOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runAutonomousApprove(ctx, { run: raw.run, yes: Boolean(raw.yes), configPath: raw.config, evidenceDir: raw.evidenceDir });
+      emit(result, ctx.json);
+    });
+
+  autonomousCommand
+    .command("run")
+    .description("Run a classified/approved candidate -- SIMULATION ONLY in this version: --simulate is required, no real coding agent is invoked")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--run <runId>", "the run id to run")
+    .option("--simulate", "produce a simulated preview evidence packet (required; no real execution exists yet)", false)
+    .option("--config <path>", "operator configuration file path (defaults to ./aiqt.autonomous.config.json if present)")
+    .option("--evidence-dir <path>", "override the resolved evidence output directory")
+    .action((raw: RawAutonomousRunOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runAutonomousRun(ctx, { run: raw.run, simulate: Boolean(raw.simulate), configPath: raw.config, evidenceDir: raw.evidenceDir });
+      emit(result, ctx.json);
+    });
+
+  autonomousCommand
+    .command("status")
+    .description("Report lifecycle, candidate, classification, budgets, approval, and evidence availability for one run, or list all recorded runs")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--run <runId>", "report only this run (omit to list all recorded run ids)")
+    .option("--config <path>", "operator configuration file path (defaults to ./aiqt.autonomous.config.json if present)")
+    .option("--evidence-dir <path>", "override the resolved evidence output directory")
+    .action((raw: RawAutonomousStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runAutonomousStatus(ctx, { run: raw.run, configPath: raw.config, evidenceDir: raw.evidenceDir });
+      emit(result, ctx.json);
+    });
+
+  autonomousCommand
+    .command("cancel")
+    .description("Cancel a non-terminal run, recording an audit event")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--run <runId>", "the run id to cancel")
+    .option("--reason <text>", "why this run is being cancelled")
+    .option("--config <path>", "operator configuration file path (defaults to ./aiqt.autonomous.config.json if present)")
+    .option("--evidence-dir <path>", "override the resolved evidence output directory")
+    .action((raw: RawAutonomousCancelOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runAutonomousCancel(ctx, { run: raw.run, reason: raw.reason, configPath: raw.config, evidenceDir: raw.evidenceDir });
+      emit(result, ctx.json);
+    });
+
+  autonomousCommand
+    .command("result")
+    .description("Return the current or terminal evidence packet for a run, wrapped in the M33 result contract")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--run <runId>", "the run id to report")
+    .option("--config <path>", "operator configuration file path (defaults to ./aiqt.autonomous.config.json if present)")
+    .option("--evidence-dir <path>", "override the resolved evidence output directory")
+    .action((raw: RawAutonomousResultOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runAutonomousResult(ctx, { run: raw.run, configPath: raw.config, evidenceDir: raw.evidenceDir });
+      emit(result, ctx.json);
+    });
+
+  autonomousCommand
+    .command("cleanup")
+    .description("Remove a terminal run's own record (simulation-safe: no real worktree exists to remove in this version)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--run <runId>", "the run id to clean up")
+    .option("--config <path>", "operator configuration file path (defaults to ./aiqt.autonomous.config.json if present)")
+    .option("--evidence-dir <path>", "override the resolved evidence output directory")
+    .action((raw: RawAutonomousCleanupOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runAutonomousCleanup(ctx, { run: raw.run, configPath: raw.config, evidenceDir: raw.evidenceDir });
+      emit(result, ctx.json);
     });
 
   return program;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -64,23 +64,14 @@ describe("M36-WU01 boundary scan: every added file is contract-only, no executio
     expect(Object.keys(packageJson.dependencies).sort()).toEqual(["@inquirer/prompts", "commander", "zod"]);
   });
 
-  it("no CLI command registers an autonomous/maintenance-runner surface yet (register-commands.ts / options.ts unchanged in that respect)", () => {
-    const registerCommands = readFileSync(join(repoRoot, "src", "cli", "register-commands.ts"), "utf8");
-    const options = readFileSync(join(repoRoot, "src", "cli", "options.ts"), "utf8");
-    for (const text of [registerCommands, options]) {
-      expect(text).not.toMatch(/autonomous/i);
-      expect(text).not.toMatch(/maintenance.runner/i);
-    }
-  });
-
-  it("no src/cli/commands file references 'autonomous' (no command surface exists to invoke a run yet)", () => {
-    const commandsDir = join(repoRoot, "src", "cli", "commands");
-    const offenders = readdirSync(commandsDir).filter((f) => {
-      const text = readFileSync(join(commandsDir, f), "utf8");
-      return /autonomous/i.test(text);
-    });
-    expect(offenders).toEqual([]);
-  });
+  // "No CLI command registers an autonomous/maintenance-runner surface
+  // yet" and "no src/cli/commands file references 'autonomous'" were true
+  // M36-WU01 invariants (re-verified through every M36 Work Unit above) --
+  // M37-WU01 deliberately lifts exactly this invariant (build spec:
+  // "public autonomous-run CLI"). Removed here rather than left to fail
+  // silently; see this file's M37-WU01 section for the narrower invariant
+  // that replaces it (the CLI exists, but never reaches the real M36
+  // execution surface).
 });
 
 /**
@@ -161,11 +152,8 @@ describe("M36-WU02 boundary scan: real repository preflight stays read-only, no 
     }
   });
 
-  it("no CLI command references 'autonomous' after WU36-02 either (re-verified, not just at WU36-01)", () => {
-    const commandsDir = join(repoRoot, "src", "cli", "commands");
-    const offenders = readdirSync(commandsDir).filter((f) => /autonomous/i.test(readFileSync(join(commandsDir, f), "utf8")));
-    expect(offenders).toEqual([]);
-  });
+  // "No CLI command references 'autonomous'" was true through M36-WU05;
+  // M37-WU01 deliberately lifts it (see this file's M37-WU01 section).
 });
 
 /**
@@ -255,11 +243,8 @@ describe("M36-WU03 boundary scan: real worktree creation and command execution s
     }
   });
 
-  it("no CLI command references 'autonomous' after WU36-03 either (re-verified once more)", () => {
-    const commandsDir = join(repoRoot, "src", "cli", "commands");
-    const offenders = readdirSync(commandsDir).filter((f) => /autonomous/i.test(readFileSync(join(commandsDir, f), "utf8")));
-    expect(offenders).toEqual([]);
-  });
+  // "No CLI command references 'autonomous'" was true through M36-WU05;
+  // M37-WU01 deliberately lifts it (see this file's M37-WU01 section).
 
   it("the AIQT repository root still has no .aiqt/ directory as a result of any M36 Work Unit so far", () => {
     expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
@@ -346,11 +331,8 @@ describe("M36-WU04 boundary scan: diff/validation/review/evidence-binding stay w
     expect(text).not.toMatch(/\bgitWorktreeRemove\b/);
   });
 
-  it("no CLI command references 'autonomous' after WU36-04 either (re-verified once more)", () => {
-    const commandsDir = join(repoRoot, "src", "cli", "commands");
-    const offenders = readdirSync(commandsDir).filter((f) => /autonomous/i.test(readFileSync(join(commandsDir, f), "utf8")));
-    expect(offenders).toEqual([]);
-  });
+  // "No CLI command references 'autonomous'" was true through M36-WU05;
+  // M37-WU01 deliberately lifts it (see this file's M37-WU01 section).
 
   it("the AIQT repository root still has no .aiqt/ directory as a result of any M36 Work Unit so far", () => {
     expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
@@ -369,14 +351,144 @@ describe("M36-WU04 boundary scan: diff/validation/review/evidence-binding stay w
  * directory is never this repository's own working tree and no .aiqt/
  * appears here as a result of running it).
  */
-describe("M36-WU05: closure -- still no CLI command surface, still no .aiqt/, across the whole milestone", () => {
-  it("no CLI command references 'autonomous' at the close of M36", () => {
-    const commandsDir = join(repoRoot, "src", "cli", "commands");
-    const offenders = readdirSync(commandsDir).filter((f) => /autonomous/i.test(readFileSync(join(commandsDir, f), "utf8")));
-    expect(offenders).toEqual([]);
+describe("M36-WU05: closure -- still no .aiqt/ as a result of any M36 Work Unit", () => {
+  // "No CLI command references 'autonomous'" was a true M36-closure
+  // invariant (re-verified after every M36 Work Unit above) -- M37-WU01
+  // deliberately and explicitly lifts exactly that invariant (build spec:
+  // "public autonomous-run CLI"), so this file's M37-WU01 section below
+  // asserts the NARROWER invariant that actually still holds after
+  // M37-WU01: the new CLI commands exist, but none of them reaches the
+  // real M36 execution surface (worktree creation, command execution, a
+  // model). Removing the now-obsolete blanket "no CLI references
+  // autonomous" assertion here rather than leaving it to fail silently
+  // documents the change explicitly, matching this codebase's established
+  // "record a correction honestly" pattern.
+  it("the AIQT repository root has no .aiqt/ directory at the close of M36", () => {
+    expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
+  });
+});
+
+/**
+ * M37-WU01 (build spec: "Public CLI and Operator Configuration Contract";
+ * operating constraints: "do not invoke a coding model," "do not execute
+ * autonomous code changes," "do not create a real autonomous worktree,"
+ * "do not add network access," "do not add merge, push, or deployment
+ * behavior"). The public `aiqt autonomous ...` CLI now exists -- these
+ * guards prove it never reaches the real M36 execution surface, never
+ * invokes a model, and never merges/pushes, even though the command
+ * surface itself is now real and public.
+ */
+const M37_WU01_CLI_FILES = [
+  "src/cli/commands/autonomous-shared.ts",
+  "src/cli/commands/autonomous-inspect.command.ts",
+  "src/cli/commands/autonomous-classify.command.ts",
+  "src/cli/commands/autonomous-approve.command.ts",
+  "src/cli/commands/autonomous-run.command.ts",
+  "src/cli/commands/autonomous-status.command.ts",
+  "src/cli/commands/autonomous-cancel.command.ts",
+  "src/cli/commands/autonomous-result.command.ts",
+  "src/cli/commands/autonomous-cleanup.command.ts",
+];
+
+const M37_WU01_SERVICE_FILES = [
+  "src/schema/autonomous-run-operator.schema.ts",
+  "src/schema/autonomous-run-record.schema.ts",
+  "src/workflow/autonomous-run-config-resolution.ts",
+  "src/services/autonomous-run-operator-config-file.ts",
+  "src/workflow/autonomous-run-approval.ts",
+  "src/services/autonomous-run-store.ts",
+  "src/workflow/autonomous-run-self-management-guard.ts",
+  "src/services/autonomous-run-simulation-service.ts",
+];
+
+const M37_WU01_FILES = [...M37_WU01_CLI_FILES, ...M37_WU01_SERVICE_FILES];
+
+/**
+ * The real M36 execution surface -- none of it may be imported or
+ * referenced by any M37-WU01 file. This is the direct, structural proof
+ * behind "do not create a real autonomous worktree" / "do not execute
+ * autonomous code changes": `aiqt autonomous run` (autonomous-run.command.ts)
+ * is the one command an operator might expect to do real work, and this
+ * guard proves it cannot reach any of these functions even transitively
+ * through this file list.
+ */
+const FORBIDDEN_REAL_EXECUTION_SYMBOLS = [
+  "produceAutonomousEvidencePacket",
+  "executeAutonomousRun",
+  "runAutonomousCommandLoop",
+  "createAutonomousWorktree",
+  "removeAutonomousWorktree",
+  "gitWorktreeAdd",
+  "gitWorktreeRemove",
+  "runAutonomousCommand",
+  "DeterministicStubAgentAdapter",
+];
+
+describe("M37-WU01 boundary scan: public CLI never reaches the real M36 execution surface, no model/network/merge path", () => {
+  it("no M37-WU01 file references any real M36 execution-surface symbol (code only -- a doc comment naming what is deliberately NOT called does not itself violate this)", () => {
+    const codeOnly = (text: string) =>
+      text
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+        .join("\n");
+    for (const relPath of M37_WU01_FILES) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      for (const symbol of FORBIDDEN_REAL_EXECUTION_SYMBOLS) {
+        expect(text.includes(symbol), `${relPath} unexpectedly references real M36 execution symbol: ${symbol}`).toBe(false);
+      }
+    }
   });
 
-  it("the AIQT repository root has no .aiqt/ directory at the close of M36", () => {
+  it("no M37-WU01 file references a model-invocation, network, or dynamic-code-execution surface", () => {
+    const surfaces: { pattern: RegExp; label: string }[] = [
+      { pattern: /@anthropic-ai\/(claude-agent-sdk|sdk)/, label: "Claude/Anthropic SDK dependency (model invocation)" },
+      { pattern: /\bnode:net\b|\bnode:http\b|\bnode:https\b|\bfetch\s*\(|\bWebSocket\b/, label: "a network surface" },
+      { pattern: /\beval\s*\(|new\s+Function\s*\(|\bvm\.(Script|createContext|runIn)/, label: "dynamic code execution" },
+      { pattern: /\bimport\s*\(/, label: "dynamic import()" },
+      { pattern: /\brequire\s*\(/, label: "require() (this codebase is ESM-only)" },
+      { pattern: /\bexecFileSync\b|\bspawnSync\b|\bexecFile\b|\bspawn\b|\bexecSync\b/, label: "a child_process execution function" },
+    ];
+    for (const relPath of M37_WU01_FILES) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      for (const { pattern, label } of surfaces) {
+        expect(pattern.test(text), `${relPath} unexpectedly matched forbidden pattern: ${label}`).toBe(false);
+      }
+    }
+  });
+
+  it("no function anywhere in the M37-WU01 call graph can merge, push, or deploy a branch (structural check, comments excluded)", () => {
+    const codeOnly = (text: string) =>
+      text
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+        .join("\n");
+    for (const relPath of M37_WU01_FILES) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(text, `${relPath} should not invoke a git merge/push/deploy or a merge/push/deploy-capable function`).not.toMatch(
+        /["'`]merge["'`]|\.merge\(|gitMerge|["'`]push["'`]|\.push\(\s*origin|gitPush|\bdeploy\(/i,
+      );
+    }
+  });
+
+  it("autonomous-run.command.ts requires --simulate and never defaults to a real-execution path (the --simulate check happens before any evidence packet is produced)", () => {
+    const text = readFileSync(join(repoRoot, "src", "cli", "commands", "autonomous-run.command.ts"), "utf8");
+    expect(text).toMatch(/if\s*\(!options\.simulate\)/);
+    expect(text).toMatch(/simulateAutonomousRun/);
+  });
+
+  it("autonomous-inspect.command.ts and autonomous-classify.command.ts both call the self-management guard before using a repository path", () => {
+    for (const relPath of ["src/cli/commands/autonomous-inspect.command.ts", "src/cli/commands/autonomous-classify.command.ts"]) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      expect(text, `${relPath} should call isAiqtOwnRepository`).toMatch(/isAiqtOwnRepository/);
+    }
+  });
+
+  it("package.json declares no new runtime dependency for M37-WU01 (still exactly @inquirer/prompts, commander, zod)", () => {
+    const packageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { dependencies: Record<string, string> };
+    expect(Object.keys(packageJson.dependencies).sort()).toEqual(["@inquirer/prompts", "commander", "zod"]);
+  });
+
+  it("the AIQT repository root still has no .aiqt/ directory as a result of the M37-WU01 CLI existing (structural -- behavioral proof is in the integration tests)", () => {
     expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
   });
 });

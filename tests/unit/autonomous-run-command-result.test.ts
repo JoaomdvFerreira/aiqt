@@ -51,7 +51,7 @@ describe("buildAutonomousRunCommandResult (M36-WU04, pure)", () => {
     expect(result.status).toBe("passed");
     expect(result.exitCode).toBe(0);
     expect(result.requiresHumanInput).toBe(false);
-    expect(result.action).toBe("execution");
+    expect(result.action).toBe("autonomous");
     expect(result.data?.resultState).toBe("passed");
   });
 

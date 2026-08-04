@@ -64,7 +64,8 @@ function hasCliSpawn(text: string): boolean {
  * the M34-WU01 baseline (docs/engineering/m34-validation-workload-policy.md
  * Sec 1/5), plus the 1 built-binary smoke file WU34-03 added, the 2
  * autonomous-run files M36-WU02 added, the 2 more M36-WU03 added, the
- * 3 more M36-WU04 added, and the 1 more M36-WU05 added (42 total). A
+ * 3 more M36-WU04 added, the 1 more M36-WU05 added, and the 1 more
+ * M37-WU01 added (43 total). A
  * file added to or removed from this set must be a deliberate, reviewed
  * change to the policy document -- this test does not silently absorb a new
  * spawning file into "already accounted for".
@@ -133,6 +134,10 @@ const KNOWN_SPAWNING_FILES = [
   // pattern already covered by hasGitSpawn/hasCliSpawn) against a real
   // disposable target repository.
   "tests/integration/autonomous-run-dogfood-pilot.test.ts",
+  // M37-WU01 (+1): the public CLI lifecycle suite spawns git transitively
+  // via initGitFixtureRepo (its fixture) and every autonomous-inspect/
+  // classify call's real, read-only runRepositoryPreflight.
+  "tests/integration/autonomous-cli-lifecycle.test.ts",
 ].sort();
 
 /**

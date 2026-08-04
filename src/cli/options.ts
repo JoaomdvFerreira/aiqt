@@ -386,3 +386,77 @@ export interface RawExecutionAdapterClaudeCodeStatusOptions {
   json?: boolean;
   session?: string;
 }
+
+// ---------------------------------------------------------------------------
+// M37-WU01: aiqt autonomous ... (public CLI, configuration, and
+// simulation wiring for the M36 autonomous-run contract).
+// ---------------------------------------------------------------------------
+
+export interface RawAutonomousInspectOptions {
+  json?: boolean;
+  repository?: string;
+  baseRef?: string;
+}
+
+export interface RawAutonomousClassifyOptions {
+  json?: boolean;
+  fromFile?: string;
+  stdin?: boolean;
+  issueId?: string;
+  source?: string;
+  repository?: string;
+  baseRef?: string;
+  objective?: string;
+  acceptanceCriterion?: string[];
+  constraint?: string[];
+  requestedPermission?: string[];
+  prohibitedArea?: string[];
+  validationAvailable?: boolean;
+  config?: string;
+  evidenceDir?: string;
+}
+
+export interface RawAutonomousApproveOptions {
+  json?: boolean;
+  run?: string;
+  yes?: boolean;
+  config?: string;
+  evidenceDir?: string;
+}
+
+export interface RawAutonomousRunOptions {
+  json?: boolean;
+  run?: string;
+  simulate?: boolean;
+  config?: string;
+  evidenceDir?: string;
+}
+
+export interface RawAutonomousStatusOptions {
+  json?: boolean;
+  run?: string;
+  config?: string;
+  evidenceDir?: string;
+}
+
+export interface RawAutonomousCancelOptions {
+  json?: boolean;
+  run?: string;
+  reason?: string;
+  config?: string;
+  evidenceDir?: string;
+}
+
+export interface RawAutonomousResultOptions {
+  json?: boolean;
+  run?: string;
+  config?: string;
+  evidenceDir?: string;
+}
+
+export interface RawAutonomousCleanupOptions {
+  json?: boolean;
+  run?: string;
+  config?: string;
+  evidenceDir?: string;
+}
