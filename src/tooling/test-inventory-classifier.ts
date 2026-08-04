@@ -106,6 +106,7 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   { pattern: /^init|update|root-resolution|implementation-root/, domain: "project-bootstrap", criticality: "High-value" },
   { pattern: /package-version|semver|push-base|relevant-paths|versioning|^ids\.test/, domain: "release-tooling", criticality: "High-value" },
   { pattern: /^m34-validation-workload-inventory|^m35-test-inventory-classification/, domain: "validation-infrastructure", criticality: "Critical" },
+  { pattern: /^autonomous-run-/, domain: "autonomous-run-safety", criticality: "Critical" },
   { pattern: /dogfood/, domain: "self-consistency", criticality: "Normal" },
 ];
 

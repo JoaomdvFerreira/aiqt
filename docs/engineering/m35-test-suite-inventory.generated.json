@@ -1,29 +1,29 @@
 {
   "summary": {
-    "generatedAt": "2026-08-04T11:36:07.439Z",
-    "totalFiles": 233,
-    "totalTestsStatic": 2265,
+    "generatedAt": "2026-08-04T14:15:43.383Z",
+    "totalFiles": 239,
+    "totalTestsStatic": 2337,
     "totalTestsActual": 2401,
     "byLayer": {
-      "unit": 122,
+      "unit": 128,
       "integration": 111
     },
     "byWorkloadClass": {
       "filesystem-integration": 77,
       "built-binary-smoke": 1,
-      "cli-subprocess-integration": 11,
-      "evidence-execution-workspace-integration": 19,
+      "cli-subprocess-integration": 13,
+      "evidence-execution-workspace-integration": 17,
       "git-worktree-integration": 4,
-      "fast-unit": 121
+      "fast-unit": 127
     },
     "byCriticality": {
       "Normal": 85,
-      "Critical": 61,
+      "Critical": 67,
       "High-value": 87
     },
     "byDomain": {
       "work-packet-lifecycle": 19,
-      "security-boundary": 13,
+      "security-boundary": 14,
       "built-binary": 1,
       "canonical-state": 4,
       "evidence-binding": 25,
@@ -39,8 +39,9 @@
       "corruption-repair": 6,
       "project-bootstrap": 8,
       "review-and-issues": 16,
-      "schema-compatibility": 13,
+      "schema-compatibility": 14,
       "prompt-generation": 18,
+      "autonomous-run-safety": 4,
       "release-tooling": 6,
       "validation-infrastructure": 2
     },
@@ -485,7 +486,7 @@
     {
       "path": "tests/integration/evidence-advisory-hardening.test.ts",
       "layer": "integration",
-      "workloadClass": "evidence-execution-workspace-integration",
+      "workloadClass": "cli-subprocess-integration",
       "domain": "evidence-binding",
       "criticality": "High-value",
       "testCountStatic": 4,
@@ -493,7 +494,7 @@
       "durationMs": 69383,
       "runStatus": "failed",
       "subprocessUsage": {
-        "git": true,
+        "git": false,
         "cli": true,
         "builtBinary": false
       },
@@ -504,7 +505,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": true
       },
-      "lineCount": 254
+      "lineCount": 248
     },
     {
       "path": "tests/integration/evidence-gate-enforcement-activation-review.test.ts",
@@ -600,7 +601,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": true
       },
-      "lineCount": 228
+      "lineCount": 222
     },
     {
       "path": "tests/integration/evidence-gate-hardening.test.ts",
@@ -624,7 +625,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": true
       },
-      "lineCount": 334
+      "lineCount": 328
     },
     {
       "path": "tests/integration/evidence-gate-policy.test.ts",
@@ -648,7 +649,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 280
+      "lineCount": 274
     },
     {
       "path": "tests/integration/evidence-gate-simulate.test.ts",
@@ -672,7 +673,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": true
       },
-      "lineCount": 305
+      "lineCount": 299
     },
     {
       "path": "tests/integration/evidence-import-cli.test.ts",
@@ -720,7 +721,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": true
       },
-      "lineCount": 231
+      "lineCount": 225
     },
     {
       "path": "tests/integration/execution-adapter-claude-code-hardening.test.ts",
@@ -744,7 +745,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 253
+      "lineCount": 247
     },
     {
       "path": "tests/integration/execution-adapter-claude-code-import.test.ts",
@@ -768,7 +769,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 359
+      "lineCount": 353
     },
     {
       "path": "tests/integration/execution-adapter-claude-code-legacy-compat.test.ts",
@@ -792,7 +793,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 242
+      "lineCount": 236
     },
     {
       "path": "tests/integration/execution-adapter-claude-code-request.test.ts",
@@ -816,7 +817,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 288
+      "lineCount": 282
     },
     {
       "path": "tests/integration/execution-external-hardening.test.ts",
@@ -840,7 +841,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": true
       },
-      "lineCount": 319
+      "lineCount": 313
     },
     {
       "path": "tests/integration/execution-external-import.test.ts",
@@ -864,7 +865,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 340
+      "lineCount": 334
     },
     {
       "path": "tests/integration/execution-external-request.test.ts",
@@ -888,7 +889,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 251
+      "lineCount": 245
     },
     {
       "path": "tests/integration/execution-full-lifecycle.test.ts",
@@ -912,7 +913,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": true
       },
-      "lineCount": 247
+      "lineCount": 241
     },
     {
       "path": "tests/integration/execution-hardening.test.ts",
@@ -1056,7 +1057,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": true
       },
-      "lineCount": 250
+      "lineCount": 244
     },
     {
       "path": "tests/integration/export-agent-packet-audit.test.ts",
@@ -1152,7 +1153,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 166
+      "lineCount": 160
     },
     {
       "path": "tests/integration/graph-repair-stale-readiness.test.ts",
@@ -1440,7 +1441,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 435
+      "lineCount": 447
     },
     {
       "path": "tests/integration/manage-export-consistency.test.ts",
@@ -2189,7 +2190,7 @@
     {
       "path": "tests/integration/required-evidence-hardening.test.ts",
       "layer": "integration",
-      "workloadClass": "evidence-execution-workspace-integration",
+      "workloadClass": "cli-subprocess-integration",
       "domain": "evidence-binding",
       "criticality": "High-value",
       "testCountStatic": 3,
@@ -2197,7 +2198,7 @@
       "durationMs": 28316,
       "runStatus": "passed",
       "subprocessUsage": {
-        "git": true,
+        "git": false,
         "cli": true,
         "builtBinary": false
       },
@@ -2208,7 +2209,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": true
       },
-      "lineCount": 221
+      "lineCount": 215
     },
     {
       "path": "tests/integration/review-acknowledge.command.test.ts",
@@ -2616,7 +2617,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 234
+      "lineCount": 228
     },
     {
       "path": "tests/integration/workspace-hardening.test.ts",
@@ -2640,7 +2641,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 199
+      "lineCount": 192
     },
     {
       "path": "tests/integration/workspace-packet-status-integration.test.ts",
@@ -2688,7 +2689,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 184
+      "lineCount": 178
     },
     {
       "path": "tests/integration/workspace-service-release-recovery.test.ts",
@@ -2712,7 +2713,7 @@
         "vitestSetConfig": true,
         "inlinePerTest": false
       },
-      "lineCount": 429
+      "lineCount": 422
     },
     {
       "path": "tests/unit/agent-handoff-gate.test.ts",
@@ -2833,6 +2834,150 @@
         "inlinePerTest": false
       },
       "lineCount": 147
+    },
+    {
+      "path": "tests/unit/autonomous-run-boundary-scan.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "security-boundary",
+      "criticality": "Critical",
+      "testCountStatic": 7,
+      "testCountActual": null,
+      "durationMs": null,
+      "runStatus": null,
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 115
+    },
+    {
+      "path": "tests/unit/autonomous-run-budget.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "autonomous-run-safety",
+      "criticality": "Critical",
+      "testCountStatic": 13,
+      "testCountActual": null,
+      "durationMs": null,
+      "runStatus": null,
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 102
+    },
+    {
+      "path": "tests/unit/autonomous-run-command-policy.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "autonomous-run-safety",
+      "criticality": "Critical",
+      "testCountStatic": 12,
+      "testCountActual": null,
+      "durationMs": null,
+      "runStatus": null,
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 161
+    },
+    {
+      "path": "tests/unit/autonomous-run-contract-schema.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "schema-compatibility",
+      "criticality": "Critical",
+      "testCountStatic": 14,
+      "testCountActual": null,
+      "durationMs": null,
+      "runStatus": null,
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 196
+    },
+    {
+      "path": "tests/unit/autonomous-run-lifecycle.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "autonomous-run-safety",
+      "criticality": "Critical",
+      "testCountStatic": 12,
+      "testCountActual": null,
+      "durationMs": null,
+      "runStatus": null,
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 106
+    },
+    {
+      "path": "tests/unit/autonomous-run-safety-classifier.test.ts",
+      "layer": "unit",
+      "workloadClass": "fast-unit",
+      "domain": "autonomous-run-safety",
+      "criticality": "Critical",
+      "testCountStatic": 14,
+      "testCountActual": null,
+      "durationMs": null,
+      "runStatus": null,
+      "subprocessUsage": {
+        "git": false,
+        "cli": false,
+        "builtBinary": false
+      },
+      "filesystemUsage": false,
+      "hasSkippedOrConditional": false,
+      "hasPlatformGuard": false,
+      "timeoutOverride": {
+        "vitestSetConfig": false,
+        "inlinePerTest": false
+      },
+      "lineCount": 132
     },
     {
       "path": "tests/unit/checkpoint-amendment-service.test.ts",

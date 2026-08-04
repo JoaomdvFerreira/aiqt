@@ -155,6 +155,18 @@
       ],
       "notes": "Post-M34 (WU34-02/WU34-04): vitest.config.ts still sets pool:'threads' (M21 rationale preserved in its own comment) and no global testTimeout/concurrency override. tests/workload-timeout-policy.ts is now the single shared source for the two class-scoped timeout constants (SPAWNING_SUITE_TEST_TIMEOUT_MS=15000, HEAVY_SPAWNING_TEST_TIMEOUT_MS=25000); 34 test files apply one via vi.setConfig, all other files keep the 5000ms default. package.json#scripts.validate now runs build before test (matching .github/workflows/validate.yml's Build-before-Test order, corrected in WU34-04) so tests/integration/built-binary-smoke.test.ts has a real dist/index.js. docs/m34-validation-workload-policy.md (WU34-01/WU34-02/WU34-03 characterization+implementation record) and docs/m34-closure-report.md remain the authoritative history; docs/m34-ci-reliability-confirmation.md records the post-closure CI evidence. See also testInventoryPolicy (M35) for the workload-classification layer built on top of this."
     },
+    "autonomousRunContract": {
+      "primary": "src/schema/autonomous-run.schema.ts",
+      "supporting": [
+        "src/workflow/autonomous-run-lifecycle.ts",
+        "src/workflow/autonomous-run-safety-classifier.ts",
+        "src/workflow/autonomous-run-budget.ts",
+        "src/workflow/autonomous-run-command-policy.ts",
+        "docs/engineering/m36-autonomous-run-contract.md",
+        "tests/unit/autonomous-run-boundary-scan.test.ts"
+      ],
+      "notes": "M36-WU01: contract-only -- lifecycle status enum + transition table, candidate/safety-assessment/budget/execution-policy/result-state/evidence-packet schemas, and 4 pure decision functions (classifyCandidate, checkBudget, classifyCommand/decideCommand). None of these files import src/cli/commands/*, src/workspaces/*, or any process-spawn/network/model-invocation surface -- verified by tests/unit/autonomous-run-boundary-scan.test.ts, re-checked on every suite run. Real run orchestration, workspace isolation execution, self-review, and evidence-binding construction are NOT owned here and do not exist yet -- see docs/engineering/m36-autonomous-run-contract.md Sec 2.3 for the full future-ownership map (a service module, a real command runner, and a self-review evaluator, none created in this Work Unit) and Sec 8 for the explicit non-enablement statement. Do not treat this entry as evidence that autonomous execution is enabled -- it is evidence of the opposite."
+    },
     "testInventoryPolicy": {
       "primary": "src/tooling/test-inventory-cli.ts",
       "supporting": [
