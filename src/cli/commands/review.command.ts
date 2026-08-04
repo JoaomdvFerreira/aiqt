@@ -27,7 +27,11 @@ export interface RunReviewOptions {
 function findingToIssue(finding: FindingView): Issue {
   const severity: IssueSeverity = finding.severity === "info" ? "low" : finding.severity;
   return {
-    id: finding.id,
+    // M33-WU04: findingKey (not the session-local FIND-### id) is the
+    // stable, actionable key aiqt review acknowledge <findingKey> expects --
+    // rendering the FIND-### id here would show a human/agent a key that
+    // doesn't actually work with that command.
+    id: finding.findingKey,
     severity,
     area: finding.category,
     message: finding.message,
@@ -117,6 +121,18 @@ export function runReviewCommand(
         : classification.releaseBlockers.length;
     const hasBlocking = modeBlockingCount > 0;
 
+    // M33-WU04 Sec 5.7 (issue-channel normalization): every finding NOT
+    // currently counted as blocking under this mode is a non-blocking
+    // concern, so it belongs in the shared `warnings` channel -- not only in
+    // `data.findings`, which renderHuman() never reads (M33-WU01
+    // Contradiction C). `data.findings` is retained unchanged for JSON
+    // consumers that want the fuller finding shape (category, relatedIds,
+    // etc.) beyond what an Issue carries.
+    const modeBlockingFindingKeys = new Set(modeBlockingFindings.map((f) => f.findingKey));
+    const nonBlockingFindingWarnings = classification.activeFindings
+      .filter((f) => !modeBlockingFindingKeys.has(f.findingKey))
+      .map(findingToIssue);
+
     // Checkpoint-issue-derived release blockers have no ReviewFinding to map
     // through findingToIssue; releaseBlockers is ordered
     // [...findingBased, ...issueBased], so the tail slice past
@@ -199,7 +215,7 @@ export function runReviewCommand(
           : []),
         ...(requiredEvidenceBlockingIssue ? [requiredEvidenceBlockingIssue] : []),
       ],
-      warnings,
+      warnings: [...warnings, ...nonBlockingFindingWarnings],
       nextRecommendedCommand,
       exitCode,
       data: {

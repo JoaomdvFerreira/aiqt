@@ -129,7 +129,7 @@ import { runExecutionExternalStatus } from "./commands/execution-external-status
 import { EXAMPLE_EXTERNAL_REQUEST } from "./commands/execution-external-example.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
-import { renderHuman } from "../core/output/human-output.js";
+import { renderHuman, renderResultFooter } from "../core/output/human-output.js";
 import { ExitCode } from "../core/output/exit-codes.js";
 import { AiqtError } from "../core/output/aiqt-error.js";
 import type { CommandResult } from "../core/output/result.js";
@@ -218,7 +218,13 @@ export function buildProgram(): Command {
       if (raw.parallel && !ctx.json && result.exitCode === ExitCode.Success) {
         const data = result.data as { parallelStatus?: ParallelStatusData } | undefined;
         if (data?.parallelStatus) {
-          process.stdout.write(renderParallelStatusText(data.parallelStatus) + "\n");
+          // M33-WU04 Sec 5.8: the specialized parallel-status report keeps
+          // its own bespoke body, but still trails the shared status/
+          // warnings/blockers/next-command footer so it agrees
+          // substantively with --json (M33-WU01 Contradiction G).
+          process.stdout.write(
+            renderParallelStatusText(data.parallelStatus) + renderResultFooter(result) + "\n",
+          );
           process.exitCode = result.exitCode;
           return;
         }
@@ -251,11 +257,13 @@ export function buildProgram(): Command {
 
       // On successful packet generation (non-preview), human-mode output is
       // the packet text itself (paste-ready for a coding agent), not the
-      // usual CommandResult summary wrapper.
+      // usual CommandResult summary wrapper. M33-WU04 Sec 5.8: the shared
+      // footer still trails it so a degraded/warning packet (M33-WU01
+      // Contradiction D) isn't silently indistinguishable from a clean one.
       if (!ctx.json && !raw.preview && result.exitCode === ExitCode.Success) {
         const data = result.data as { packet?: string } | undefined;
         if (typeof data?.packet === "string") {
-          process.stdout.write(data.packet + "\n");
+          process.stdout.write(data.packet + renderResultFooter(result) + "\n");
           process.exitCode = result.exitCode;
           return;
         }
@@ -507,10 +515,11 @@ export function buildProgram(): Command {
 
       // No --out, human mode, success: print the raw prompt text so it is
       // directly copy-pasteable, matching aiqt next's packet bypass pattern.
+      // M33-WU04 Sec 5.8: shared footer trails it, per next's packet above.
       if (!ctx.json && !raw.out && result.exitCode === ExitCode.Success) {
         const data = result.data as { prompt?: string } | undefined;
         if (typeof data?.prompt === "string") {
-          process.stdout.write(data.prompt + "\n");
+          process.stdout.write(data.prompt + renderResultFooter(result) + "\n");
           process.exitCode = result.exitCode;
           return;
         }
@@ -542,7 +551,8 @@ export function buildProgram(): Command {
             currentMilestoneId: result.currentMilestoneId,
             currentWorkUnitId: result.currentWorkUnitId,
           });
-          process.stdout.write(text + "\n");
+          // M33-WU04 Sec 5.8: shared footer trails the specialized report.
+          process.stdout.write(text + renderResultFooter(result) + "\n");
           process.exitCode = result.exitCode;
           return;
         }
@@ -568,7 +578,8 @@ export function buildProgram(): Command {
       if (!ctx.json && result.exitCode === ExitCode.Success) {
         const data = result.data as SkillsPlan | undefined;
         if (data) {
-          process.stdout.write(renderSkillsPlanText(data) + "\n");
+          // M33-WU04 Sec 5.8: shared footer trails the specialized report.
+          process.stdout.write(renderSkillsPlanText(data) + renderResultFooter(result) + "\n");
           process.exitCode = result.exitCode;
           return;
         }
@@ -631,7 +642,8 @@ export function buildProgram(): Command {
       if (!ctx.json && result.exitCode === ExitCode.Success) {
         const data = result.data as IssueListData | undefined;
         if (data) {
-          process.stdout.write(renderIssueListText(data) + "\n");
+          // M33-WU04 Sec 5.8: shared footer trails the specialized report.
+          process.stdout.write(renderIssueListText(data) + renderResultFooter(result) + "\n");
           process.exitCode = result.exitCode;
           return;
         }
@@ -690,7 +702,8 @@ export function buildProgram(): Command {
       if (!ctx.json && result.exitCode === ExitCode.Success) {
         const data = result.data as RepairPlanData | undefined;
         if (data) {
-          process.stdout.write(renderRepairPlanText(data) + "\n");
+          // M33-WU04 Sec 5.8: shared footer trails the specialized report.
+          process.stdout.write(renderRepairPlanText(data) + renderResultFooter(result) + "\n");
           process.exitCode = result.exitCode;
           return;
         }

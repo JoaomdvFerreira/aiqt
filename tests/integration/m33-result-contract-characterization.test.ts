@@ -122,11 +122,11 @@ describe("M33-WU02+WU03: Contradiction B closed (live sample) -- exit 10 now agr
   });
 });
 
-describe("M33-WU01: Contradiction C -- aiqt review human output omits findings JSON exposes", () => {
+describe("M33-WU04: Contradiction C closed -- aiqt review human output now renders the same findings JSON exposes", () => {
   let dir: string;
   afterEach(() => removeDir(dir));
 
-  it("review --json exposes the awaiting-checkpoint finding; review (text) does not mention it", () => {
+  it("review --json exposes the awaiting-checkpoint finding under data.findings AND warnings; review (text) now renders it via the shared warnings channel", () => {
     dir = makeTempDir();
     setupProjectWithRealWarnings(dir);
     expect(runCli(["next", "--json"], dir).status).toBe(0);
@@ -138,15 +138,22 @@ describe("M33-WU01: Contradiction C -- aiqt review human output omits findings J
     expect(body.data.findingCount).toBeGreaterThan(0);
     const findingMessages: string[] = body.data.findings.map((f: { message: string }) => f.message);
     expect(findingMessages.some((m) => m.includes("awaiting checkpoint capture"))).toBe(true);
+    // M33-WU04 Sec 5.7: the same non-blocking finding is now ALSO in the
+    // shared warnings channel with a stable key, not only in data.findings.
+    expect(
+      body.warnings.some((w: { id: string; message: string }) => w.message.includes("awaiting checkpoint capture")),
+    ).toBe(true);
+    const warningKey = body.warnings.find((w: { message: string }) => w.message.includes("awaiting checkpoint capture")).id;
+    expect(warningKey).toMatch(/^workunit:WU\d+:awaiting-checkpoint$/);
 
     const textRes = runCli(["review"], dir);
     expect(textRes.status).toBe(0);
-    expect(textRes.stdout).not.toContain("awaiting checkpoint capture");
-    expect(textRes.stdout).not.toContain("workunit:");
+    expect(textRes.stdout).toContain("awaiting checkpoint capture");
+    expect(textRes.stdout).toContain(warningKey);
   });
 });
 
-describe("M33-WU01: Contradiction D -- specialized-command bypass drops warnings in text mode", () => {
+describe("M33-WU04: Contradiction D closed -- specialized-command bypass now trails the shared footer", () => {
   let dir: string;
   afterEach(() => removeDir(dir));
 
@@ -173,7 +180,7 @@ describe("M33-WU01: Contradiction D -- specialized-command bypass drops warnings
     expect(body.nextRecommendedCommand).not.toBeNull();
   });
 
-  it("the equivalent text-mode next omits the warning and the recommended-command line entirely", () => {
+  it("the equivalent text-mode next now trails the shared footer, surfacing the warning and the recommended command", () => {
     dir = makeTempDir();
     expect(runCli(["init", "--json"], dir).status).toBe(0);
     expect(
@@ -189,9 +196,11 @@ describe("M33-WU01: Contradiction D -- specialized-command bypass drops warnings
 
     const textRes = runCli(["next"], dir);
     expect(textRes.status).toBe(0);
-    expect(textRes.stdout).not.toContain("NEXT-UNRESOLVED-CONTEXT-REF");
-    expect(textRes.stdout).not.toContain("Next recommended command");
-    expect(textRes.stdout).not.toContain("warning");
+    // M33-WU04 Sec 5.8: the packet's trailing shared footer now exposes
+    // this, closing Contradiction D.
+    expect(textRes.stdout).toContain("NEXT-UNRESOLVED-CONTEXT-REF");
+    expect(textRes.stdout).toContain("Next recommended command");
+    expect(textRes.stdout).toContain("Status: warning");
   });
 });
 
@@ -262,11 +271,11 @@ describe("M33-WU01: Contradiction F -- workflow pointers are null on failure eve
   });
 });
 
-describe("M33-WU01: Contradiction G -- status --parallel is additive in JSON, a full replacement in text", () => {
+describe("M33-WU04: Contradiction G closed -- status --parallel text now trails the shared footer too", () => {
   let dir: string;
   afterEach(() => removeDir(dir));
 
-  it("--parallel --json still carries a full CommandResult with data.parallelStatus; --parallel (text) shows only the advisory report", () => {
+  it("--parallel --json carries a full CommandResult with data.parallelStatus; --parallel (text) keeps its specialized advisory report but now also trails status/next-command", () => {
     dir = makeTempDir();
     expect(runCli(["init", "--json"], dir).status).toBe(0);
 
@@ -279,8 +288,12 @@ describe("M33-WU01: Contradiction G -- status --parallel is additive in JSON, a 
 
     const textRes = runCli(["status", "--parallel"], dir);
     expect(textRes.status).toBe(0);
-    expect(textRes.stdout).not.toContain("Project status:");
-    expect(textRes.stdout).not.toContain("Next recommended command");
+    // The specialized advisory report body is unchanged (still the primary
+    // content, not replaced by the generic renderer)...
+    expect(textRes.stdout).toContain("Parallel execution advisory");
+    // ...but M33-WU04 Sec 5.8's shared footer now trails it.
+    expect(textRes.stdout).toContain(`Status: ${body.status}`);
+    expect(textRes.stdout).toContain("Next recommended command");
   });
 });
 

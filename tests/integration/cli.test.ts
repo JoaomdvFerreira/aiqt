@@ -97,7 +97,12 @@ describe("aiqt CLI entrypoint", () => {
       expect(res.status).toBe(0);
       expect(res.stdout.startsWith("# AGENT EXECUTION PACKET")).toBe(true);
       expect(res.stdout).not.toContain("AIQT next:");
-      expect(res.stdout).not.toContain("Next recommended command:");
+      // M33-WU04 Sec 5.8: the packet text stays raw/paste-ready and is not
+      // wrapped in the generic "AIQT next: <status>" summary, but it now
+      // trails the shared status/warnings/blockers/next-command footer
+      // (this fixture's plan --example carries an unresolvable
+      // agentContextRefs entry, so a real warning is expected here).
+      expect(res.stdout).toContain("Next recommended command:");
     },
     // M21 vitest-3 upgrade: this test chains 5 real spawnSync CLI child
     // processes (init/update/update/plan/next). The default 5000ms
