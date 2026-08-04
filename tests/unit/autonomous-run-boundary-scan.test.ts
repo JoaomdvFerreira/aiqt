@@ -265,3 +265,94 @@ describe("M36-WU03 boundary scan: real worktree creation and command execution s
     expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
   });
 });
+
+/**
+ * M36-WU04 (build spec Sec 7 WU36-04 Scope: "diff limits; changed-file
+ * checks; targeted validation; authoritative validation integration;
+ * self-review; evidence packet assembly"). None of these 6 files spawn a
+ * new execution surface -- diff-summary.ts and self-review.ts perform no
+ * process execution at all (self-review is pure; diff-summary only calls
+ * git-command-runner.ts's already-reviewed read-only exports), and
+ * validation-service.ts / evidence-binding-service.ts only reuse WU36-03's
+ * already-bounded runAutonomousCommand/runAutonomousCommandLoop, never
+ * calling execFileSync or the mutating git-worktree functions directly.
+ */
+const M36_WU04_FILES = [
+  "src/workflow/autonomous-run-diff-summary.ts",
+  "src/services/autonomous-run-validation-service.ts",
+  "src/workflow/autonomous-run-self-review.ts",
+  "src/services/autonomous-run-evidence-binding-service.ts",
+  "src/services/autonomous-run-command-result.ts",
+];
+
+describe("M36-WU04 boundary scan: diff/validation/review/evidence-binding stay within WU36-03's already-bounded execution surface", () => {
+  it("no M36-WU04 file references a model-invocation, network, or dynamic-code-execution surface", () => {
+    const surfaces: { pattern: RegExp; label: string }[] = [
+      { pattern: /@anthropic-ai\/(claude-agent-sdk|sdk)/, label: "Claude/Anthropic SDK dependency (model invocation)" },
+      { pattern: /\bnode:net\b|\bnode:http\b|\bnode:https\b|\bfetch\s*\(|\bWebSocket\b/, label: "a network surface" },
+      { pattern: /\beval\s*\(|new\s+Function\s*\(|\bvm\.(Script|createContext|runIn)/, label: "dynamic code execution" },
+      { pattern: /\bimport\s*\(/, label: "dynamic import()" },
+      { pattern: /\brequire\s*\(/, label: "require() (this codebase is ESM-only)" },
+    ];
+    for (const relPath of M36_WU04_FILES) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      for (const { pattern, label } of surfaces) {
+        expect(pattern.test(text), `${relPath} unexpectedly matched forbidden pattern: ${label}`).toBe(false);
+      }
+    }
+  });
+
+  it("no M36-WU04 file imports a CLI command module (no CLI dispatch capability -- still no command surface to invoke a run)", () => {
+    for (const relPath of M36_WU04_FILES) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      expect(text, `${relPath} should not import a CLI command module`).not.toMatch(/from\s+["'].*cli\/commands/);
+    }
+  });
+
+  it("none of the M36-WU04 files import node:child_process directly (diff-summary and self-review perform no process execution at all; validation/evidence-binding only go through the already-reviewed WU36-03 runner, never spawning a process themselves)", () => {
+    for (const relPath of M36_WU04_FILES) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      expect(text, `${relPath} should not import node:child_process`).not.toMatch(/from\s+["']node:child_process["']/);
+    }
+  });
+
+  it("none of the M36-WU04 files import gitWorktreeAdd/gitWorktreeRemove directly -- worktree mutation stays confined to autonomous-worktree-lifecycle.ts alone, even for the evidence-binding service that triggers cleanup", () => {
+    for (const relPath of M36_WU04_FILES) {
+      const text = readFileSync(join(repoRoot, relPath), "utf8");
+      expect(text, `${relPath} should not import the mutating worktree functions directly`).not.toMatch(/\bgitWorktreeAdd\b|\bgitWorktreeRemove\b/);
+    }
+  });
+
+  it("autonomous-run-self-review.ts performs no I/O at all (no fs, no child_process, no git-command-runner import) -- a pure evaluator over already-collected evidence", () => {
+    const text = readFileSync(join(repoRoot, "src", "workflow", "autonomous-run-self-review.ts"), "utf8");
+    expect(text).not.toMatch(/from\s+["']node:fs["']|from\s+["']node:child_process["']|git-command-runner\.js/);
+  });
+
+  it("no function anywhere in the M36-WU04 call graph can merge a branch (structural check: no git-merge invocation or gitMerge-style function, comments excluded)", () => {
+    const codeOnly = (text: string) =>
+      text
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+        .join("\n");
+    for (const relPath of M36_WU04_FILES) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(text, `${relPath} should not invoke a git merge or a merge-capable function`).not.toMatch(/["'`]merge["'`]|\.merge\(|gitMerge/i);
+    }
+  });
+
+  it("evidence-binding-service.ts calls removeAutonomousWorktree (the WU36-03 wrapper) exactly once in a finally block, never gitWorktreeRemove directly", () => {
+    const text = readFileSync(join(repoRoot, "src", "services", "autonomous-run-evidence-binding-service.ts"), "utf8");
+    expect(text).toMatch(/removeAutonomousWorktree/);
+    expect(text).not.toMatch(/\bgitWorktreeRemove\b/);
+  });
+
+  it("no CLI command references 'autonomous' after WU36-04 either (re-verified once more)", () => {
+    const commandsDir = join(repoRoot, "src", "cli", "commands");
+    const offenders = readdirSync(commandsDir).filter((f) => /autonomous/i.test(readFileSync(join(commandsDir, f), "utf8")));
+    expect(offenders).toEqual([]);
+  });
+
+  it("the AIQT repository root still has no .aiqt/ directory as a result of any M36 Work Unit so far", () => {
+    expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
+  });
+});

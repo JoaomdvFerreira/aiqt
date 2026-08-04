@@ -146,6 +146,20 @@ export function gitDiffQuietIsClean(cwd: string): boolean {
   return !result.exitedWithCodeOne;
 }
 
+/**
+ * M36-WU04: `git diff --numstat <baseRef>` -- raw tab-separated
+ * "<inserted>\t<deleted>\t<path>" lines (or "-\t-\t<path>" for a binary
+ * file), read-only, added to this repository's single central read-only
+ * Git allowlist for the autonomous run's diff-summary/self-review step
+ * (build spec Sec 7 WU36-04: "diff limits; changed-file checks"). Never
+ * includes untracked files (matched separately via
+ * gitLsFilesOthersExcludeStandard, already exported above) -- numstat
+ * alone only reports tracked-file changes relative to baseRef.
+ */
+export function gitDiffNumstat(cwd: string, baseRef: string): string {
+  return execGit(["diff", "--numstat", baseRef], { cwd }).stdout;
+}
+
 export function gitLsFilesOthersExcludeStandard(cwd: string): string[] {
   const out = execGit(["ls-files", "--others", "--exclude-standard"], { cwd }).stdout;
   return out

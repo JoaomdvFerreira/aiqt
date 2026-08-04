@@ -12,6 +12,7 @@ import {
   gitCurrentBranch,
   gitCheckRefFormatBranch,
   gitDiffQuietIsClean,
+  gitDiffNumstat,
   gitLsFilesOthersExcludeStandard,
   gitWorktreeAdd,
   gitWorktreeRemove,
@@ -80,6 +81,20 @@ describe("git-command-runner (M25 §8, disposable repository)", () => {
     writeFileSync(join(repoDir!, "README.md"), "hello again\n");
     try {
       expect(gitDiffQuietIsClean(repoDir!)).toBe(false);
+    } finally {
+      execFileSync("git", ["checkout", "--quiet", "--", "README.md"], { cwd: repoDir! });
+    }
+  });
+
+  it("gitDiffNumstat reports empty output for a clean tree relative to HEAD", () => {
+    expect(gitDiffNumstat(repoDir!, "HEAD").trim()).toBe("");
+  });
+
+  it("gitDiffNumstat reports insertions/deletions/path for a modified tracked file relative to HEAD", () => {
+    writeFileSync(join(repoDir!, "README.md"), "hello\nagain\n");
+    try {
+      const numstat = gitDiffNumstat(repoDir!, "HEAD");
+      expect(numstat).toMatch(/^\d+\t\d+\tREADME\.md$/m);
     } finally {
       execFileSync("git", ["checkout", "--quiet", "--", "README.md"], { cwd: repoDir! });
     }

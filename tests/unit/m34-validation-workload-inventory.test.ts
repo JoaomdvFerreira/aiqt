@@ -63,8 +63,8 @@ function hasCliSpawn(text: string): boolean {
  * The 33 files known to spawn a real subprocess (git and/or the CLI) as of
  * the M34-WU01 baseline (docs/engineering/m34-validation-workload-policy.md
  * Sec 1/5), plus the 1 built-binary smoke file WU34-03 added, the 2
- * autonomous-run files M36-WU02 added, and the 2 more M36-WU03 added
- * (38 total). A
+ * autonomous-run files M36-WU02 added, the 2 more M36-WU03 added, and the
+ * 3 more M36-WU04 added (41 total). A
  * file added to or removed from this set must be a deliberate, reviewed
  * change to the policy document -- this test does not silently absorb a new
  * spawning file into "already accounted for".
@@ -118,6 +118,16 @@ const KNOWN_SPAWNING_FILES = [
   // initGitFixtureRepo (setup) and executeAutonomousRun (the real loop).
   "tests/integration/autonomous-command-runner.test.ts",
   "tests/integration/autonomous-run-execution-service.test.ts",
+  // M36-WU04 (+3): all three call initGitFixtureRepo for their real
+  // disposable-repository fixture; validation-service and
+  // evidence-binding-service additionally spawn transitively via
+  // runAutonomousCommand/runAutonomousCommandLoop (already covered by
+  // hasCliSpawn's runAutonomousCommand pattern for the former; the
+  // latter is caught by hasGitSpawn's initGitFixtureRepo pattern either
+  // way, since every file here uses that shared fixture).
+  "tests/integration/autonomous-run-diff-summary.test.ts",
+  "tests/integration/autonomous-run-evidence-binding-service.test.ts",
+  "tests/integration/autonomous-run-validation-service.test.ts",
 ].sort();
 
 /**

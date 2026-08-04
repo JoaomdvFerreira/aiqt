@@ -58,7 +58,14 @@ const GIT_READ_PATTERNS: RegExp[] = [
 ];
 
 const GIT_WRITE_PATTERNS: RegExp[] = [
-  /\bgit\s+(add|commit|checkout|worktree\s+add|worktree\s+remove|switch)\b/,
+  // M36-WU04: added `mv`/`rm` (plain, not `rm -rf`) -- both are ordinary
+  // tracked-file repository-local writes, already caught before this
+  // check by DESTRUCTIVE_PATTERNS if combined with `-rf` or `--force`,
+  // and distinct from the unrestricted shell `rm` (which classifyCommand
+  // never actually allows unqualified either -- `\brm\s+-rf\b` is the
+  // only rm pattern DESTRUCTIVE_PATTERNS matches, so a bare `git rm
+  // <path>`/`rm <path>` falls through to here, not to destructive).
+  /\bgit\s+(add|commit|checkout|worktree\s+add|worktree\s+remove|switch|mv|rm)\b/,
 ];
 
 const TEST_BUILD_PATTERNS: RegExp[] = [

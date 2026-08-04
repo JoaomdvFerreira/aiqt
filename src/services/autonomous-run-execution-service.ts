@@ -59,7 +59,29 @@ function emptyUsage(): AutonomousBudgetUsage {
   return { wallClockSeconds: 0, commandCount: 0, retryCount: 0, changedFiles: 0, diffLines: 0, validationSeconds: 0 };
 }
 
-export function executeAutonomousRun(params: ExecuteAutonomousRunParams): ExecuteAutonomousRunResult {
+/**
+ * M36-WU04: the worktree-still-present result of running the bounded
+ * command loop, WITHOUT cleanup. Split out of `executeAutonomousRun` (this
+ * function's body is exactly what that function used to do before its own
+ * unconditional cleanup call) so that WU36-04's evidence-binding service
+ * can insert diff capture and validation between "commands ran" and
+ * "cleanup happens" -- `captureAutonomousDiffSummary` and
+ * `runAutonomousValidation` both need the worktree to still exist on disk.
+ * `executeAutonomousRun` below is now a thin wrapper: same params, same
+ * result shape, same behavior as before this split (cleanup is still
+ * unconditional and still happens exactly once) -- this is a behavior-
+ * preserving refactor, not a change to WU36-03's contract.
+ */
+export interface RunAutonomousCommandLoopResult {
+  outcome: ExecuteAutonomousRunOutcome;
+  worktreePath: string | null;
+  branchName: string | null;
+  commandsExecuted: string[];
+  denialReason: string | null;
+  budgetUsage: AutonomousBudgetUsage;
+}
+
+export function runAutonomousCommandLoop(params: ExecuteAutonomousRunParams): RunAutonomousCommandLoopResult {
   const { candidate, runId, sourceRepositoryPath, baseCommit, workspaceRoot, policy, budgets, agentAdapter, cancellationSignal } = params;
   const startedAt = Date.now();
   const usage = emptyUsage();
@@ -77,7 +99,8 @@ export function executeAutonomousRun(params: ExecuteAutonomousRunParams): Execut
   if (!worktreeResult.ok) {
     return {
       outcome: "workspace_failed",
-      workspace: null,
+      worktreePath: null,
+      branchName,
       commandsExecuted: [],
       denialReason: worktreeResult.reason,
       budgetUsage: usage,
@@ -125,12 +148,12 @@ export function executeAutonomousRun(params: ExecuteAutonomousRunParams): Execut
     }
     // result.status === "executed": a non-zero exit code is a legitimate
     // outcome for the command itself (e.g. a failing test run) -- it does
-    // not by itself stop this loop or mark the run "denied." A future
-    // Work Unit's validation step (WU36-04) is where a failing exit code
-    // becomes a run-level validation_failed result. Only a command that
-    // actually reached execFileSync (status: "executed") is recorded as
-    // executed -- a denied/out-of-boundary/spawn-error command never
-    // ran, and must never appear in commandsExecuted.
+    // not by itself stop this loop or mark the run "denied." WU36-04's
+    // validation step is where a failing exit code becomes a run-level
+    // validation_failed result. Only a command that actually reached
+    // execFileSync (status: "executed") is recorded as executed -- a
+    // denied/out-of-boundary/spawn-error command never ran, and must
+    // never appear in commandsExecuted.
     usage.commandCount += 1;
     usage.wallClockSeconds = (Date.now() - startedAt) / 1000;
     commandsExecuted.push(`${command.command} ${command.args.join(" ")}`.trim());
@@ -138,17 +161,39 @@ export function executeAutonomousRun(params: ExecuteAutonomousRunParams): Execut
 
   usage.wallClockSeconds = (Date.now() - startedAt) / 1000;
 
-  const removeResult = removeAutonomousWorktree(sourceRepositoryPath, worktreePath);
+  return { outcome, worktreePath, branchName, commandsExecuted, denialReason, budgetUsage: usage };
+}
+
+export function executeAutonomousRun(params: ExecuteAutonomousRunParams): ExecuteAutonomousRunResult {
+  const loopResult = runAutonomousCommandLoop(params);
+
+  if (!loopResult.worktreePath) {
+    return {
+      outcome: loopResult.outcome,
+      workspace: null,
+      commandsExecuted: loopResult.commandsExecuted,
+      denialReason: loopResult.denialReason,
+      budgetUsage: loopResult.budgetUsage,
+    };
+  }
+
+  const removeResult = removeAutonomousWorktree(params.sourceRepositoryPath, loopResult.worktreePath);
 
   const workspace: AutonomousWorkspaceRecord = {
-    sourceRepository: sourceRepositoryPath,
-    baseRef: candidate.baseRef,
-    baseCommit,
-    branch: branchName,
-    worktreePath,
+    sourceRepository: params.sourceRepositoryPath,
+    baseRef: params.candidate.baseRef,
+    baseCommit: params.baseCommit,
+    branch: loopResult.branchName!,
+    worktreePath: loopResult.worktreePath,
     createdFiles: [],
     cleanupStatus: removeResult.ok ? "cleaned" : "cleanup_failed",
   };
 
-  return { outcome, workspace, commandsExecuted, denialReason, budgetUsage: usage };
+  return {
+    outcome: loopResult.outcome,
+    workspace,
+    commandsExecuted: loopResult.commandsExecuted,
+    denialReason: loopResult.denialReason,
+    budgetUsage: loopResult.budgetUsage,
+  };
 }
