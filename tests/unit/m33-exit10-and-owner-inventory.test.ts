@@ -231,4 +231,30 @@ describe("M33-WU02: unauthorized new result-owner architecture guard", () => {
         "new specialized renderer; do not let it drift silently.",
     ).toBe(7);
   });
+
+  it("no command file outside result.ts reimplements the exit-10/blocked status-derivation logic familyFailureResult owns (M33-WU05: no undocumented local result owner)", () => {
+    // The exact anti-pattern familyFailureResult replaced: a local ternary
+    // deriving status from exitCode instead of delegating. A NEW command
+    // written after WU33-02 that copies this pattern instead of calling
+    // familyFailureResult would defeat the whole point of centralizing it --
+    // this guard catches that regardless of which file it appears in, not
+    // just the 29 already known about.
+    const antiPattern = /status:\s*exitCode\s*===\s*ExitCode\.\w+\s*\?\s*"blocked"\s*:\s*"failed"/;
+    const offenders = listCommandFiles().filter((f) => antiPattern.test(readCommandFile(f)));
+    expect(
+      offenders,
+      "A command file constructs a result by inlining the exact status-derivation " +
+        "ternary familyFailureResult() exists to centralize. Call familyFailureResult() " +
+        "instead of reimplementing it.",
+    ).toEqual([]);
+  });
+
+  it("every local failure() helper is marked @deprecated M33-WU05 (documents that new code should call familyFailureResult directly)", () => {
+    for (const file of LOCAL_FAILURE_HELPER_FILES) {
+      expect(
+        readCommandFile(file),
+        `${file}'s failure() helper should carry the M33-WU05 @deprecated marker`,
+      ).toContain("@deprecated M33-WU05");
+    }
+  });
 });

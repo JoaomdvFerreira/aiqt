@@ -373,3 +373,61 @@ describe("M33-WU01: read-only rendering performs no mutation", () => {
     expect(readFileSync(runlogPath, "utf8")).toBe(runlogBefore);
   });
 });
+
+describe("M33-WU05: suite-wide stream-policy enforcement across diverse outcome classes", () => {
+  let dir: string;
+  afterEach(() => removeDir(dir));
+
+  it("--json always lands on stdout with empty stderr, across blocked/needs_input/invalid-input/passed outcomes from unrelated command families", () => {
+    dir = makeTempDir();
+
+    // invalid-input (exit 3), no project at all
+    const invalidRes = runCli(["review", "--json"], dir);
+    expect(invalidRes.status).toBe(3);
+    expect(invalidRes.stderr).toBe("");
+    expect(() => JSON.parse(invalidRes.stdout)).not.toThrow();
+
+    expect(runCli(["init", "--json"], dir).status).toBe(0);
+
+    // needs_input (exit 10)
+    const needsInputRes = runCli(["plan", "--json"], dir);
+    expect(needsInputRes.status).toBe(10);
+    expect(needsInputRes.stderr).toBe("");
+    expect(() => JSON.parse(needsInputRes.stdout)).not.toThrow();
+
+    // blocked (exit 2): no work graph yet
+    const blockedRes = runCli(["next", "--json"], dir);
+    expect(blockedRes.status).toBe(2);
+    expect(blockedRes.stderr).toBe("");
+    expect(() => JSON.parse(blockedRes.stdout)).not.toThrow();
+
+    // passed (exit 0)
+    const passedRes = runCli(["status", "--json"], dir);
+    expect(passedRes.status).toBe(0);
+    expect(passedRes.stderr).toBe("");
+    expect(() => JSON.parse(passedRes.stdout)).not.toThrow();
+  });
+});
+
+describe("M33-WU05: human/JSON substantive parity for a further representative specialized command", () => {
+  let dir: string;
+  afterEach(() => removeDir(dir));
+
+  it("aiqt manage: human-mode report and --json agree on status and productionReady/developmentComplete substance", () => {
+    dir = makeTempDir();
+    expect(runCli(["init", "--json"], dir).status).toBe(0);
+
+    const jsonRes = runCli(["manage", "--json"], dir);
+    expect(jsonRes.status).toBe(0);
+    const body = JSON.parse(jsonRes.stdout);
+
+    const textRes = runCli(["manage"], dir);
+    expect(textRes.status).toBe(0);
+    // The specialized manage report is the primary body (unchanged)...
+    expect(textRes.stdout).toContain("AIQT Manager Report");
+    // ...and M33-WU04's shared footer now trails it with the same status
+    // and next-recommended-command JSON already carries.
+    expect(textRes.stdout).toContain(`Status: ${body.status}`);
+    expect(textRes.stdout).toContain(String(body.nextRecommendedCommand));
+  });
+});

@@ -45,6 +45,13 @@ import type { ManagedWorkspace } from "../../schema/managed-workspace.schema.js"
 
 const PREPARE_PROHIBITED_STATUSES = new Set(["planned", "done", "replanned", "cancelled"]);
 
+/**
+ * @deprecated M33-WU05: this per-file wrapper now only delegates to the
+ * shared familyFailureResult() (M33-WU02) -- prefer calling
+ * familyFailureResult() directly in any new code. Retained here only to
+ * avoid rewriting every existing call site in this file; not removed
+ * because doing so would touch call sites with no behavioral benefit.
+ */
 function failure(summary: string, exitCode: number, issueId: string): CommandResult {
   return familyFailureResult({ action: "workspace", area: "workspace", summary, exitCode, issueId });
 }

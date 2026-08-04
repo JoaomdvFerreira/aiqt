@@ -38,6 +38,13 @@ export interface RunEvidenceImportDeps {
   stdin?: StdinLike;
 }
 
+/**
+ * @deprecated M33-WU05: this per-file wrapper now only delegates to the
+ * shared familyFailureResult() (M33-WU02) -- prefer calling
+ * familyFailureResult() directly in any new code. Retained here only to
+ * avoid rewriting every existing call site in this file; not removed
+ * because doing so would touch call sites with no behavioral benefit.
+ */
 function failure(summary: string, exitCode: number, issueId: string, extra?: Partial<Issue>): CommandResult {
   return familyFailureResult({ action: "evidence", area: "input", summary, exitCode, issueId, extraIssueFields: extra });
 }

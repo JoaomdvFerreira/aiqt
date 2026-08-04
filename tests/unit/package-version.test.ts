@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.18.0 (M30 Required Evidence Enforcement)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.18.0");
+  it("is the current released version 0.19.0 (M33 Unified CLI Result, Error, and Rendering Contract)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.19.0");
   });
 });

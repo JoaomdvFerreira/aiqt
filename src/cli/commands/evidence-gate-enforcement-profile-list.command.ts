@@ -4,6 +4,13 @@ import { ExitCode } from "../../core/output/exit-codes.js";
 import { aiqtDirExists, loadProject } from "./load-project.js";
 import { getEnforcementProfiles } from "../../services/evidence-enforcement-service.js";
 
+/**
+ * @deprecated M33-WU05: this per-file wrapper now only delegates to the
+ * shared familyFailureResult() (M33-WU02) -- prefer calling
+ * familyFailureResult() directly in any new code. Retained here only to
+ * avoid rewriting every existing call site in this file; not removed
+ * because doing so would touch call sites with no behavioral benefit.
+ */
 function failure(summary: string, exitCode: number, issueId: string): CommandResult {
   return familyFailureResult({ action: "evidence", area: "evidence-gate", summary, exitCode, issueId });
 }
