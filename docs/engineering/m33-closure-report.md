@@ -10,7 +10,9 @@
 
 **Starting commit:** `84f872ce70544533acc3d92df8ec7d75b64bb800` (`m32-wu05-workflow-parity-regression-suite`)
 
-**Ending commit:** `06585f0b59b327fed31d03b5f37e5172d478f245`, tagged `m33-wu05-result-contract-regression-suite` and `v0.19.0`
+**WU33-05 implementation commit:** `06585f0b59b327fed31d03b5f37e5172d478f245`, tagged `m33-wu05-result-contract-regression-suite`
+
+**Ending (closure-report) commit:** `de02cb47716a93457637aa63aa57b3bbe10bd25a`, tagged `m33-unified-cli-result-contract` and `v0.19.0`
 
 **Package version:** `0.18.0` → `0.19.0` (minor increment; see Versioning below)
 
@@ -25,6 +27,7 @@
 | WU33-03 | `d57cd3e` | `m33-wu03-json-parser-and-stream-contract` | `parserErrorToResult()` added; commander parser errors now produce valid JSON under `--json`; `emit()`'s stream policy changed to always route `--json` to stdout; `--example --json` standardized to reject-with-exit-3 across all 5 sites. Closed Contradictions A and H; completed the stream half of B and G. 41 existing test call sites migrated stderr→stdout. |
 | WU33-04 | `cbaf163` | `m33-wu04-unified-human-rendering` | `renderResultFooter()` added and wired into all 7 raw-text bypass sites; `renderIssue()` now shows stable ids; `review.command.ts` routes non-blocking findings into `warnings` with the corrected `findingKey`-based id. Closed Contradictions C, D, and the text half of G. |
 | WU33-05 | `06585f0` | `m33-wu05-result-contract-regression-suite` | Cross-command contract matrix (58/58 commands confirmed to expose `--json`); suite-wide architecture guards; 29 local `failure()` helpers deprecated (not removed); machine-facing CLI contract documented (`cli-machine-contract.md`, linked from README); package version bumped 0.18.0→0.19.0 with explicit breaking-change labeling. |
+| Closure report | `de02cb4` | `m33-unified-cli-result-contract`, `v0.19.0` | This closure report, added as its own commit after WU33-05. Not itself a Work Unit — carries the milestone-level closure tag and release tag, distinct from `m33-wu05-result-contract-regression-suite`, which stays on its own WU33-05 implementation commit. |
 
 ## Canonical Contract
 
