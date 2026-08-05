@@ -122,6 +122,32 @@ export const SandboxFilesystemPolicySchema = z
     worktreeMount: SandboxMountSchema,
     readOnlyMounts: z.array(SandboxMountSchema).max(MAX_LIST_ITEMS).default([]),
     isolatedOutputDirectory: z.string().min(1).max(MAX_BOUNDED_TEXT_CHARS),
+    /**
+     * M38-WU04 addition (found via a real CI failure, not anticipated in
+     * WU38-01): a linked Git worktree's own `.git` file is a plain text
+     * pointer ("gitdir: <absolute host path>") into its PARENT
+     * repository's `.git/worktrees/<id>` administrative directory --
+     * required, real-write Git state (HEAD, index, etc. for that
+     * worktree specifically), not something a worktree can function
+     * without. If only the worktree itself is mounted, that pointer
+     * resolves to a path that does not exist inside the sandbox at all,
+     * and every Git command fails with "not a git repository". When
+     * present, this mount's `hostPath` and `sandboxPath` MUST be equal
+     * (`validateSandboxFilesystemPolicy` enforces this) -- the pointer
+     * is an absolute path baked in at `git worktree add` time on the
+     * host, so it can only resolve inside the sandbox if the parent
+     * repository is visible at that SAME path, not a remapped one.
+     * Read-write (git writes to the worktree's own administrative
+     * subdirectory during ordinary operations like `commit`) -- this is
+     * not a new capability beyond what the non-sandboxed M36/M37 bare-
+     * worktree path already had (a bare `execFileSync` call has
+     * unrestricted host filesystem access to begin with); inside the
+     * sandbox it is the one deliberate, documented, and scoped
+     * exception to "the worktree is the only writable repository mount"
+     * (build spec Sec 8 invariant 6) -- see the threat model doc's
+     * WU38-04 addendum for the full rationale.
+     */
+    sourceRepositoryMount: SandboxMountSchema.nullable(),
   })
   .strict();
 export type SandboxFilesystemPolicy = z.infer<typeof SandboxFilesystemPolicySchema>;

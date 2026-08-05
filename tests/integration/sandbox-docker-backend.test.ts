@@ -73,6 +73,7 @@ describe.skipIf(!dockerAvailable)("M38-WU02 DockerSandboxBackend (real Docker da
         worktreeMount: { hostPath: worktreeDir!, sandboxPath: "/workspace", mode: "read_write" },
         readOnlyMounts: [],
         isolatedOutputDirectory: outputDir!,
+        sourceRepositoryMount: null,
       },
       environmentPolicy: { allowedVariableNames: ["LANG"] },
       networkPolicy: DEFAULT_SANDBOX_NETWORK_POLICY,
@@ -114,7 +115,7 @@ describe.skipIf(!dockerAvailable)("M38-WU02 DockerSandboxBackend (real Docker da
   });
 
   it("refuses to create a sandbox whose worktree mount targets the AIQT product's own repository (self-management guard, real backend boundary)", () => {
-    const result = backend.create(baseRequest({ filesystemPolicy: { worktreeMount: { hostPath: repoRoot, sandboxPath: "/workspace", mode: "read_write" }, readOnlyMounts: [], isolatedOutputDirectory: outputDir! } }));
+    const result = backend.create(baseRequest({ filesystemPolicy: { worktreeMount: { hostPath: repoRoot, sandboxPath: "/workspace", mode: "read_write" }, readOnlyMounts: [], isolatedOutputDirectory: outputDir!, sourceRepositoryMount: null } }));
     expect(result.ok).toBe(false);
     expect(result.handle).toBeNull();
     expect(result.reason.toLowerCase()).toContain("self-management");
@@ -192,6 +193,7 @@ describe.skipIf(!dockerAvailable)("M38-WU03 DockerSandboxBackend: real launchPro
         worktreeMount: { hostPath: worktreeDir!, sandboxPath: "/workspace", mode: "read_write" },
         readOnlyMounts: [],
         isolatedOutputDirectory: outputDir!,
+        sourceRepositoryMount: null,
       },
       environmentPolicy: { allowedVariableNames: ["LANG"] },
       networkPolicy: DEFAULT_SANDBOX_NETWORK_POLICY,

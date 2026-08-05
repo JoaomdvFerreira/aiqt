@@ -13,6 +13,7 @@ function policy(overrides: Partial<SandboxFilesystemPolicy> = {}): SandboxFilesy
     worktreeMount: { hostPath: "/tmp/aiqt-worktree", sandboxPath: "/workspace", mode: "read_write" },
     readOnlyMounts: [{ hostPath: "/usr/lib/node_modules", sandboxPath: "/usr/lib/node_modules", mode: "read_only" }],
     isolatedOutputDirectory: "/tmp/aiqt-output",
+    sourceRepositoryMount: null,
     ...overrides,
   };
 }
@@ -64,5 +65,31 @@ describe("M38-WU01 sandbox-filesystem-policy: invalid policy rejection", () => {
   it("rejects an isolatedOutputDirectory that resolves to the operator's home directory", () => {
     const result = validateSandboxFilesystemPolicy(policy({ isolatedOutputDirectory: homedir() }));
     expect(result.ok).toBe(false);
+  });
+
+  it("accepts a null sourceRepositoryMount (the common case -- most sandboxes are not backing a Git worktree)", () => {
+    expect(validateSandboxFilesystemPolicy(policy({ sourceRepositoryMount: null })).ok).toBe(true);
+  });
+
+  it("accepts a sourceRepositoryMount whose hostPath and sandboxPath are identical", () => {
+    const result = validateSandboxFilesystemPolicy(policy({ sourceRepositoryMount: { hostPath: "/tmp/aiqt-repo/.git", sandboxPath: "/tmp/aiqt-repo/.git", mode: "read_write" } }));
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects a sourceRepositoryMount whose hostPath and sandboxPath differ -- a Git worktree's gitdir pointer is an absolute host path and cannot be remapped", () => {
+    const result = validateSandboxFilesystemPolicy(policy({ sourceRepositoryMount: { hostPath: "/tmp/aiqt-repo/.git", sandboxPath: "/different/path", mode: "read_write" } }));
+    expect(result.ok).toBe(false);
+    expect(result.issues.some((i) => i.includes("identical"))).toBe(true);
+  });
+
+  it("rejects a sourceRepositoryMount with mode read_only (it must be writable -- Git writes worktree-administrative state there)", () => {
+    const result = validateSandboxFilesystemPolicy(policy({ sourceRepositoryMount: { hostPath: "/tmp/aiqt-repo/.git", sandboxPath: "/tmp/aiqt-repo/.git", mode: "read_only" } }));
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects a sourceRepositoryMount whose host path is the AIQT product's own repository (self-management guard applies here too)", () => {
+    const result = validateSandboxFilesystemPolicy(policy({ sourceRepositoryMount: { hostPath: repoRoot, sandboxPath: repoRoot, mode: "read_write" } }));
+    expect(result.ok).toBe(false);
+    expect(result.issues.some((i) => i.toLowerCase().includes("self-management"))).toBe(true);
   });
 });

@@ -59,7 +59,7 @@ describe.skipIf(!dockerAvailable)("M38-WU04 aiqt autonomous agent-import --live 
       const warmOutput = makeTempDir("aiqt-live-warm-output-");
       const warm = backend.create({
         runId: "warm",
-        filesystemPolicy: { worktreeMount: { hostPath: warmWorktree, sandboxPath: "/workspace", mode: "read_write" }, readOnlyMounts: [], isolatedOutputDirectory: warmOutput },
+        filesystemPolicy: { worktreeMount: { hostPath: warmWorktree, sandboxPath: "/workspace", mode: "read_write" }, readOnlyMounts: [], isolatedOutputDirectory: warmOutput, sourceRepositoryMount: null },
         environmentPolicy: { allowedVariableNames: [] },
         networkPolicy: { mode: "denied", approval: null },
         processPolicy: { processCountLimit: 8, gracefulStopTimeoutSeconds: 5, forceTerminationTimeoutSeconds: 10 },
@@ -184,7 +184,7 @@ describe.skipIf(!dockerAvailable)("M38-WU04 aiqt autonomous agent-import --live 
     const orphanOutput = makeTempDir("aiqt-live-orphan-output-");
     const created = backend.create({
       runId,
-      filesystemPolicy: { worktreeMount: { hostPath: orphanWorktree, sandboxPath: "/workspace", mode: "read_write" }, readOnlyMounts: [], isolatedOutputDirectory: orphanOutput },
+      filesystemPolicy: { worktreeMount: { hostPath: orphanWorktree, sandboxPath: "/workspace", mode: "read_write" }, readOnlyMounts: [], isolatedOutputDirectory: orphanOutput, sourceRepositoryMount: null },
       environmentPolicy: { allowedVariableNames: [] },
       networkPolicy: { mode: "denied", approval: null },
       processPolicy: { processCountLimit: 8, gracefulStopTimeoutSeconds: 5, forceTerminationTimeoutSeconds: 10 },

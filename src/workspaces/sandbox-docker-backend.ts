@@ -244,6 +244,15 @@ export class DockerSandboxBackend implements SandboxBackend {
       ...request.filesystemPolicy.readOnlyMounts.flatMap((m) => ["-v", `${resolve(m.hostPath)}:${m.sandboxPath}:ro`]),
       "-v",
       `${resolve(request.filesystemPolicy.isolatedOutputDirectory)}:${SANDBOX_OUTPUT_MOUNT_PATH}:rw`,
+      // A linked Git worktree's own `.git` file points, via an absolute
+      // host path, into this mount -- required for any Git command to
+      // work at all inside the sandbox (schema.ts's own doc comment on
+      // sourceRepositoryMount has the full rationale). Same host/sandbox
+      // path by construction (validateSandboxFilesystemPolicy enforces
+      // it), so this is the one mount in this list that is NOT remapped.
+      ...(request.filesystemPolicy.sourceRepositoryMount
+        ? ["-v", `${resolve(request.filesystemPolicy.sourceRepositoryMount.hostPath)}:${resolve(request.filesystemPolicy.sourceRepositoryMount.sandboxPath)}:rw`]
+        : []),
     ];
 
     const createArgs = [
@@ -397,7 +406,11 @@ export class DockerSandboxBackend implements SandboxBackend {
       backendId: this.backendId,
       backendVersion: this.backendVersion,
       capabilities: this.reportCapabilities().capabilities,
-      mounts: [state.request.filesystemPolicy.worktreeMount, ...state.request.filesystemPolicy.readOnlyMounts],
+      mounts: [
+        state.request.filesystemPolicy.worktreeMount,
+        ...state.request.filesystemPolicy.readOnlyMounts,
+        ...(state.request.filesystemPolicy.sourceRepositoryMount ? [state.request.filesystemPolicy.sourceRepositoryMount] : []),
+      ],
       environmentVariableNames: state.request.environmentPolicy.allowedVariableNames,
       networkPolicy: state.request.networkPolicy,
       resourcePolicy: state.request.resourcePolicy,

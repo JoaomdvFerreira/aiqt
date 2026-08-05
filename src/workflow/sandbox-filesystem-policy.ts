@@ -61,5 +61,14 @@ export function validateSandboxFilesystemPolicy(policy: SandboxFilesystemPolicy)
     issues.push("isolatedOutputDirectory must not resolve to the operator's home directory.");
   }
 
+  if (policy.sourceRepositoryMount !== null) {
+    checkMount(policy.sourceRepositoryMount, "read_write", "sourceRepositoryMount", issues);
+    const resolvedSourceHost = resolve(policy.sourceRepositoryMount.hostPath);
+    const resolvedSourceSandbox = resolve(policy.sourceRepositoryMount.sandboxPath);
+    if (resolvedSourceHost !== resolvedSourceSandbox) {
+      issues.push("sourceRepositoryMount's hostPath and sandboxPath must be identical -- a Git worktree's own gitdir pointer is an absolute host path baked in at creation time, and can only resolve inside the sandbox at that same path.");
+    }
+  }
+
   return { ok: issues.length === 0, issues };
 }

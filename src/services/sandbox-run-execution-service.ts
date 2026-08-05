@@ -1,5 +1,5 @@
 import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { AutonomousCandidate, AutonomousExecutionPolicy, AutonomousBudgets } from "../schema/autonomous-run.schema.js";
 import type { AutonomousAgentProposedCommand } from "../schema/autonomous-agent-request.schema.js";
 import type { SandboxEvidence } from "../schema/sandbox-backend.schema.js";
@@ -99,6 +99,13 @@ export function prepareLiveSandbox(params: PrepareLiveSandboxParams): PrepareLiv
       worktreeMount: { hostPath: worktreeResult.worktreePath, sandboxPath: SANDBOX_WORKTREE_PATH, mode: "read_write" },
       readOnlyMounts: [],
       isolatedOutputDirectory: outputDir,
+      // Required for the worktree's own `.git` gitdir pointer (an
+      // absolute host path into `<repositoryPath>/.git/worktrees/<id>`)
+      // to resolve inside the sandbox at all -- see schema.ts's own doc
+      // comment on sourceRepositoryMount for the full rationale. Scoped
+      // to just the `.git` directory, not the source repository's own
+      // working tree, to keep this exception as narrow as possible.
+      sourceRepositoryMount: { hostPath: resolve(join(params.repositoryPath, ".git")), sandboxPath: resolve(join(params.repositoryPath, ".git")), mode: "read_write" },
     },
     // No environment variable is forwarded by default -- the sandbox
     // image's own baked-in PATH is sufficient for git/basic tooling;
