@@ -266,6 +266,20 @@ export class DockerSandboxBackend implements SandboxBackend {
       containerUser,
       "--label",
       `aiqt-sandbox-run-id=${request.runId}`,
+      // A fixed, AIQT-operational environment variable -- not sourced
+      // from the operator's own allowlist, since it carries no
+      // operator/attacker-controlled data. Without a real $HOME, tools
+      // like `git config --global` (used by the git-identity setup
+      // sandbox-run-execution-service.ts performs before running any
+      // proposed command) have nowhere to write, and some git versions
+      // additionally refuse to operate at all ("detected dubious
+      // ownership") in a repository whose ownership check has no config
+      // location to consult -- found via this Work Unit's own real CI
+      // run (this project's Windows development machine has no Docker
+      // to have caught it locally). /tmp is writable by any UID on the
+      // base image's Debian default (sticky bit, mode 1777).
+      "-e",
+      "HOME=/tmp",
       ...envArgs,
       ...mountArgs,
       "--workdir",

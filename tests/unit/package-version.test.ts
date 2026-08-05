@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.32.0 (M38-WU04: validation, forensics, recovery, and CLI integration)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.32.0");
+  it("is the current released version 0.32.1 (M38-WU04 fix: real container git setup -- HOME/safe.directory/identity, plus denial-reason forensics)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.32.1");
   });
 });

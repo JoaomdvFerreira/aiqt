@@ -30,6 +30,10 @@ import type { SandboxRunResultState } from "./sandbox-run-command-result.js";
  * finishes, the container id is already durably recorded, and a later
  * `aiqt autonomous cleanup` invocation can still find and destroy it.
  */
+const SANDBOX_WORKTREE_PATH = "/workspace";
+const SANDBOX_GIT_IDENTITY_EMAIL = "autonomous@aiqt.local";
+const SANDBOX_GIT_IDENTITY_NAME = "AIQT Autonomous Sandbox";
+
 export interface LiveSandboxPreflightFailure {
   ok: false;
   reason: string;
@@ -92,7 +96,7 @@ export function prepareLiveSandbox(params: PrepareLiveSandboxParams): PrepareLiv
   const createRequest: SandboxCreateRequest = {
     runId: params.runId,
     filesystemPolicy: {
-      worktreeMount: { hostPath: worktreeResult.worktreePath, sandboxPath: "/workspace", mode: "read_write" },
+      worktreeMount: { hostPath: worktreeResult.worktreePath, sandboxPath: SANDBOX_WORKTREE_PATH, mode: "read_write" },
       readOnlyMounts: [],
       isolatedOutputDirectory: outputDir,
     },
@@ -164,8 +168,30 @@ export function runLiveSandboxedRun(params: RunLiveSandboxedRunParams): RunLiveS
   const { backend, handle, repositoryPath, worktreePath, policy, budgets } = params;
   let resultState: SandboxRunResultState;
   let findings: string[] = [];
+  // Real diagnostic detail for whatever stopped the run short of
+  // "passed" -- surfaced into the evidence's residualRisk field below,
+  // never silently discarded (a real, if narrow, forensics gap this
+  // Work Unit's own CI run exposed: a blocked/failed live run's
+  // evidence previously gave no clue why).
+  let denialReason: string | null = null;
 
   try {
+    // Fixed, AIQT-authored housekeeping -- never mediated through
+    // decideCommand (it is not an agent-proposed command) and never
+    // counted toward the run's own command-count/wall-clock budget.
+    // Without this, git refuses to operate at all ("detected dubious
+    // ownership") in a repository whose global config has no
+    // safe.directory entry for it, and `git commit` has no identity to
+    // commit as -- a real container-specific requirement found via this
+    // Work Unit's own CI run (this project's Windows development
+    // machine has no Docker to have caught it locally). A fixed,
+    // synthetic identity is used deliberately -- never the operator's
+    // own real name/email, which this sandbox has no way to know and
+    // must not guess.
+    backend.launchProcess({ handle, command: "git", args: ["config", "--global", "--add", "safe.directory", SANDBOX_WORKTREE_PATH] });
+    backend.launchProcess({ handle, command: "git", args: ["config", "--global", "user.email", SANDBOX_GIT_IDENTITY_EMAIL] });
+    backend.launchProcess({ handle, command: "git", args: ["config", "--global", "user.name", SANDBOX_GIT_IDENTITY_NAME] });
+
     const mainLoop = executeSandboxedCommandLoop(backend, handle, params.proposedCommands, policy, {
       maxWallClockSeconds: budgets.maxWallClockSeconds,
       maxCpuSeconds: budgets.maxWallClockSeconds,
@@ -179,12 +205,16 @@ export function runLiveSandboxedRun(params: RunLiveSandboxedRunParams): RunLiveS
 
     if (mainLoop.terminationReason === "cancelled") {
       resultState = "cancelled";
+      denialReason = mainLoop.denialReason;
     } else if (mainLoop.terminationReason === "budget_exhausted") {
       resultState = "budget_exhausted";
+      denialReason = mainLoop.denialReason;
     } else if (mainLoop.terminationReason === "policy_denied" || mainLoop.terminationReason === "resource_limit_exceeded") {
       resultState = "blocked";
+      denialReason = mainLoop.denialReason;
     } else if (mainLoop.terminationReason !== "completed") {
       resultState = "failed";
+      denialReason = mainLoop.denialReason;
     } else if (params.targetedValidationCommands.length === 0) {
       resultState = "validation_failed";
     } else {
@@ -200,6 +230,7 @@ export function runLiveSandboxedRun(params: RunLiveSandboxedRunParams): RunLiveS
       });
       if (targetedLoop.terminationReason !== "completed") {
         resultState = "validation_failed";
+        denialReason = targetedLoop.denialReason;
       } else if (params.authoritativeValidationCommands.length > 0) {
         const authoritativeLoop = executeSandboxedCommandLoop(backend, handle, params.authoritativeValidationCommands, policy, {
           maxWallClockSeconds: budgets.maxValidationSeconds,
@@ -212,6 +243,7 @@ export function runLiveSandboxedRun(params: RunLiveSandboxedRunParams): RunLiveS
           maxRetryCount: 0,
         });
         resultState = authoritativeLoop.terminationReason === "completed" ? "passed" : "validation_failed";
+        if (authoritativeLoop.terminationReason !== "completed") denialReason = authoritativeLoop.denialReason;
       } else {
         resultState = "passed";
       }
@@ -242,5 +274,11 @@ export function runLiveSandboxedRun(params: RunLiveSandboxedRunParams): RunLiveS
     findings = review.findings;
   }
 
-  return { resultState: resultState!, findings, evidence: evidenceResult.evidence, evidenceReason: evidenceResult.reason };
+  // Real diagnostic detail, never silently discarded: a run that did not
+  // pass carries WHY, not just the backend's own generic residualRisk
+  // text -- the same "commands executed" event log already told us
+  // WHAT ran; this is the part that says why it stopped.
+  const evidence = denialReason ? { ...evidenceResult.evidence, residualRisk: `${evidenceResult.evidence.residualRisk} ${denialReason}` } : evidenceResult.evidence;
+
+  return { resultState: resultState!, findings, evidence, evidenceReason: evidenceResult.reason };
 }
