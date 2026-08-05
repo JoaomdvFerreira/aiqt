@@ -43,7 +43,16 @@ describe.skipIf(!dockerAvailable)("M38-WU02 DockerSandboxBackend (real Docker da
   beforeAll(() => {
     worktreeDir = makeTempDir("aiqt-sandbox-worktree-");
     outputDir = makeTempDir("aiqt-sandbox-output-");
-  });
+
+    // Warm the sandbox base image once, here, outside any single test's
+    // own timeout budget -- a cold `docker build` (registry pull +
+    // apt-get install) measurably exceeds even HEAVY_SPAWNING_TEST_TIMEOUT_MS
+    // (25000ms) under real CI load (observed: ~20s for the build alone).
+    // Every test below reuses the now-cached image via create()'s own
+    // `docker image inspect` fast path, which is fast.
+    const warm = backend.create(baseRequest());
+    if (warm.ok && warm.handle) backend.destroy(warm.handle);
+  }, 120_000);
 
   afterAll(() => {
     if (worktreeDir) removeDir(worktreeDir);
