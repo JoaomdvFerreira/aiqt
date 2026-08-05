@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.29.1 (Dependabot alert #9 remediation: brace-expansion >=5.0.9, GHSA-rgw5-rvv9-x895)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.29.1");
+  it("is the current released version 0.30.0 (M38-WU02: Docker sandbox backend -- filesystem/environment/network/resource isolation, cleanup)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.30.0");
   });
 });

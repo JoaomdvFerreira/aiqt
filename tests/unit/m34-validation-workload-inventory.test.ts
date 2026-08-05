@@ -45,6 +45,15 @@ function hasGitSpawn(text: string): boolean {
   return /(?:execFileSync|spawnSync|execFile|spawn)\(\s*["']git["']/.test(text) || /\binitGitFixtureRepo\(/.test(text);
 }
 
+function hasDockerSpawn(text: string): boolean {
+  // M38-WU02: runDockerCommand (sandbox-docker-command-runner.ts) wraps
+  // the one real execFileSync("docker", ...) call site; DockerSandboxBackend
+  // is the transitive caller every sandbox-docker-backend test exercises,
+  // and sandbox-docker-backend.test.ts also calls execFileSync("docker", ...)
+  // directly for its own inspection assertions.
+  return /execFileSync\(\s*["']docker["']/.test(text) || /\brunDockerCommand\(/.test(text) || /\bDockerSandboxBackend\b/.test(text);
+}
+
 function hasCliSpawn(text: string): boolean {
   // M36-WU03: runAutonomousCommand/executeAutonomousRun wrap real
   // execFileSync calls -- a test file calling only these, with no direct
@@ -65,8 +74,8 @@ function hasCliSpawn(text: string): boolean {
  * Sec 1/5), plus the 1 built-binary smoke file WU34-03 added, the 2
  * autonomous-run files M36-WU02 added, the 2 more M36-WU03 added, the
  * 3 more M36-WU04 added, the 1 more M36-WU05 added, the 1 more M37-WU01
- * added, the 1 more M37-WU03 added, the 1 more M37-WU04 added, and the
- * 1 more M37-WU05 added (46 total). A
+ * added, the 1 more M37-WU03 added, the 1 more M37-WU04 added, the
+ * 1 more M37-WU05 added, and the 1 more M38-WU02 added (47 total). A
  * file added to or removed from this set must be a deliberate, reviewed
  * change to the policy document -- this test does not silently absorb a new
  * spawning file into "already accounted for".
@@ -155,6 +164,10 @@ const KNOWN_SPAWNING_FILES = [
   // initGitFixtureRepo and the same real command-execution path already
   // covered by hasGitSpawn/hasCliSpawn for autonomous-real-execution.test.ts.
   "tests/integration/autonomous-controlled-pilot.test.ts",
+  // M38-WU02 (+1): spawns a real `docker` subprocess (create/inspect/
+  // start/stop/rm) via DockerSandboxBackend, self-skipping when Docker
+  // is unavailable on the host running the suite.
+  "tests/integration/sandbox-docker-backend.test.ts",
 ].sort();
 
 /**
@@ -177,7 +190,7 @@ describe("M34-WU01: every process-spawning test file is classified (no silent ne
     const spawningFiles = allFiles
       .filter((f) => {
         const text = readFileSync(f, "utf8");
-        return hasGitSpawn(text) || hasCliSpawn(text);
+        return hasGitSpawn(text) || hasCliSpawn(text) || hasDockerSpawn(text);
       })
       .map(relPath)
       .sort();
@@ -197,7 +210,7 @@ describe("M34-WU01: every process-spawning test file is classified (no silent ne
     const offenders = unitFiles
       .filter((f) => {
         const text = readFileSync(f, "utf8");
-        return hasGitSpawn(text) || hasCliSpawn(text);
+        return hasGitSpawn(text) || hasCliSpawn(text) || hasDockerSpawn(text);
       })
       .map(relPath);
     expect(

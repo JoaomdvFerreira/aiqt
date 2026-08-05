@@ -214,6 +214,13 @@ export const SandboxTerminationReasonSchema = z.enum([
   "resource_limit_exceeded",
   "sandbox_creation_failed",
   "cleanup_failed",
+  // M38-WU02 addition: honestly distinguishes "no process was ever
+  // launched because this backend does not yet implement launchProcess"
+  // from every other reason above, all of which presuppose a process
+  // attempt actually happened. Reusing "cancelled" or "policy_denied"
+  // for this would misrepresent what occurred; the request/import
+  // fallback is the correct action either way (sandbox-fallback-policy.ts).
+  "not_yet_supported",
 ]);
 export type SandboxTerminationReason = z.infer<typeof SandboxTerminationReasonSchema>;
 

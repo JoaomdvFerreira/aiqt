@@ -71,8 +71,10 @@ Node 22: unsupported
 | Total tests (static `it(` count — undercounts `it.each`-generated cases) | 2265 |
 | Layer: `tests/unit/` | 122 files |
 | Layer: `tests/integration/` | 111 files |
-| Skipped or conditional tests (`it.skip`/`describe.skip`/`it.todo`/`skipIf`) | **0 files** |
-| Platform-specific tests (`process.platform` branches) | **1 file** (`tests/unit/prompt-out-path.test.ts` — Windows/POSIX path-separator assertion, not a skip) |
+| Skipped or conditional tests (`it.skip`/`describe.skip`/`it.todo`/`skipIf`) | **0 files** (WU35-01 baseline; see the M38-WU02 addendum below for the one deliberate departure) |
+| Platform-specific tests (`process.platform` branches) | **1 file** (WU35-01 baseline; see the M38-WU02 addendum below) |
+
+**M38-WU02 addendum (deliberate departure from the "zero skipped tests" baseline above):** `tests/integration/sandbox-docker-backend.test.ts` uses `describe.skipIf(!dockerAvailable)` for its real-container assertions, and a `process.platform !== "linux"` branch for one internal-consistency check. Docker is an external host dependency this repository's own CI provides (Linux/`ubuntu-latest`, per `docs/engineering/m38-sandbox-platform-decision.md`) but that is not guaranteed on every developer machine (this project was developed partly on Windows, which has no Docker installed at all) -- the suite probes real availability via `DockerSandboxBackend.checkAvailability()` and skips with a logged reason when absent, never silently passing and never failing the whole run over an environment precondition outside the code's control. This is the first reviewed exception to the WU35-01 "zero skipped tests" invariant; `tests/unit/m35-test-inventory-classification.test.ts`'s own guard tests were updated in the same commit to expect exactly this one file in both the skipped-file and platform-guarded-file baselines, so any further, undocumented drift still fails loudly.
 
 ### 3.1 Workload class distribution
 
