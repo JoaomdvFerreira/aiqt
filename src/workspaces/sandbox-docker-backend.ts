@@ -439,6 +439,47 @@ export class DockerSandboxBackend implements SandboxBackend {
       .map((line) => line.replace(/^[A-Z?!]{1,2}\s+/, ""));
   }
 
+  /**
+   * Real `git diff --name-only <baseCommit> HEAD` (committed changes)
+   * unioned with `git status --porcelain` (anything still uncommitted),
+   * de-duplicated. Not part of the `SandboxBackend` interface -- an
+   * orchestrator-only helper (`sandbox-run-execution-service.ts`), and
+   * MUST be called before `cleanup()` destroys the container (unlike
+   * `exportEvidence`'s own best-effort `listChangedFiles`, which only
+   * ever sees `git status --porcelain` -- correct for a run that never
+   * commits, but wrongly empty for a run whose proposed commands
+   * commit their own changes, since a clean working tree then reports
+   * nothing pending). Found via a real CI-only failure: a live run that
+   * genuinely renamed and committed a file was rejected by self-review
+   * for "no files changed" because `exportEvidence` runs after
+   * `cleanup()` has already destroyed the container `listChangedFiles`
+   * would otherwise have needed to query.
+   */
+  getChangedFilesAgainstBaseCommit(handle: SandboxHandle, baseCommit: string): string[] {
+    const state = this.runtimeState.get(handle.sandboxId);
+    if (!state) return [];
+    const sandboxPath = state.request.filesystemPolicy.worktreeMount.sandboxPath;
+    const files = new Set<string>();
+
+    const committed = runDockerCommand(["exec", handle.sandboxId, "git", "-C", sandboxPath, "diff", "--name-only", baseCommit, "HEAD"], { timeoutMs: 10_000 });
+    if (committed.ok) {
+      for (const line of committed.stdout.split("\n")) {
+        const trimmed = line.trim();
+        if (trimmed) files.add(trimmed);
+      }
+    }
+
+    const uncommitted = runDockerCommand(["exec", handle.sandboxId, "git", "-C", sandboxPath, "status", "--porcelain"], { timeoutMs: 10_000 });
+    if (uncommitted.ok) {
+      for (const line of uncommitted.stdout.split("\n")) {
+        const trimmed = line.trim();
+        if (trimmed) files.add(trimmed.replace(/^[A-Z?!]{1,2}\s+/, ""));
+      }
+    }
+
+    return [...files];
+  }
+
   /** Real `docker exec ... du -sb <worktreeSandboxPath>`, returning the reported byte count, or `null` if the check itself could not be performed (never a fabricated 0). Not part of the `SandboxBackend` interface -- an orchestrator-only helper (`sandbox-command-loop.ts`) for the detective disk-limit enforcement documented in this class's own doc comment and the threat model's residual-risk note. */
   checkDiskUsageBytes(handle: SandboxHandle): number | null {
     const state = this.runtimeState.get(handle.sandboxId);

@@ -125,6 +125,11 @@ describe.skipIf(!dockerAvailable)("M38-WU04 aiqt autonomous agent-import --live 
     expect(evidence.commandsExecuted.length).toBeGreaterThan(0);
     expect(evidence.terminationReason).toBe("completed");
     expect(evidence.cleanupStatus).toBe("cleaned");
+    // Real proof the committed rename is reflected in evidence, not just
+    // "some commands ran" -- regression coverage for a real CI-only bug
+    // where a committed change reported filesChanged:[] because the
+    // check ran after cleanup() had already destroyed the container.
+    expect(evidence.filesChanged.some((f) => f.includes("README"))).toBe(true);
 
     const loaded = loadAutonomousRunRecord(runId, evidenceDir!);
     if (!loaded.ok) throw new Error("run record unexpectedly missing");

@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.32.2 (M38-WU04 fix: mount the source repository's .git dir so a linked worktree's gitdir pointer resolves inside the sandbox)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.32.2");
+  it("is the current released version 0.32.3 (M38-WU04 fix: capture real changed-files evidence before cleanup destroys the container)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.32.3");
   });
 });

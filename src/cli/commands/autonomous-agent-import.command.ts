@@ -194,6 +194,7 @@ export async function runAutonomousAgentImport(ctx: CommandContext, options: Aut
       handle: prepared.handle,
       repositoryPath: record.repositoryPath,
       worktreePath: prepared.worktreePath,
+      baseCommit: record.baseCommit,
       candidate: record.candidate,
       policy: record.policy,
       budgets: record.budgets,

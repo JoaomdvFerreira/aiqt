@@ -147,6 +147,7 @@ export interface RunLiveSandboxedRunParams {
   handle: SandboxHandle;
   repositoryPath: string;
   worktreePath: string;
+  baseCommit: string;
   candidate: AutonomousCandidate;
   policy: AutonomousExecutionPolicy;
   budgets: AutonomousBudgets;
@@ -181,6 +182,13 @@ export function runLiveSandboxedRun(params: RunLiveSandboxedRunParams): RunLiveS
   // Work Unit's own CI run exposed: a blocked/failed live run's
   // evidence previously gave no clue why).
   let denialReason: string | null = null;
+  // Captured BEFORE cleanup() destroys the container -- exportEvidence's
+  // own listChangedFiles only ever sees `git status --porcelain`, which
+  // is wrongly empty once a repair commits its own changes (a real
+  // CI-only failure this Work Unit's own run exposed: a run that
+  // genuinely renamed and committed a file was rejected by self-review
+  // for "no files changed").
+  let changedFiles: string[] | null = null;
 
   try {
     // Fixed, AIQT-authored housekeeping -- never mediated through
@@ -209,6 +217,12 @@ export function runLiveSandboxedRun(params: RunLiveSandboxedRunParams): RunLiveS
       maxOutputBytes: 1024 * 1024,
       maxRetryCount: budgets.maxRetryCount,
     });
+
+    // Real, while the container still exists -- must run before the
+    // finally block's cleanup() destroys it. Captured regardless of
+    // mainLoop's own outcome (even a blocked/failed run may have
+    // genuinely changed files before it stopped).
+    changedFiles = backend.getChangedFilesAgainstBaseCommit(handle, params.baseCommit);
 
     if (mainLoop.terminationReason === "cancelled") {
       resultState = "cancelled";
@@ -273,19 +287,28 @@ export function runLiveSandboxedRun(params: RunLiveSandboxedRunParams): RunLiveS
     return { resultState: "failed", findings: [`Evidence export failed: ${evidenceResult.reason}`], evidence: null, evidenceReason: evidenceResult.reason };
   }
 
+  // Real diagnostic/forensic detail, never silently discarded or
+  // overwritten by a post-cleanup query that can no longer see it:
+  // - filesChanged: exportEvidence's own listChangedFiles only sees
+  //   `git status --porcelain` AFTER cleanup already destroyed the
+  //   container, which is wrongly empty once a repair commits its own
+  //   changes. The real, pre-cleanup changedFiles captured above is
+  //   authoritative when available.
+  // - residualRisk: a run that did not pass carries WHY, not just the
+  //   backend's own generic text.
+  const evidence: SandboxEvidence = {
+    ...evidenceResult.evidence,
+    ...(changedFiles !== null ? { filesChanged: changedFiles } : {}),
+    ...(denialReason ? { residualRisk: `${evidenceResult.evidence.residualRisk} ${denialReason}` } : {}),
+  };
+
   if (resultState! === "passed") {
-    const review = reviewSandboxRun({ filesChanged: evidenceResult.evidence.filesChanged });
+    const review = reviewSandboxRun({ filesChanged: evidence.filesChanged });
     if (review.hasUnresolvedCriticalFindings) {
       resultState = "review_rejected";
     }
     findings = review.findings;
   }
-
-  // Real diagnostic detail, never silently discarded: a run that did not
-  // pass carries WHY, not just the backend's own generic residualRisk
-  // text -- the same "commands executed" event log already told us
-  // WHAT ran; this is the part that says why it stopped.
-  const evidence = denialReason ? { ...evidenceResult.evidence, residualRisk: `${evidenceResult.evidence.residualRisk} ${denialReason}` } : evidenceResult.evidence;
 
   return { resultState: resultState!, findings, evidence, evidenceReason: evidenceResult.reason };
 }
