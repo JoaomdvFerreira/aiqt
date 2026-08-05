@@ -96,9 +96,30 @@ describe("M38-WU02 boundary scan: no AIQT self-management path exists", () => {
   });
 });
 
-describe("M38-WU02 boundary scan: no silent unsandboxed fallback", () => {
-  it("none of the 'not yet supported' stub methods return ok:true", () => {
+// "None of the stub methods return ok:true" was a true WU38-02 invariant
+// (launchProcess/streamEvents/cancel/collectResult/exportEvidence were
+// all explicit "not yet supported" stubs then). WU38-03 deliberately
+// lifts it -- those methods are real now (see tests/integration/
+// sandbox-docker-backend.test.ts's WU38-03 describe block for their real
+// coverage, and sandbox-command-loop.test.ts for the mediation logic
+// that decides what may ever reach launchProcess in the first place).
+// Removed here rather than left to fail silently; the narrower invariant
+// that replaces it -- cleanup()/destroy() always verify their real
+// outcome via a follow-up `docker inspect`, never assume success -- is
+// checked below.
+describe("M38-WU03 boundary scan: cleanup/destroy always verify their real outcome, never assume success", () => {
+  it("cleanup() and destroy() both call docker inspect after their own stop/rm to confirm the real outcome", () => {
     const text = readFileSync(join(repoRoot, "src/workspaces/sandbox-docker-backend.ts"), "utf8");
-    expect(text).toMatch(/notYetSupported\(/);
+    const cleanupBody = text.match(/cleanup\(handle: SandboxHandle\): SandboxCleanupResult \{([\s\S]*?)\n\s{2}\}/)?.[1] ?? "";
+    const destroyBody = text.match(/destroy\(handle: SandboxHandle\): SandboxDestroyResult \{([\s\S]*?)\n\s{2}\}/)?.[1] ?? "";
+    expect(cleanupBody).toMatch(/"inspect"/);
+    expect(destroyBody).toMatch(/"inspect"/);
+  });
+
+  it("cancel() re-verifies via docker inspect after stop, and escalates to kill only if still running", () => {
+    const text = readFileSync(join(repoRoot, "src/workspaces/sandbox-docker-backend.ts"), "utf8");
+    const cancelBody = text.match(/cancel\(handle: SandboxHandle\): SandboxCancellationResult \{([\s\S]*?)\n\s{2}\}/)?.[1] ?? "";
+    expect(cancelBody).toMatch(/"inspect"/);
+    expect(cancelBody).toMatch(/"kill"/);
   });
 });

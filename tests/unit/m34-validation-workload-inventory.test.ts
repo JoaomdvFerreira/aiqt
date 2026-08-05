@@ -46,12 +46,18 @@ function hasGitSpawn(text: string): boolean {
 }
 
 function hasDockerSpawn(text: string): boolean {
-  // M38-WU02: runDockerCommand (sandbox-docker-command-runner.ts) wraps
-  // the one real execFileSync("docker", ...) call site; DockerSandboxBackend
-  // is the transitive caller every sandbox-docker-backend test exercises,
-  // and sandbox-docker-backend.test.ts also calls execFileSync("docker", ...)
-  // directly for its own inspection assertions.
-  return /execFileSync\(\s*["']docker["']/.test(text) || /\brunDockerCommand\(/.test(text) || /\bDockerSandboxBackend\b/.test(text);
+  // M38-WU02/WU03: runDockerCommand (sandbox-docker-command-runner.ts)
+  // wraps the one real execFileSync("docker", ...) call site;
+  // constructing a real DockerSandboxBackend instance (`new
+  // DockerSandboxBackend(`) is the transitive trigger every
+  // sandbox-docker-backend test exercises, and sandbox-docker-
+  // backend.test.ts also calls execFileSync("docker", ...) directly for
+  // its own inspection assertions. Deliberately requires the
+  // *instantiation* syntax, not just the bare class name -- a file that
+  // only MENTIONS "DockerSandboxBackend" in a doc comment (e.g.
+  // sandbox-command-loop.test.ts's own fake-backend explanation) must
+  // not be misclassified as spawning.
+  return /execFileSync\(\s*["']docker["']/.test(text) || /\brunDockerCommand\(/.test(text) || /new\s+DockerSandboxBackend\s*\(/.test(text);
 }
 
 function hasCliSpawn(text: string): boolean {

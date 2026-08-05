@@ -6,6 +6,9 @@ import type {
   SandboxAvailabilityResult,
   SandboxCapabilityReport,
   SandboxCapability,
+  SandboxEvidence,
+  SandboxTerminationReason,
+  SandboxCleanupStatus,
 } from "../schema/sandbox-backend.schema.js";
 import type {
   SandboxBackend,
@@ -30,33 +33,57 @@ import { validateSandboxResourcePolicy } from "../workflow/sandbox-resource-poli
 import { runDockerCommand } from "./sandbox-docker-command-runner.js";
 
 /**
- * M38-WU02 (build spec: "Implement one real backend with enforceable
- * mounts, environment allowlist, network denial, resource controls,
- * isolated temp/output, and cleanup"). The first real `SandboxBackend`
- * implementer (the WU38-01 interface had zero implementers). Scope is
- * exactly this Work Unit's own title: `checkAvailability`,
- * `reportCapabilities`, `create`, `cleanup`, `destroy` are real, tested
- * Docker operations. `launchProcess`/`streamEvents`/`cancel`/
- * `collectResult`/`exportEvidence` are honest, explicit "not yet
- * supported" stubs -- WU38-03 ("Live Agent Process, Command Mediation,
- * and Cancellation") is where those become real. This class must
- * implement the full interface to type-check, but a stub that returns
- * `ok:false, reason:"..."` is categorically different from silently
- * pretending to succeed; every stub here is covered by its own test
- * asserting it never reports success.
+ * M38-WU02/WU03 (build spec: "Implement one real backend with
+ * enforceable mounts, environment allowlist, network denial, resource
+ * controls, isolated temp/output, and cleanup" / "Run one agent inside
+ * the sandbox with structured events, policy-mediated commands, full
+ * process-tree ownership, deterministic cancellation, and output/budget
+ * limits"). The first (and, as of WU38-03, complete) real
+ * `SandboxBackend` implementer.
+ *
+ * WU38-02 scope (real from the start): `checkAvailability`,
+ * `reportCapabilities`, `create`, `cleanup`, `destroy`.
+ *
+ * WU38-03 scope (real as of this Work Unit): `launchProcess` (a real
+ * `docker exec`, bounded output, wall-clock-bounded via the command
+ * runner's own timeout), `streamEvents` (the real event log recorded
+ * per sandbox), `cancel` (`docker stop`, escalating to `docker kill`,
+ * with the real outcome verified via `docker inspect` -- never
+ * assumed), `collectResult`, and `exportEvidence` (a real
+ * `SandboxEvidence` assembled from what this backend actually observed
+ * -- never fabricated). Process-tree ownership is a genuine, kernel-
+ * enforced guarantee here: every command this backend ever runs goes
+ * through `docker exec` into the SAME container, so stopping/killing
+ * that one container's PID namespace is guaranteed to stop every
+ * process it ever spawned, with no separate orphan-tracking logic
+ * needed -- the guarantee comes from Docker's own PID namespace, not
+ * from this class counting processes itself.
+ *
+ * `sandbox-command-loop.ts` is the higher-level orchestrator that
+ * mediates a proposed command list against the M36 command-policy
+ * classifier before ever calling `launchProcess` here -- this class
+ * itself performs no policy classification; it only executes whatever
+ * command it is given, inside the one isolation boundary it owns.
  *
  * Network-enabled live execution is permanently unsupported by this
- * backend: it never reports `network_destination_restriction`
- * (plain `docker run --network none` gives real network *denial*, but
- * Docker alone provides no destination-allowlist/egress-proxy
- * mechanism) -- `create()` also rejects any policy requesting
- * `"explicitly_enabled"` directly, as defense in depth beyond the
- * capability-evaluation layer (mirrors the M37 self-management guard's
- * "re-checked at every real-execution boundary" discipline).
+ * backend: it never reports `network_destination_restriction` (plain
+ * `docker run --network none` gives real network *denial*, but Docker
+ * alone provides no destination-allowlist/egress-proxy mechanism) --
+ * `create()` also rejects any policy requesting `"explicitly_enabled"`
+ * directly, as defense in depth beyond the capability-evaluation layer.
+ *
+ * `disk_limit` is real but DETECTIVE, not preventive: `checkDiskUsageBytes`
+ * (a real `docker exec ... du -sb`, not part of the `SandboxBackend`
+ * interface -- an orchestrator-only helper) lets a caller stop a run
+ * that has already exceeded its declared budget; no portable, real
+ * kernel-level write-byte ceiling exists for a bind-mounted worktree
+ * (build spec residual risk, documented in the threat model and
+ * platform-decision docs).
  */
 const DOCKER_BACKEND_ID = "docker-oci@1";
 const SANDBOX_BASE_IMAGE_TAG = "aiqt-sandbox-base:1";
 const SANDBOX_OUTPUT_MOUNT_PATH = "/aiqt-output";
+const MAX_EVENT_DETAIL_CHARS = 4000;
 
 const SANDBOX_DOCKERFILE = `FROM debian:bookworm-slim
 RUN apt-get update \\
@@ -67,19 +94,15 @@ WORKDIR /workspace
 `;
 
 /**
- * Every capability this backend can honestly claim as of WU38-02.
- * Deliberately omits `process_tree_control` (no process has ever been
- * launched by this class yet) and `disk_limit` (no portable, real
- * write-byte enforcement exists for a bind-mounted worktree -- see the
- * threat model doc's residual-risk note) and
- * `network_destination_restriction` (permanent limitation, above).
- * `evaluateSandboxCapabilities` (WU38-01) will therefore correctly
- * report this backend as insufficient for live execution until WU38-03
- * adds `process_tree_control` and a real disk-usage enforcement
- * mechanism -- exactly the intended fail-closed behavior for a backend
- * that cannot yet run anything.
+ * Every capability this backend can honestly claim as of WU38-03.
+ * Still permanently omits `network_destination_restriction` (no
+ * destination-allowlist/egress-proxy mechanism exists in plain Docker).
+ * `process_tree_control` and `disk_limit` are now real (see the class
+ * doc comment above) -- `evaluateSandboxCapabilities` (WU38-01) will
+ * therefore report this backend as sufficient for a network-denied
+ * live execution as of this Work Unit.
  */
-const WU38_02_CAPABILITIES: readonly SandboxCapability[] = [
+const WU38_03_CAPABILITIES: readonly SandboxCapability[] = [
   "filesystem_isolation",
   "read_only_mounts",
   "writable_worktree",
@@ -88,6 +111,8 @@ const WU38_02_CAPABILITIES: readonly SandboxCapability[] = [
   "cpu_limit",
   "memory_limit",
   "process_count_limit",
+  "process_tree_control",
+  "disk_limit",
   "deterministic_cleanup",
   "forensic_capture",
 ];
@@ -101,13 +126,27 @@ function computeCpuQuota(maxCpuSeconds: number, maxWallClockSeconds: number): nu
   return Math.min(MAX_CPU_QUOTA, Math.max(MIN_CPU_QUOTA, ratio));
 }
 
-function notYetSupported(operation: string): { ok: false; reason: string } {
-  return { ok: false, reason: `${operation} is not yet supported by ${DOCKER_BACKEND_ID} -- implemented in M38-WU03. Use the M37 request/import workflow (aiqt autonomous run) instead.` };
+function bound(text: string): string {
+  return text.length > MAX_EVENT_DETAIL_CHARS ? `${text.slice(0, MAX_EVENT_DETAIL_CHARS)}\n...[truncated]` : text;
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+interface SandboxRuntimeState {
+  request: SandboxCreateRequest;
+  events: SandboxProcessEvent[];
+  commandsExecuted: string[];
+  outputBytesCaptured: number;
+  terminationReason: SandboxTerminationReason;
+  cleanupStatus: SandboxCleanupStatus | null;
 }
 
 export class DockerSandboxBackend implements SandboxBackend {
   readonly backendId = DOCKER_BACKEND_ID;
   private cachedVersion: string | null = null;
+  private readonly runtimeState = new Map<string, SandboxRuntimeState>();
 
   get backendVersion(): string {
     return this.cachedVersion ?? "unknown";
@@ -134,7 +173,7 @@ export class DockerSandboxBackend implements SandboxBackend {
   }
 
   reportCapabilities(): SandboxCapabilityReport {
-    return { backendId: this.backendId, backendVersion: this.backendVersion, capabilities: [...WU38_02_CAPABILITIES] };
+    return { backendId: this.backendId, backendVersion: this.backendVersion, capabilities: [...WU38_03_CAPABILITIES] };
   }
 
   /** Builds the fixed, minimal sandbox base image (Debian slim + git, non-root user) if it is not already present. The Dockerfile is embedded as a string constant, not a separately-maintained repository file, so it can never drift out of sync with the code that builds it. Network access here is the HOST's own `docker build` pulling from a registry -- distinct from, and irrelevant to, the sandboxed container's own runtime network policy (always denied). */
@@ -188,6 +227,16 @@ export class DockerSandboxBackend implements SandboxBackend {
     }
 
     const cpuQuota = computeCpuQuota(request.resourcePolicy.maxCpuSeconds, request.resourcePolicy.maxWallClockSeconds);
+    // Non-root, but matched to the REAL host user invoking Docker (not a
+    // hardcoded 1000:1000) -- a bind-mounted worktree is owned by whatever
+    // user actually created it on the host, and a container UID that does
+    // not match cannot write into it (a real Docker bind-mount permission
+    // rule, not an AIQT-specific one). process.getuid/getgid are POSIX-only
+    // (undefined on Windows) but this backend only ever reaches this point
+    // on Linux (checkAvailability() already refused any other platform),
+    // so the fallback below is defensive, not expected to trigger in
+    // practice.
+    const containerUser = `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`;
     const envArgs = request.environmentPolicy.allowedVariableNames.flatMap((name) => ["-e", name]);
     const mountArgs = [
       "-v",
@@ -214,7 +263,7 @@ export class DockerSandboxBackend implements SandboxBackend {
       "--security-opt",
       "no-new-privileges:true",
       "--user",
-      "1000:1000",
+      containerUser,
       "--label",
       `aiqt-sandbox-run-id=${request.runId}`,
       ...envArgs,
@@ -242,30 +291,135 @@ export class DockerSandboxBackend implements SandboxBackend {
       return { ok: false, handle: null, reason: `docker start failed: ${started.stderr.trim() || "unknown error"}.` };
     }
 
+    this.runtimeState.set(containerId, {
+      request,
+      events: [],
+      commandsExecuted: [],
+      outputBytesCaptured: 0,
+      terminationReason: "completed",
+      cleanupStatus: null,
+    });
+
     return { ok: true, handle: { sandboxId: containerId }, reason: `Sandbox container ${containerId} created and started.` };
   }
 
-  launchProcess(_request: SandboxProcessLaunchRequest): SandboxProcessLaunchResult {
-    const stub = notYetSupported("launchProcess");
-    return { ok: stub.ok, processHandle: null, reason: stub.reason };
+  /** Real `docker exec`, bounded output, bounded by the command runner's own `timeoutMs`. Records a "started" event before running and an "exited"/"terminated" event after -- the full event log is what `streamEvents`/`exportEvidence` later read back. Never mediates policy itself; `sandbox-command-loop.ts` is responsible for calling `decideCommand` before ever reaching this method. */
+  launchProcess(request: SandboxProcessLaunchRequest): SandboxProcessLaunchResult {
+    const state = this.runtimeState.get(request.handle.sandboxId);
+    if (!state) {
+      return { ok: false, processHandle: null, reason: `Unknown sandbox handle "${request.handle.sandboxId}" -- was create() ever called for it?` };
+    }
+
+    const commandLine = `${request.command} ${request.args.join(" ")}`.trim();
+    const processId = `${request.handle.sandboxId}-${state.events.length}`;
+    state.events.push({ processId, at: nowIso(), kind: "started", boundedDetail: bound(commandLine) });
+
+    const result = runDockerCommand(["exec", request.handle.sandboxId, request.command, ...request.args], { timeoutMs: 60_000 });
+    const outputText = `${result.stdout}${result.stderr}`;
+    state.outputBytesCaptured += outputText.length;
+    state.commandsExecuted.push(commandLine);
+    state.events.push({ processId, at: nowIso(), kind: result.ok ? "exited" : "terminated", boundedDetail: bound(outputText || (result.ok ? "(no output)" : "command failed")) });
+
+    return {
+      ok: result.ok,
+      processHandle: { sandboxId: request.handle.sandboxId, processId },
+      reason: result.ok ? `Command exited successfully.` : `Command failed: ${result.stderr.trim() || "unknown error"}.`,
+    };
   }
 
-  streamEvents(_handle: SandboxHandle): readonly SandboxProcessEvent[] {
-    return [];
+  streamEvents(handle: SandboxHandle): readonly SandboxProcessEvent[] {
+    return this.runtimeState.get(handle.sandboxId)?.events ?? [];
   }
 
-  cancel(_handle: SandboxHandle): SandboxCancellationResult {
-    const stub = notYetSupported("cancel");
-    return { ok: stub.ok, processTreeFullyStopped: false, reason: stub.reason };
+  /** `docker stop` (graceful), escalating to `docker kill` (forced) if the container is still running afterward, with the real outcome always re-verified via a follow-up `docker inspect` -- never assumed. Because every command this backend ever runs goes through `docker exec` into this one container, stopping/killing it is a real, kernel-enforced guarantee that the entire process tree it ever spawned is gone -- not a per-process tracking exercise. */
+  cancel(handle: SandboxHandle): SandboxCancellationResult {
+    const state = this.runtimeState.get(handle.sandboxId);
+    if (!state) {
+      return { ok: false, processTreeFullyStopped: false, reason: `Unknown sandbox handle "${handle.sandboxId}".` };
+    }
+
+    runDockerCommand(["stop", "-t", String(DOCKER_STOP_TIMEOUT_SECONDS), handle.sandboxId], { timeoutMs: (DOCKER_STOP_TIMEOUT_SECONDS + 10) * 1000 });
+    let runningCheck = runDockerCommand(["inspect", "--format", "{{.State.Running}}", handle.sandboxId], { timeoutMs: 5000 });
+    let stillRunning = runningCheck.ok && runningCheck.stdout.trim() === "true";
+
+    if (stillRunning) {
+      runDockerCommand(["kill", handle.sandboxId], { timeoutMs: 10_000 });
+      runningCheck = runDockerCommand(["inspect", "--format", "{{.State.Running}}", handle.sandboxId], { timeoutMs: 5000 });
+      stillRunning = runningCheck.ok && runningCheck.stdout.trim() === "true";
+    }
+
+    const fullyStopped = runningCheck.ok && !stillRunning;
+    state.terminationReason = "cancelled";
+    state.events.push({ processId: handle.sandboxId, at: nowIso(), kind: "terminated", boundedDetail: fullyStopped ? "Sandbox cancelled; process tree confirmed stopped." : "Sandbox cancellation could not be confirmed." });
+
+    return {
+      ok: fullyStopped,
+      processTreeFullyStopped: fullyStopped,
+      reason: fullyStopped
+        ? "Container stopped (or force-killed); the whole process tree is confirmed gone via docker inspect."
+        : "Container could not be confirmed stopped -- treat the process tree as still potentially running.",
+    };
   }
 
-  collectResult(_handle: SandboxHandle): SandboxResultCollection {
-    return { terminationReason: "not_yet_supported", processEvents: [] };
+  collectResult(handle: SandboxHandle): SandboxResultCollection {
+    const state = this.runtimeState.get(handle.sandboxId);
+    if (!state) return { terminationReason: "not_yet_supported", processEvents: [] };
+    return { terminationReason: state.terminationReason, processEvents: state.events };
   }
 
-  exportEvidence(_handle: SandboxHandle): SandboxEvidenceExportResult {
-    const stub = notYetSupported("exportEvidence");
-    return { ok: stub.ok, evidence: null, reason: stub.reason };
+  /** Real disk-usage check via `docker exec ... du -sb`, real `git status --porcelain`-derived changed-file list (best effort -- returns [] if the worktree is not a Git repository or the command fails) -- assembled into a real `SandboxEvidence`, never a fabricated one. Not part of the `SandboxBackend` interface's own required call sequence, but this backend's own convention: call after `cleanup()` so `cleanupStatus` is known; calling before returns `ok:false` rather than a packet with a fabricated cleanup status. */
+  exportEvidence(handle: SandboxHandle): SandboxEvidenceExportResult {
+    const state = this.runtimeState.get(handle.sandboxId);
+    if (!state) {
+      return { ok: false, evidence: null, reason: `Unknown sandbox handle "${handle.sandboxId}".` };
+    }
+    if (state.cleanupStatus === null) {
+      return { ok: false, evidence: null, reason: "Call cleanup() before exportEvidence() -- cleanup status is not yet known." };
+    }
+
+    const filesChanged = this.listChangedFiles(handle);
+
+    const evidence: SandboxEvidence = {
+      backendId: this.backendId,
+      backendVersion: this.backendVersion,
+      capabilities: this.reportCapabilities().capabilities,
+      mounts: [state.request.filesystemPolicy.worktreeMount, ...state.request.filesystemPolicy.readOnlyMounts],
+      environmentVariableNames: state.request.environmentPolicy.allowedVariableNames,
+      networkPolicy: state.request.networkPolicy,
+      resourcePolicy: state.request.resourcePolicy,
+      commandsExecuted: state.commandsExecuted,
+      outputBytesCaptured: state.outputBytesCaptured,
+      filesChanged,
+      terminationReason: state.terminationReason,
+      cleanupStatus: state.cleanupStatus,
+      residualRisk:
+        "Real, structural mount/environment/network/resource isolation and real process-tree cancellation via Docker's PID namespace. Disk-write-byte enforcement is detective (checked after the fact via checkDiskUsageBytes), not a kernel-preventive limit. Network-enabled live execution is permanently unsupported by this backend.",
+    };
+
+    return { ok: true, evidence, reason: `Evidence assembled for sandbox ${handle.sandboxId}.` };
+  }
+
+  /** Best-effort: `git status --porcelain` inside the container's own worktree mount. Returns [] (never throws, never fabricates a path) if the worktree is not a Git repository or the command fails for any reason. */
+  private listChangedFiles(handle: SandboxHandle): string[] {
+    const state = this.runtimeState.get(handle.sandboxId);
+    if (!state) return [];
+    const result = runDockerCommand(["exec", handle.sandboxId, "git", "-C", state.request.filesystemPolicy.worktreeMount.sandboxPath, "status", "--porcelain"], { timeoutMs: 10_000 });
+    if (!result.ok) return [];
+    return result.stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => line.replace(/^[A-Z?!]{1,2}\s+/, ""));
+  }
+
+  /** Real `docker exec ... du -sb <worktreeSandboxPath>`, returning the reported byte count, or `null` if the check itself could not be performed (never a fabricated 0). Not part of the `SandboxBackend` interface -- an orchestrator-only helper (`sandbox-command-loop.ts`) for the detective disk-limit enforcement documented in this class's own doc comment and the threat model's residual-risk note. */
+  checkDiskUsageBytes(handle: SandboxHandle): number | null {
+    const state = this.runtimeState.get(handle.sandboxId);
+    if (!state) return null;
+    const result = runDockerCommand(["exec", handle.sandboxId, "du", "-sb", state.request.filesystemPolicy.worktreeMount.sandboxPath], { timeoutMs: 10_000 });
+    if (!result.ok) return null;
+    const match = /^(\d+)/.exec(result.stdout.trim());
+    return match ? Number(match[1]) : null;
   }
 
   cleanup(handle: SandboxHandle): SandboxCleanupResult {
@@ -276,11 +430,15 @@ export class DockerSandboxBackend implements SandboxBackend {
     // The real proof, not just "the commands exited 0": the container
     // must actually be gone from `docker inspect`'s perspective.
     const reallyGone = !inspect.ok;
-    if (stop.ok && remove.ok && reallyGone) {
-      return { status: "cleaned", reason: `Sandbox ${handle.sandboxId} stopped and removed.` };
+    const status: SandboxCleanupStatus = stop.ok && remove.ok && reallyGone ? "cleaned" : "cleanup_failed";
+    const state = this.runtimeState.get(handle.sandboxId);
+    if (state) state.cleanupStatus = status;
+
+    if (status === "cleaned") {
+      return { status, reason: `Sandbox ${handle.sandboxId} stopped and removed.` };
     }
     return {
-      status: "cleanup_failed",
+      status,
       reason: `Sandbox ${handle.sandboxId} cleanup did not fully succeed (stop.ok=${stop.ok}, rm.ok=${remove.ok}, stillPresent=${!reallyGone}). Remove it manually (docker rm -f ${handle.sandboxId}).`,
     };
   }
@@ -289,6 +447,7 @@ export class DockerSandboxBackend implements SandboxBackend {
     const forceRemove = runDockerCommand(["rm", "-f", handle.sandboxId], { timeoutMs: 15_000 });
     const inspect = runDockerCommand(["inspect", handle.sandboxId], { timeoutMs: 5000 });
     const reallyGone = !inspect.ok;
+    this.runtimeState.delete(handle.sandboxId);
     if (forceRemove.ok && reallyGone) {
       return { ok: true, reason: `Sandbox ${handle.sandboxId} forcibly destroyed.` };
     }

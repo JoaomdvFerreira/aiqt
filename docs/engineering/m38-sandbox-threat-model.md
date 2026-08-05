@@ -158,8 +158,8 @@ For each threat: precondition, impact, required capability, prevention, detectio
 - **Prevention:** `SandboxCancellationResult.processTreeFullyStopped` is a required boolean a real backend must compute honestly (never assumed `true` by any caller) -- mirrors the exact "never hardcode success" discipline the M37-WU03 `cleanupStatus` bug fix established (Sec 2.1). A real backend (WU38-02/03) must own the sandbox's PID namespace (or container-runtime equivalent) so no child process can be reparented outside it.
 - **Detection:** `SandboxProcessEvent`'s `"orphan_detected"` kind exists in the contract specifically for a real backend to report this.
 - **Recovery:** a real backend's `destroy()` must be able to forcibly terminate the entire sandbox (namespace/container teardown), which also removes any orphan still inside it, even if `cancel()` alone could not stop it gracefully.
-- **Residual risk:** no real process-tree ownership exists yet; this is purely a contract-level guarantee until WU38-03.
-- **Test strategy:** WU38-05's "orphan process" required pilot scenario.
+- **Residual risk:** real as of WU38-03 -- `DockerSandboxBackend.cancel()` stops (escalating to kill) the one container every command runs inside, re-verified via `docker inspect`, giving a genuine kernel-enforced (PID namespace) guarantee that the whole tree is gone. Not yet exercised against a REAL adversarial fork/reparent attempt -- WU38-05's escape test is the first Work Unit that actually tries to defeat this, not merely exercises the happy path.
+- **Test strategy:** `tests/integration/sandbox-docker-backend.test.ts`'s WU38-03 cancellation tests (real container, real `docker inspect` confirmation); WU38-05's "orphan process" required pilot scenario for a real adversarial attempt.
 
 ### 4.9 Fork bomb / process-count exhaustion
 
@@ -169,7 +169,7 @@ For each threat: precondition, impact, required capability, prevention, detectio
 - **Prevention:** `SandboxProcessPolicySchema.processCountLimit` and `SandboxResourcePolicySchema.maxProcessCount` are both required, positive, finite, and bounded to a reasonable ceiling (`validateSandboxProcessPolicy`/`validateSandboxResourcePolicy`). A real backend must enforce this via a kernel-level primitive (e.g. a cgroup `pids.max`), not a userspace count that a fast-forking process could race past.
 - **Detection:** `SandboxProcessEvent` stream; a real backend should emit a `"terminated"` event with `terminationReason:"resource_limit_exceeded"` (`SandboxTerminationReasonSchema`) the moment the limit is hit.
 - **Recovery:** `destroy()` (namespace/container teardown) is the guaranteed-effective recovery even if graceful/forced termination of individual processes cannot keep up with the fork rate.
-- **Residual risk:** no real enforcement exists yet.
+- **Residual risk:** `--pids-limit` is applied at real `docker create` time as of WU38-02 (a real cgroup `pids` controller, kernel-enforced, verifiable via `docker inspect` even before WU38-03's process launch existed). Not yet exercised against a real fork bomb -- WU38-05's escape test is where that actually gets attempted.
 - **Test strategy:** WU38-05's "process-limit escape" and CPU/memory/disk-exhaustion required pilot scenarios.
 
 ### 4.10 CPU, memory, disk, and output exhaustion
@@ -180,8 +180,8 @@ For each threat: precondition, impact, required capability, prevention, detectio
 - **Prevention:** `SandboxResourcePolicySchema` requires `maxCpuSeconds`, `maxMemoryBytes`, `maxDiskWriteBytes`, `maxOutputBytes` (in addition to `maxWallClockSeconds`/`maxCommandCount`/`maxRetryCount` already established by M36's `AutonomousBudgetsSchema` precedent) -- `validateSandboxResourcePolicy` rejects any non-positive, non-finite, or unreasonably large value for every one of these. A real backend must enforce CPU/memory/disk via kernel cgroup limits, and output capture must be bounded and truncated (mirroring `git-command-runner.ts`'s existing `sanitizeGitOutput` bounded-output discipline) rather than buffered without limit.
 - **Detection:** `SandboxEvidence.outputBytesCaptured` records the real captured size; a real backend's termination event carries `terminationReason:"resource_limit_exceeded"` when any of these limits is hit.
 - **Recovery:** `destroy()`, same as 4.9.
-- **Residual risk:** no real enforcement exists yet.
-- **Test strategy:** `tests/unit/sandbox-resource-policy.test.ts` (policy-shape validation only); WU38-05's CPU/memory/disk-exhaustion required pilot scenarios for real enforcement.
+- **Residual risk:** CPU (`--cpus`, a real rate limit, not a total-seconds accounting mechanism) and memory (`--memory`/`--memory-swap`) are real, kernel-enforced cgroup limits as of WU38-02. Disk-write-byte enforcement is real but DETECTIVE as of WU38-03 (`checkDiskUsageBytes`, a real `docker exec ... du -sb`, called by `sandbox-command-loop.ts` after every command) -- not a kernel-preventive limit; a single command that writes an enormous amount in one shot before the next check runs could still exceed the budget before being caught. Output-byte bounding exists at the event-capture layer (`MAX_EVENT_DETAIL_CHARS`) but `maxOutputBytes` is not yet independently enforced as a run-stopping budget by the command loop.
+- **Test strategy:** `tests/unit/sandbox-resource-policy.test.ts` (policy-shape validation); `tests/unit/sandbox-command-loop.test.ts` (disk-budget-triggered `resource_limit_exceeded` termination, using a fake backend); `tests/integration/sandbox-docker-backend.test.ts`'s real `checkDiskUsageBytes` test; WU38-05's CPU/memory/disk-exhaustion required pilot scenarios for real adversarial enforcement.
 
 ### 4.11 Cleanup failure
 
