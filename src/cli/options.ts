@@ -472,4 +472,5 @@ export interface RawAutonomousAgentImportOptions {
   stdin?: boolean;
   config?: string;
   evidenceDir?: string;
+  live?: boolean;
 }

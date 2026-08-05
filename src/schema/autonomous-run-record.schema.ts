@@ -9,6 +9,7 @@ import {
   AutonomousRunEventTypeSchema,
 } from "./autonomous-run.schema.js";
 import { AutonomousAgentProposedCommandSchema } from "./autonomous-agent-request.schema.js";
+import { SandboxEvidenceSchema } from "./sandbox-backend.schema.js";
 
 /**
  * M37-WU01: the persisted, CLI-visible record of one autonomous run --
@@ -78,6 +79,27 @@ export const AutonomousRunRecordSchema = z
      */
     targetedValidationCommands: z.array(AutonomousAgentProposedCommandSchema),
     authoritativeValidationCommands: z.array(AutonomousAgentProposedCommandSchema),
+    /**
+     * M38-WU04: the Docker container id of this run's real sandbox,
+     * persisted IMMEDIATELY after a real `create()` succeeds -- before
+     * any command ever runs inside it. This is the crash-recovery
+     * anchor: if AIQT itself crashes mid-run (the Node process dies
+     * before its own `cleanup()` call), a LATER `aiqt autonomous
+     * cleanup` invocation (a fresh process, a fresh Docker connection)
+     * can still find and destroy the orphaned container by this id.
+     * Null for every simulated or non-live run, and for a live run
+     * that never reached real sandbox creation.
+     */
+    sandboxContainerId: z.string().min(1).nullable(),
+    /**
+     * M38-WU04: the real SandboxEvidence (M38-WU01/WU03) a live
+     * (`--live`) run produced, distinct from `evidencePacket` above
+     * (the M36 bare-worktree evidence shape a non-live run produces).
+     * A single run is always exactly one or the other, never both --
+     * `aiqt autonomous agent-import` picks the live or non-live path
+     * once, at the start, based on `--live`.
+     */
+    sandboxEvidence: SandboxEvidenceSchema.nullable(),
   })
   .strict();
 export type AutonomousRunRecord = z.infer<typeof AutonomousRunRecordSchema>;

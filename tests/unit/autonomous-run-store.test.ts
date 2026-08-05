@@ -56,6 +56,8 @@ function record(overrides: Partial<AutonomousRunRecord> = {}): AutonomousRunReco
     agentRequestId: null,
     targetedValidationCommands: [],
     authoritativeValidationCommands: [],
+    sandboxContainerId: null,
+    sandboxEvidence: null,
     ...overrides,
   };
 }

@@ -12,6 +12,8 @@ import { isAiqtOwnRepository } from "../../workflow/autonomous-run-self-manageme
 import { ImportedResponseAgentAdapter } from "../../workflow/autonomous-imported-response-agent-adapter.js";
 import { produceAutonomousEvidencePacket } from "../../services/autonomous-run-evidence-binding-service.js";
 import { buildAutonomousRunCommandResult } from "../../services/autonomous-run-command-result.js";
+import { prepareLiveSandbox, runLiveSandboxedRun } from "../../services/sandbox-run-execution-service.js";
+import { buildSandboxRunCommandResult } from "../../services/sandbox-run-command-result.js";
 import { autonomousFailure, resolveOperatorConfigOrFail } from "./autonomous-shared.js";
 import { readStdinText, isStdinInteractiveTty, type StdinLike } from "../../core/filesystem/stdin.js";
 import type { AutonomousRunAuditEntry, AutonomousRunRecord } from "../../schema/autonomous-run-record.schema.js";
@@ -35,6 +37,17 @@ export interface AutonomousAgentImportOptions {
   stdin?: boolean;
   configPath?: string;
   evidenceDir?: string;
+  /**
+   * M38-WU04: execute the imported response's proposed commands inside a
+   * real sandbox (DockerSandboxBackend) instead of a bare worktree.
+   * Opt-in at two layers: the operator's own standing config
+   * (`liveExecutionEnabled`, default false) AND this per-invocation flag
+   * -- both must be true. Refuses outright, before any capability check,
+   * if the operator has not opted in. Never a silent fallback either
+   * way: an insufficient/unavailable sandbox recommends the (always
+   * available) non-live path explicitly.
+   */
+  live?: boolean;
 }
 
 interface Deps {
@@ -140,6 +153,88 @@ export async function runAutonomousAgentImport(ctx: CommandContext, options: Aut
     ...record.auditLog,
     { event: "autonomous_run.command_allowed", at: nowIso(), detail: `Agent response imported: ${importResult.response.commandsProposed.length} command(s) proposed.` },
   ];
+
+  if (options.live) {
+    // Layer 1 gate: the operator's own standing opt-in. Checked BEFORE
+    // any sandbox capability probe -- an operator who never opted in
+    // should never see a Docker-availability error at all.
+    if (!config.liveExecutionEnabled) {
+      return autonomousFailure(
+        `Run ${record.runId}: --live was passed, but this operator's configuration does not have liveExecutionEnabled set. Enable it explicitly (aiqt.autonomous.config.json or AIQT_AUTONOMOUS_LIVE_EXECUTION=1) before using --live, or omit --live to use the always-available request/import path.`,
+        ExitCode.WorkflowBlocked,
+        "AUTONOMOUS-AGENT-IMPORT-LIVE-NOT-ENABLED",
+      );
+    }
+
+    // Layer 2 gate: real capability preflight (build spec cross-Work-Unit
+    // invariant 2: "No live execution without capability confirmation").
+    const prepared = prepareLiveSandbox({
+      runId: record.runId,
+      repositoryPath: record.repositoryPath,
+      baseCommit: record.baseCommit,
+      issueId: record.candidate.issueId,
+      worktreeRoot: config.worktreeRoot,
+      policy: record.policy,
+      budgets: record.budgets,
+    });
+    if (!prepared.ok) {
+      const fallbackNote = prepared.fallback ? ` Recommendation: ${prepared.fallback.reason} Use "${prepared.fallback.recommendedCommand}" (i.e. omit --live) instead.` : "";
+      return autonomousFailure(`Run ${record.runId}: live sandbox could not be prepared: ${prepared.reason}.${fallbackNote}`, ExitCode.WorkflowBlocked, "AUTONOMOUS-AGENT-IMPORT-LIVE-UNAVAILABLE");
+    }
+
+    // Crash-recovery anchor: persist the real container id BEFORE
+    // running any command inside it, so a later `aiqt autonomous
+    // cleanup` can still find and destroy it even if this process
+    // itself crashes before reaching the save below.
+    const withContainerId: AutonomousRunRecord = { ...record, status: "executing", updatedAt: nowIso(), sandboxContainerId: prepared.handle.sandboxId, auditLog };
+    saveAutonomousRunRecord(withContainerId, config.evidenceOutputDir);
+
+    const liveResult = runLiveSandboxedRun({
+      backend: prepared.backend,
+      handle: prepared.handle,
+      repositoryPath: record.repositoryPath,
+      worktreePath: prepared.worktreePath,
+      candidate: record.candidate,
+      policy: record.policy,
+      budgets: record.budgets,
+      proposedCommands: importResult.response.commandsProposed,
+      targetedValidationCommands: record.targetedValidationCommands,
+      authoritativeValidationCommands: record.authoritativeValidationCommands,
+    });
+
+    // liveResult.resultState's values are named identically to
+    // AutonomousResultState's (minus "needs_input", never produced by a
+    // live run) -- RESULT_STATE_TERMINAL_STATUS's lookup works unchanged.
+    const liveTerminalStatus: AutonomousRunStatus = RESULT_STATE_TERMINAL_STATUS[liveResult.resultState as keyof typeof RESULT_STATE_TERMINAL_STATUS];
+
+    // Walk the same real intermediate hops the non-live path below does
+    // -- only resultState:"passed" needs the full executing -> validating
+    // -> reviewing -> completed path; every other terminal status is
+    // directly reachable from "executing".
+    const liveHops: AutonomousRunStatus[] = liveTerminalStatus === "completed" ? ["validating", "reviewing", "completed"] : [liveTerminalStatus];
+    let liveHopStatus: AutonomousRunStatus = withContainerId.status;
+    for (const hop of liveHops) {
+      if (!isValidRunStatusTransition(liveHopStatus, hop)) {
+        return autonomousFailure(`Run ${record.runId}: cannot transition from "${liveHopStatus}" to "${hop}".`, ExitCode.InvalidInput, "AUTONOMOUS-AGENT-IMPORT-LIVE-INVALID-TRANSITION");
+      }
+      liveHopStatus = hop;
+    }
+
+    const finalAuditLog: AutonomousRunAuditEntry[] = [...auditLog, { event: "autonomous_run.completed", at: nowIso(), detail: `Live sandboxed run reached terminal status "${liveTerminalStatus}" (resultState: "${liveResult.resultState}").` }];
+    const finalRecord: AutonomousRunRecord = {
+      ...withContainerId,
+      status: liveTerminalStatus,
+      updatedAt: nowIso(),
+      sandboxEvidence: liveResult.evidence,
+      auditLog: finalAuditLog,
+    };
+    saveAutonomousRunRecord(finalRecord, config.evidenceOutputDir);
+
+    if (!liveResult.evidence) {
+      return autonomousFailure(`Run ${record.runId}: ${liveResult.evidenceReason}`, ExitCode.ValidationFailed, "AUTONOMOUS-AGENT-IMPORT-LIVE-NO-EVIDENCE");
+    }
+    return buildSandboxRunCommandResult(record.runId, record.candidate.issueId, liveResult.resultState, liveResult.findings, liveResult.evidence);
+  }
 
   const adapter = new ImportedResponseAgentAdapter(importResult.response.commandsProposed);
   const packet = produceAutonomousEvidencePacket({

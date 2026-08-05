@@ -123,3 +123,58 @@ describe("M38-WU03 boundary scan: cleanup/destroy always verify their real outco
     expect(cancelBody).toMatch(/"kill"/);
   });
 });
+
+/**
+ * M38-WU04 (build spec: "Integrate opt-in live execution with M37 CLI,
+ * capability preflight, validation, self-review, evidence, crash
+ * recovery, cleanup, and safe fallback"). None of this Work Unit's own
+ * new files call execFileSync/docker directly -- every real Docker
+ * operation is reached only by reusing the already-reviewed
+ * DockerSandboxBackend/executeSandboxedCommandLoop from WU38-02/03.
+ */
+const M38_WU04_FILES = ["src/services/sandbox-run-execution-service.ts", "src/workflow/sandbox-run-self-review.ts", "src/services/sandbox-run-command-result.ts"];
+
+describe("M38-WU04 boundary scan: no new real-execution surface -- everything reuses WU38-02/03's already-reviewed backend", () => {
+  it("none of this Work Unit's own service/workflow files call execFileSync/spawn/exec directly", () => {
+    for (const relPath of M38_WU04_FILES) {
+      const code = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(code, `${relPath} must not spawn a subprocess directly`).not.toMatch(/\bexecFileSync\s*\(|\bspawnSync\s*\(|\bspawn\s*\(|\bexecSync\s*\(|\bexecFile\s*\(/);
+    }
+  });
+
+  it("package.json declares no new runtime dependency for M38-WU04 (still exactly @inquirer/prompts, commander, zod)", () => {
+    const packageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { dependencies: Record<string, string> };
+    expect(Object.keys(packageJson.dependencies).sort()).toEqual(["@inquirer/prompts", "commander", "zod"]);
+  });
+});
+
+describe("M38-WU04 boundary scan: live execution is opt-in at two independent layers, never a silent fallback", () => {
+  it("agent-import refuses --live before any sandbox capability check when the operator has not set liveExecutionEnabled", () => {
+    const text = readFileSync(join(repoRoot, "src/cli/commands/autonomous-agent-import.command.ts"), "utf8");
+    const liveNotEnabledIndex = text.indexOf("AUTONOMOUS-AGENT-IMPORT-LIVE-NOT-ENABLED");
+    const prepareIndex = text.indexOf("prepareLiveSandbox(");
+    expect(liveNotEnabledIndex).toBeGreaterThan(-1);
+    expect(prepareIndex).toBeGreaterThan(-1);
+    expect(liveNotEnabledIndex).toBeLessThan(prepareIndex);
+  });
+
+  it("prepareLiveSandbox always calls checkAvailability and evaluateSandboxCapabilities before creating anything", () => {
+    const text = readFileSync(join(repoRoot, "src/services/sandbox-run-execution-service.ts"), "utf8");
+    const availabilityIndex = text.indexOf("checkAvailability()");
+    const capabilityIndex = text.indexOf("evaluateSandboxCapabilities(");
+    const createIndex = text.indexOf("backend.create(");
+    expect(availabilityIndex).toBeGreaterThan(-1);
+    expect(capabilityIndex).toBeGreaterThan(-1);
+    expect(createIndex).toBeGreaterThan(-1);
+    expect(availabilityIndex).toBeLessThan(createIndex);
+    expect(capabilityIndex).toBeLessThan(createIndex);
+  });
+});
+
+describe("M38-WU04 boundary scan: crash recovery never silently loses the reference to an orphaned sandbox", () => {
+  it("cleanup command only clears sandboxContainerId after a real, confirmed destroy() succeeds", () => {
+    const text = readFileSync(join(repoRoot, "src/cli/commands/autonomous-cleanup.command.ts"), "utf8");
+    expect(text).toMatch(/backend\.destroy\(/);
+    expect(text).toMatch(/if \(!destroyResult\.ok\)/);
+  });
+});

@@ -201,6 +201,8 @@ export async function runAutonomousClassify(ctx: CommandContext, options: Autono
     agentRequestId: null,
     targetedValidationCommands,
     authoritativeValidationCommands,
+    sandboxContainerId: null,
+    sandboxEvidence: null,
   };
 
   saveAutonomousRunRecord(record, config.evidenceOutputDir);

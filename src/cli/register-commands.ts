@@ -1600,9 +1600,10 @@ export function buildProgram(): Command {
     .option("--stdin", "read the agent response JSON from standard input", false)
     .option("--config <path>", "operator configuration file path (defaults to ./aiqt.autonomous.config.json if present)")
     .option("--evidence-dir <path>", "override the resolved evidence output directory")
+    .option("--live", "execute the imported response's proposed commands inside a real sandbox instead of a bare worktree -- opt-in, requires liveExecutionEnabled in operator config (M38)", false)
     .action(async (raw: RawAutonomousAgentImportOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
-      const result = await runAutonomousAgentImport(ctx, { run: raw.run, fromFile: raw.fromFile, stdin: Boolean(raw.stdin), configPath: raw.config, evidenceDir: raw.evidenceDir });
+      const result = await runAutonomousAgentImport(ctx, { run: raw.run, fromFile: raw.fromFile, stdin: Boolean(raw.stdin), configPath: raw.config, evidenceDir: raw.evidenceDir, live: Boolean(raw.live) });
       emit(result, ctx.json);
     });
 

@@ -41,6 +41,9 @@ export const SAFE_DEFAULT_OPERATOR_CONFIG: AutonomousOperatorConfig = {
   approvalPolicy: "always_required",
   evidenceOutputDir: ".aiqt-autonomous/evidence",
   cleanupPolicy: "always",
+  // M38-WU04: live sandboxed execution is opt-in, off unless an operator
+  // explicitly enables it (build spec: "live mode is opt-in").
+  liveExecutionEnabled: false,
 };
 
 export interface AutonomousConfigResolutionInput {
@@ -61,6 +64,9 @@ function parseEnvLayer(env: NodeJS.ProcessEnv): AutonomousOperatorConfigPartial 
   }
   if (env.AIQT_AUTONOMOUS_CLEANUP_POLICY === "always" || env.AIQT_AUTONOMOUS_CLEANUP_POLICY === "retain_on_failure") {
     layer.cleanupPolicy = env.AIQT_AUTONOMOUS_CLEANUP_POLICY;
+  }
+  if (env.AIQT_AUTONOMOUS_LIVE_EXECUTION === "1" || env.AIQT_AUTONOMOUS_LIVE_EXECUTION === "true") {
+    layer.liveExecutionEnabled = true;
   }
   return layer;
 }

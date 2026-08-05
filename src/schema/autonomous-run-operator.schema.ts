@@ -30,6 +30,19 @@ export const AutonomousOperatorConfigSchema = z
     approvalPolicy: AutonomousApprovalPolicySchema,
     evidenceOutputDir: z.string().min(1),
     cleanupPolicy: AutonomousCleanupPolicySchema,
+    /**
+     * M38-WU04 (build spec Sec 8 invariant 2 / cross-Work-Unit
+     * invariant: "No live execution without capability confirmation";
+     * Sec 9 verification gate: "live mode is opt-in"). `false` unless
+     * an operator explicitly sets it -- `aiqt autonomous agent-import
+     * --live` refuses outright when this is false, before ever
+     * checking sandbox availability/capability. This is the
+     * operator-level opt-in gate; capability preflight
+     * (evaluateSandboxCapabilities) is the separate, always-enforced
+     * technical gate underneath it -- opting in here never bypasses
+     * that check.
+     */
+    liveExecutionEnabled: z.boolean(),
   })
   .strict();
 export type AutonomousOperatorConfig = z.infer<typeof AutonomousOperatorConfigSchema>;

@@ -56,3 +56,19 @@ Same reasoning as M36-WU05: running this against a real external repository woul
 ## What remains disabled
 
 No automatic merge path exists anywhere in this CLI. No PR is ever actually created (`--pr-draft` returns text only). No network access occurs beyond what the operator's own coding-agent tool does outside AIQT's process. AIQT refuses to target its own repository at every real-execution boundary (`classify`, `run`, `agent-import`). This milestone recommends **limited, supervised operator use** — every run still requires a human to run their own coding-agent tool, review the evidence packet, and manually merge — not unattended autonomous operation.
+
+## M38-WU04 Addendum: Opt-In Live Sandboxed Execution
+
+`aiqt autonomous agent-import` gained a `--live` flag: instead of executing the imported response's proposed commands via a bare worktree (the default, described throughout this document, and still the permanent, always-available fallback), `--live` executes them inside a real, isolated Docker sandbox (`docs/engineering/m38-sandbox-platform-decision.md`).
+
+**Two independent opt-in gates, both required:**
+1. The operator's own standing configuration must set `liveExecutionEnabled: true` (default `false`) -- via `aiqt.autonomous.config.json` or `AIQT_AUTONOMOUS_LIVE_EXECUTION=1`. `--live` without this is refused immediately, before any Docker/capability check.
+2. The invocation itself must pass `--live`. Omitting it always uses the non-live path, regardless of the operator's config.
+
+**Capability preflight** always runs next: `DockerSandboxBackend.checkAvailability()` then `evaluateSandboxCapabilities()`. Either failing refuses the run with a clear reason and a recommendation to retry without `--live` (the request/import path is always available) -- never a silent, unsandboxed fallback.
+
+**What's different in live mode:** the same imported command list runs via real `docker exec` inside a container with real mount/environment/network/resource isolation (no host home, no parent repository, network denied, non-root, real CPU/memory/process-count limits) instead of a bare `execFileSync` against the worktree directly. Validation (targeted, then authoritative) and self-review run the same way, inside the same sandbox. The result is still an M33 `CommandResult`, with the sandbox's real evidence (`SandboxEvidence`: commands executed, output captured, changed files, termination reason, cleanup status) as its `data` payload -- a distinct shape from the non-live path's `AutonomousEvidencePacket`, stored in the run record's own `sandboxEvidence` field.
+
+**Crash recovery:** the real sandbox container's id is persisted to the run record (`sandboxContainerId`) immediately after creation, before any command runs inside it. If AIQT itself crashes mid-run, that id survives on disk. A later `aiqt autonomous cleanup` invocation detects an unconfirmed sandbox cleanup and attempts a real `destroy()` of the orphaned container before allowing the run record to be deleted -- refusing (preserving the reference) if the sandbox backend is unavailable at that moment.
+
+**What remains true regardless of `--live`:** no automatic merge, no real PR creation, no self-management, network-enabled live execution is permanently unsupported by the current Docker backend (no destination-restriction mechanism exists). This milestone's recommendation of limited, supervised operator use is unchanged -- `--live` changes *where* an already-decided command list executes, never *who* decides what to run.

@@ -68,27 +68,29 @@ describe("M35-WU01: every test file receives a full classification", () => {
     ).toEqual([]);
   });
 
-  it("the confirmed post-M38-WU02 baseline has exactly one skipped/conditional file, deliberately", () => {
-    // M38-WU02 (build spec: "Implement one real backend...") is the first
-    // deliberate departure from the WU35-01 "zero skipped tests" baseline:
-    // tests/integration/sandbox-docker-backend.test.ts's real-container
-    // suite uses a conditional describe block (skipIf, guarded on real
-    // Docker availability) because Docker itself
-    // is an external host dependency (present on this repository's own
-    // Linux CI, per the M38 platform decision, but not on every developer
+  it("the confirmed post-M38-WU04 baseline has exactly two skipped/conditional files, deliberately", () => {
+    // M38-WU02 (build spec: "Implement one real backend...") was the
+    // first deliberate departure from the WU35-01 "zero skipped tests"
+    // baseline: tests/integration/sandbox-docker-backend.test.ts's
+    // real-container suite uses a conditional describe block (skipIf,
+    // guarded on real Docker availability) because Docker itself is an
+    // external host dependency (present on this repository's own Linux
+    // CI, per the M38 platform decision, but not on every developer
     // machine) -- the same "real dependency, not always present" shape
-    // version-check.test.ts and built-binary-smoke.test.ts already handle
-    // via other means. When unavailable, the suite logs why and skips
-    // (never silently passes, never fails the whole run) -- see
-    // docs/engineering/m35-test-suite-inventory.md Sec 3 for the deliberate
-    // update recording this.
+    // version-check.test.ts and built-binary-smoke.test.ts already
+    // handle via other means. M38-WU04 added a second file with the
+    // exact same reviewed shape: tests/integration/sandbox-live-
+    // execution.test.ts's real `--live` end-to-end suite. Both log why
+    // and skip when Docker is unavailable (never silently pass, never
+    // fail the whole run) -- see docs/engineering/m35-test-suite-
+    // inventory.md Sec 3 for the deliberate update recording this.
     const skipped = rows.filter((r) => r.hasSkippedOrConditional);
     expect(
-      skipped.map((r) => r.path),
-      "A test file now uses it.skip/describe.skip/it.todo/skipIf beyond the one reviewed M38-WU02 " +
-        "exception. If this is intentional, update docs/engineering/m35-test-suite-inventory.md Sec 3 " +
+      skipped.map((r) => r.path).sort(),
+      "A test file now uses it.skip/describe.skip/it.todo/skipIf beyond the two reviewed M38 " +
+        "exceptions. If this is intentional, update docs/engineering/m35-test-suite-inventory.md Sec 3 " +
         "deliberately -- it must not drift silently.",
-    ).toEqual(["tests/integration/sandbox-docker-backend.test.ts"]);
+    ).toEqual(["tests/integration/sandbox-docker-backend.test.ts", "tests/integration/sandbox-live-execution.test.ts"]);
   });
 
   it("the confirmed post-M38-WU02 baseline's two platform-guarded files are unchanged", () => {
