@@ -65,8 +65,8 @@ function hasCliSpawn(text: string): boolean {
  * Sec 1/5), plus the 1 built-binary smoke file WU34-03 added, the 2
  * autonomous-run files M36-WU02 added, the 2 more M36-WU03 added, the
  * 3 more M36-WU04 added, the 1 more M36-WU05 added, the 1 more M37-WU01
- * added, the 1 more M37-WU03 added, and the 1 more M37-WU04 added
- * (45 total). A
+ * added, the 1 more M37-WU03 added, the 1 more M37-WU04 added, and the
+ * 1 more M37-WU05 added (46 total). A
  * file added to or removed from this set must be a deliberate, reviewed
  * change to the policy document -- this test does not silently absorb a new
  * spawning file into "already accounted for".
@@ -148,6 +148,13 @@ const KNOWN_SPAWNING_FILES = [
   // checkouts/commits to set up an autonomous/-prefixed branch fixture)
   // and via initGitFixtureRepo.
   "tests/integration/autonomous-run-patch-export-service.test.ts",
+  // M37-WU05 (+1): the controlled pilot suite drives the full real,
+  // non-simulated CLI surface (classify/approve/run/agent-import/cancel/
+  // cleanup/result/status) end-to-end for 10 required scenarios against a
+  // real disposable target repository -- spawns git transitively via
+  // initGitFixtureRepo and the same real command-execution path already
+  // covered by hasGitSpawn/hasCliSpawn for autonomous-real-execution.test.ts.
+  "tests/integration/autonomous-controlled-pilot.test.ts",
 ].sort();
 
 /**

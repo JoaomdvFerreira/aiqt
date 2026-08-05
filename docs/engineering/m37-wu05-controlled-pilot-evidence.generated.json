@@ -1,0 +1,665 @@
+{
+  "scenario_1_successful_low_risk_repair": {
+    "status": "passed",
+    "action": "autonomous",
+    "projectStatus": null,
+    "currentMilestoneId": null,
+    "currentWorkUnitId": null,
+    "summary": "Autonomous run run-1785909476876-cd2dacde for issue \"PILOT-1\" finished with result state \"passed\": Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+    "completedActions": [
+      "git mv README.md README2.md",
+      "git commit -m rename readme"
+    ],
+    "changedFiles": [
+      "README2.md"
+    ],
+    "affectedItems": [],
+    "blockingIssues": [],
+    "warnings": [],
+    "requiresHumanInput": false,
+    "nextRecommendedCommand": null,
+    "exitCode": 0,
+    "data": {
+      "runId": "run-1785909476876-cd2dacde",
+      "candidate": {
+        "issueId": "PILOT-1",
+        "source": "manual",
+        "repository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-U5dRds",
+        "baseRef": "HEAD",
+        "objective": "rename the readme",
+        "acceptanceCriteria": [
+          "renamed"
+        ],
+        "constraints": [],
+        "requestedPermissions": []
+      },
+      "safetyAssessment": {
+        "riskClass": "low_risk_autonomous",
+        "prohibitedAreas": [],
+        "requiredApprovals": [],
+        "commandPolicyProfile": "standard",
+        "networkPolicy": "denied",
+        "reason": "No prohibited area, no elevated permission request, repository clean, validation available."
+      },
+      "workspace": {
+        "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-U5dRds",
+        "baseRef": "HEAD",
+        "baseCommit": "ef8bf10bd331da2f63a2645cc130e6b7f9e656c0",
+        "branch": "autonomous/pilot-1-run-1785909476876-cd2dacde",
+        "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-worktrees-LIHvO1\\run-1785909476876-cd2dacde",
+        "createdFiles": [],
+        "cleanupStatus": "cleaned"
+      },
+      "commandsExecuted": [
+        "git mv README.md README2.md",
+        "git commit -m rename readme"
+      ],
+      "filesChanged": [
+        "README2.md"
+      ],
+      "diffSummary": {
+        "changedFiles": 1,
+        "insertedLines": 0,
+        "deletedLines": 0,
+        "unexpectedFiles": []
+      },
+      "validation": {
+        "targetedTestsPassed": true,
+        "authoritativeValidationPassed": null,
+        "durationSeconds": 0.076
+      },
+      "findings": [],
+      "residualRisk": "Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+      "resultState": "passed",
+      "recommendedHumanAction": "review_and_merge"
+    }
+  },
+  "scenario_2_medium_risk_requires_approval": {
+    "status": "passed",
+    "action": "autonomous",
+    "projectStatus": null,
+    "currentMilestoneId": null,
+    "currentWorkUnitId": null,
+    "summary": "Autonomous run run-1785909478523-fe550af4 for issue \"PILOT-2\" finished with result state \"passed\": Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+    "completedActions": [
+      "git mv README.md README2.md",
+      "git commit -m rename readme"
+    ],
+    "changedFiles": [
+      "README2.md"
+    ],
+    "affectedItems": [],
+    "blockingIssues": [],
+    "warnings": [],
+    "requiresHumanInput": false,
+    "nextRecommendedCommand": null,
+    "exitCode": 0,
+    "data": {
+      "runId": "run-1785909478523-fe550af4",
+      "candidate": {
+        "issueId": "PILOT-2",
+        "source": "manual",
+        "repository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-3G0IRX",
+        "baseRef": "HEAD",
+        "objective": "rename the readme",
+        "acceptanceCriteria": [
+          "renamed"
+        ],
+        "constraints": [],
+        "requestedPermissions": [
+          "network_access"
+        ]
+      },
+      "safetyAssessment": {
+        "riskClass": "medium_risk_requires_approval",
+        "prohibitedAreas": [],
+        "requiredApprovals": [
+          "human_operator"
+        ],
+        "commandPolicyProfile": "none",
+        "networkPolicy": "denied",
+        "reason": "Candidate requests elevated permissions: network_access."
+      },
+      "workspace": {
+        "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-3G0IRX",
+        "baseRef": "HEAD",
+        "baseCommit": "e023daedbf7e030399fb3da5f154c3d4e876d6ea",
+        "branch": "autonomous/pilot-2-run-1785909478523-fe550af4",
+        "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-worktrees-CGRf5h\\run-1785909478523-fe550af4",
+        "createdFiles": [],
+        "cleanupStatus": "cleaned"
+      },
+      "commandsExecuted": [
+        "git mv README.md README2.md",
+        "git commit -m rename readme"
+      ],
+      "filesChanged": [
+        "README2.md"
+      ],
+      "diffSummary": {
+        "changedFiles": 1,
+        "insertedLines": 0,
+        "deletedLines": 0,
+        "unexpectedFiles": []
+      },
+      "validation": {
+        "targetedTestsPassed": true,
+        "authoritativeValidationPassed": null,
+        "durationSeconds": 0.066
+      },
+      "findings": [],
+      "residualRisk": "Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+      "resultState": "passed",
+      "recommendedHumanAction": "review_and_merge"
+    }
+  },
+  "scenario_3_blocked_prohibited_task": {
+    "status": "blocked",
+    "action": "autonomous",
+    "projectStatus": null,
+    "currentMilestoneId": null,
+    "currentWorkUnitId": null,
+    "summary": "Run run-1785909480105-d5fdac3c classified as \"high_risk_prohibited\" and is always blocked: Candidate touches a prohibited-by-default area: secrets.",
+    "completedActions": [],
+    "changedFiles": [],
+    "affectedItems": [],
+    "blockingIssues": [],
+    "warnings": [],
+    "requiresHumanInput": false,
+    "nextRecommendedCommand": null,
+    "exitCode": 2,
+    "data": {
+      "runId": "run-1785909480105-d5fdac3c",
+      "status": "blocked",
+      "safetyAssessment": {
+        "riskClass": "high_risk_prohibited",
+        "prohibitedAreas": [
+          "secrets"
+        ],
+        "requiredApprovals": [],
+        "commandPolicyProfile": "none",
+        "networkPolicy": "denied",
+        "reason": "Candidate touches a prohibited-by-default area: secrets."
+      },
+      "budgets": {
+        "maxWallClockSeconds": 600,
+        "maxCommandCount": 20,
+        "maxRetryCount": 1,
+        "maxChangedFiles": 20,
+        "maxDiffLines": 500,
+        "maxValidationSeconds": 300
+      },
+      "policy": {
+        "allowedCommandClasses": [
+          "read_only_inspection",
+          "repository_local_write",
+          "git_operation",
+          "test_or_build"
+        ],
+        "blockedCommandClasses": [
+          "destructive",
+          "privileged"
+        ],
+        "networkPolicy": "denied",
+        "filesystemBoundary": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-worktrees-ZIkvHV",
+        "gitBoundary": {
+          "allowedBaseRefPrefixes": [
+            "refs/heads/"
+          ]
+        }
+      }
+    }
+  },
+  "scenario_4_cancelled_agent_run": {
+    "status": "passed",
+    "action": "autonomous",
+    "projectStatus": null,
+    "currentMilestoneId": null,
+    "currentWorkUnitId": null,
+    "summary": "Run run-1785909480975-e43bc4ac cancelled: operator changed their mind",
+    "completedActions": [],
+    "changedFiles": [],
+    "affectedItems": [],
+    "blockingIssues": [],
+    "warnings": [],
+    "requiresHumanInput": false,
+    "nextRecommendedCommand": null,
+    "exitCode": 0,
+    "data": {
+      "runId": "run-1785909480975-e43bc4ac",
+      "status": "cancelled"
+    }
+  },
+  "scenario_5_budget_exhausted_run": {
+    "status": "blocked",
+    "action": "autonomous",
+    "projectStatus": null,
+    "currentMilestoneId": null,
+    "currentWorkUnitId": null,
+    "summary": "Autonomous run run-1785909481526-8fe94e85 for issue \"PILOT-5\" finished with result state \"budget_exhausted\": Run stopped after exhausting its budget: Budget would be exhausted by running the next command: commandCount.. Partial evidence only.",
+    "completedActions": [
+      "git mv README.md README2.md"
+    ],
+    "changedFiles": [
+      "README2.md"
+    ],
+    "affectedItems": [],
+    "blockingIssues": [],
+    "warnings": [
+      {
+        "id": "AUTONOMOUS-RUN-FINDING-1",
+        "severity": "medium",
+        "area": "autonomous-run",
+        "message": "Budget would be exhausted by running the next command: commandCount.",
+        "agentCanFix": false
+      }
+    ],
+    "requiresHumanInput": false,
+    "nextRecommendedCommand": null,
+    "exitCode": 2,
+    "data": {
+      "runId": "run-1785909481526-8fe94e85",
+      "candidate": {
+        "issueId": "PILOT-5",
+        "source": "manual",
+        "repository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-cGrq5k",
+        "baseRef": "HEAD",
+        "objective": "rename the readme",
+        "acceptanceCriteria": [
+          "renamed"
+        ],
+        "constraints": [],
+        "requestedPermissions": []
+      },
+      "safetyAssessment": {
+        "riskClass": "low_risk_autonomous",
+        "prohibitedAreas": [],
+        "requiredApprovals": [],
+        "commandPolicyProfile": "standard",
+        "networkPolicy": "denied",
+        "reason": "No prohibited area, no elevated permission request, repository clean, validation available."
+      },
+      "workspace": {
+        "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-cGrq5k",
+        "baseRef": "HEAD",
+        "baseCommit": "120af6200914d1e5ef1ab15e99a907eb4e4678e4",
+        "branch": "autonomous/pilot-5-run-1785909481526-8fe94e85",
+        "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-worktrees-VqklX3\\run-1785909481526-8fe94e85",
+        "createdFiles": [],
+        "cleanupStatus": "cleanup_failed"
+      },
+      "commandsExecuted": [
+        "git mv README.md README2.md"
+      ],
+      "filesChanged": [
+        "README2.md"
+      ],
+      "diffSummary": {
+        "changedFiles": 1,
+        "insertedLines": 0,
+        "deletedLines": 0,
+        "unexpectedFiles": []
+      },
+      "findings": [
+        "Budget would be exhausted by running the next command: commandCount."
+      ],
+      "residualRisk": "Run stopped after exhausting its budget: Budget would be exhausted by running the next command: commandCount.. Partial evidence only.",
+      "resultState": "budget_exhausted",
+      "recommendedHumanAction": "rerun_with_modified_budget"
+    }
+  },
+  "scenario_6_validation_failed_run": {
+    "status": "failed",
+    "action": "autonomous",
+    "projectStatus": null,
+    "currentMilestoneId": null,
+    "currentWorkUnitId": null,
+    "summary": "Autonomous run run-1785909482866-2934d763 for issue \"PILOT-6\" finished with result state \"validation_failed\": Targeted or authoritative validation did not pass -- the repair attempt is not verified.",
+    "completedActions": [
+      "git mv README.md README2.md"
+    ],
+    "changedFiles": [
+      "README2.md"
+    ],
+    "affectedItems": [],
+    "blockingIssues": [],
+    "warnings": [
+      {
+        "id": "AUTONOMOUS-RUN-FINDING-1",
+        "severity": "medium",
+        "area": "autonomous-run",
+        "message": "Targeted validation did not pass (or no targeted validation command was ever supplied).",
+        "agentCanFix": false
+      }
+    ],
+    "requiresHumanInput": false,
+    "nextRecommendedCommand": null,
+    "exitCode": 1,
+    "data": {
+      "runId": "run-1785909482866-2934d763",
+      "candidate": {
+        "issueId": "PILOT-6",
+        "source": "manual",
+        "repository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-hW9DeC",
+        "baseRef": "HEAD",
+        "objective": "rename the readme",
+        "acceptanceCriteria": [
+          "renamed"
+        ],
+        "constraints": [],
+        "requestedPermissions": []
+      },
+      "safetyAssessment": {
+        "riskClass": "low_risk_autonomous",
+        "prohibitedAreas": [],
+        "requiredApprovals": [],
+        "commandPolicyProfile": "standard",
+        "networkPolicy": "denied",
+        "reason": "No prohibited area, no elevated permission request, repository clean, validation available."
+      },
+      "workspace": {
+        "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-hW9DeC",
+        "baseRef": "HEAD",
+        "baseCommit": "658f5c51f67e9b55820a66041f8272b5a887811c",
+        "branch": "autonomous/pilot-6-run-1785909482866-2934d763",
+        "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-worktrees-SYnqGN\\run-1785909482866-2934d763",
+        "createdFiles": [],
+        "cleanupStatus": "cleaned"
+      },
+      "commandsExecuted": [
+        "git mv README.md README2.md"
+      ],
+      "filesChanged": [
+        "README2.md"
+      ],
+      "diffSummary": {
+        "changedFiles": 1,
+        "insertedLines": 0,
+        "deletedLines": 0,
+        "unexpectedFiles": []
+      },
+      "validation": {
+        "targetedTestsPassed": false,
+        "authoritativeValidationPassed": null,
+        "durationSeconds": 0.056
+      },
+      "findings": [
+        "Targeted validation did not pass (or no targeted validation command was ever supplied)."
+      ],
+      "residualRisk": "Targeted or authoritative validation did not pass -- the repair attempt is not verified.",
+      "resultState": "validation_failed",
+      "recommendedHumanAction": "request_changes"
+    }
+  },
+  "scenario_7_stale_approval_rejection": {
+    "status": "blocked",
+    "action": "autonomous",
+    "projectStatus": null,
+    "currentMilestoneId": null,
+    "currentWorkUnitId": null,
+    "summary": "Run run-1785909484352-6c83ba42's approval is stale (the candidate, base commit, or budgets changed since it was approved). Re-approve before running.",
+    "completedActions": [],
+    "changedFiles": [],
+    "affectedItems": [],
+    "blockingIssues": [
+      {
+        "id": "AUTONOMOUS-RUN-STALE-APPROVAL",
+        "severity": "high",
+        "area": "autonomous",
+        "message": "Run run-1785909484352-6c83ba42's approval is stale (the candidate, base commit, or budgets changed since it was approved). Re-approve before running.",
+        "agentCanFix": false
+      }
+    ],
+    "warnings": [],
+    "requiresHumanInput": false,
+    "nextRecommendedCommand": null,
+    "exitCode": 2
+  },
+  "scenario_8_resume_from_allowed_state": {
+    "status": "passed",
+    "action": "autonomous",
+    "projectStatus": null,
+    "currentMilestoneId": null,
+    "currentWorkUnitId": null,
+    "summary": "Autonomous run run-1785909486864-ab5aa2df for issue \"PILOT-8\" finished with result state \"passed\": Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+    "completedActions": [
+      "git mv README.md README2.md",
+      "git commit -m rename readme"
+    ],
+    "changedFiles": [
+      "README2.md"
+    ],
+    "affectedItems": [],
+    "blockingIssues": [],
+    "warnings": [],
+    "requiresHumanInput": false,
+    "nextRecommendedCommand": null,
+    "exitCode": 0,
+    "data": {
+      "runId": "run-1785909486864-ab5aa2df",
+      "candidate": {
+        "issueId": "PILOT-8",
+        "source": "manual",
+        "repository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-Cl70DI",
+        "baseRef": "HEAD",
+        "objective": "rename the readme",
+        "acceptanceCriteria": [
+          "renamed"
+        ],
+        "constraints": [],
+        "requestedPermissions": []
+      },
+      "safetyAssessment": {
+        "riskClass": "low_risk_autonomous",
+        "prohibitedAreas": [],
+        "requiredApprovals": [],
+        "commandPolicyProfile": "standard",
+        "networkPolicy": "denied",
+        "reason": "No prohibited area, no elevated permission request, repository clean, validation available."
+      },
+      "workspace": {
+        "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-Cl70DI",
+        "baseRef": "HEAD",
+        "baseCommit": "b04bdf0d33cb16677ab40bc18b4c4bd68e6c690c",
+        "branch": "autonomous/pilot-8-run-1785909486864-ab5aa2df",
+        "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-worktrees-WoHYcG\\run-1785909486864-ab5aa2df",
+        "createdFiles": [],
+        "cleanupStatus": "cleaned"
+      },
+      "commandsExecuted": [
+        "git mv README.md README2.md",
+        "git commit -m rename readme"
+      ],
+      "filesChanged": [
+        "README2.md"
+      ],
+      "diffSummary": {
+        "changedFiles": 1,
+        "insertedLines": 0,
+        "deletedLines": 0,
+        "unexpectedFiles": []
+      },
+      "validation": {
+        "targetedTestsPassed": true,
+        "authoritativeValidationPassed": null,
+        "durationSeconds": 0.056
+      },
+      "findings": [],
+      "residualRisk": "Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+      "resultState": "passed",
+      "recommendedHumanAction": "review_and_merge"
+    }
+  },
+  "scenario_9_patch_handoff": {
+    "withPatch": {
+      "status": "passed",
+      "action": "autonomous",
+      "projectStatus": null,
+      "currentMilestoneId": null,
+      "currentWorkUnitId": null,
+      "summary": "Autonomous run run-1785909488323-fcea3a65 for issue \"PILOT-9\" finished with result state \"passed\": Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+      "completedActions": [
+        "git mv README.md README2.md"
+      ],
+      "changedFiles": [
+        "README2.md"
+      ],
+      "affectedItems": [],
+      "blockingIssues": [],
+      "warnings": [],
+      "requiresHumanInput": false,
+      "nextRecommendedCommand": null,
+      "exitCode": 0,
+      "data": {
+        "runId": "run-1785909488323-fcea3a65",
+        "candidate": {
+          "issueId": "PILOT-9",
+          "source": "manual",
+          "repository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-KKZWfk",
+          "baseRef": "HEAD",
+          "objective": "rename the readme",
+          "acceptanceCriteria": [
+            "renamed"
+          ],
+          "constraints": [],
+          "requestedPermissions": []
+        },
+        "safetyAssessment": {
+          "riskClass": "low_risk_autonomous",
+          "prohibitedAreas": [],
+          "requiredApprovals": [],
+          "commandPolicyProfile": "standard",
+          "networkPolicy": "denied",
+          "reason": "No prohibited area, no elevated permission request, repository clean, validation available."
+        },
+        "workspace": {
+          "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-KKZWfk",
+          "baseRef": "HEAD",
+          "baseCommit": "9621c21eff279bf3259442db7b6ce12487e3a84b",
+          "branch": "autonomous/pilot-9-run-1785909488323-fcea3a65",
+          "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-worktrees-qaDDwJ\\run-1785909488323-fcea3a65",
+          "createdFiles": [],
+          "cleanupStatus": "cleaned"
+        },
+        "commandsExecuted": [
+          "git mv README.md README2.md"
+        ],
+        "filesChanged": [
+          "README2.md"
+        ],
+        "diffSummary": {
+          "changedFiles": 1,
+          "insertedLines": 0,
+          "deletedLines": 0,
+          "unexpectedFiles": []
+        },
+        "validation": {
+          "targetedTestsPassed": true,
+          "authoritativeValidationPassed": null,
+          "durationSeconds": 0.062
+        },
+        "findings": [],
+        "residualRisk": "Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+        "resultState": "passed",
+        "recommendedHumanAction": "review_and_merge",
+        "patch": "diff --git a/README.md b/README2.md\nsimilarity index 100%\nrename from README.md\nrename to README2.md\n"
+      }
+    },
+    "withPrDraft": {
+      "status": "passed",
+      "action": "autonomous",
+      "projectStatus": null,
+      "currentMilestoneId": null,
+      "currentWorkUnitId": null,
+      "summary": "Autonomous run run-1785909488323-fcea3a65 for issue \"PILOT-9\" finished with result state \"passed\": Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+      "completedActions": [
+        "git mv README.md README2.md"
+      ],
+      "changedFiles": [
+        "README2.md"
+      ],
+      "affectedItems": [],
+      "blockingIssues": [],
+      "warnings": [],
+      "requiresHumanInput": false,
+      "nextRecommendedCommand": null,
+      "exitCode": 0,
+      "data": {
+        "runId": "run-1785909488323-fcea3a65",
+        "candidate": {
+          "issueId": "PILOT-9",
+          "source": "manual",
+          "repository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-KKZWfk",
+          "baseRef": "HEAD",
+          "objective": "rename the readme",
+          "acceptanceCriteria": [
+            "renamed"
+          ],
+          "constraints": [],
+          "requestedPermissions": []
+        },
+        "safetyAssessment": {
+          "riskClass": "low_risk_autonomous",
+          "prohibitedAreas": [],
+          "requiredApprovals": [],
+          "commandPolicyProfile": "standard",
+          "networkPolicy": "denied",
+          "reason": "No prohibited area, no elevated permission request, repository clean, validation available."
+        },
+        "workspace": {
+          "sourceRepository": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-target-KKZWfk",
+          "baseRef": "HEAD",
+          "baseCommit": "9621c21eff279bf3259442db7b6ce12487e3a84b",
+          "branch": "autonomous/pilot-9-run-1785909488323-fcea3a65",
+          "worktreePath": "C:\\Users\\JOO~1\\AppData\\Local\\Temp\\aiqt-pilot-worktrees-qaDDwJ\\run-1785909488323-fcea3a65",
+          "createdFiles": [],
+          "cleanupStatus": "cleaned"
+        },
+        "commandsExecuted": [
+          "git mv README.md README2.md"
+        ],
+        "filesChanged": [
+          "README2.md"
+        ],
+        "diffSummary": {
+          "changedFiles": 1,
+          "insertedLines": 0,
+          "deletedLines": 0,
+          "unexpectedFiles": []
+        },
+        "validation": {
+          "targetedTestsPassed": true,
+          "authoritativeValidationPassed": null,
+          "durationSeconds": 0.062
+        },
+        "findings": [],
+        "residualRisk": "Validation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.",
+        "resultState": "passed",
+        "recommendedHumanAction": "review_and_merge",
+        "prDraft": {
+          "title": "AIQT autonomous repair: rename the readme",
+          "body": "**Issue:** PILOT-9\n\n**Objective**\nrename the readme\n\n**Acceptance criteria**\n- renamed\n\n**Changes**\n1 file(s) changed, +0/-0 lines.\n\n**Validation**\nTargeted validation: passed.\n\n**Residual risk**\nValidation passed and no self-review findings were raised. A human reviewer must still approve before merge -- this run never merges automatically.\n\n---\n_This branch and diff were prepared autonomously by AIQT. Nothing has been merged, pushed, or deployed -- a human must review and merge this manually._"
+        }
+      }
+    }
+  },
+  "scenario_10_discard_and_cleanup": {
+    "status": "passed",
+    "action": "autonomous",
+    "projectStatus": null,
+    "currentMilestoneId": null,
+    "currentWorkUnitId": null,
+    "summary": "Run run-1785909489917-93630294 record cleaned up.",
+    "completedActions": [],
+    "changedFiles": [],
+    "affectedItems": [],
+    "blockingIssues": [],
+    "warnings": [],
+    "requiresHumanInput": false,
+    "nextRecommendedCommand": null,
+    "exitCode": 0,
+    "data": {
+      "runId": "run-1785909489917-93630294"
+    }
+  }
+}
