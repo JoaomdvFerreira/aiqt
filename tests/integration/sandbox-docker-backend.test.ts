@@ -96,10 +96,8 @@ describe.skipIf(!dockerAvailable)("M38-WU02 DockerSandboxBackend (real Docker da
     expect(availability.reason).toMatch(/Docker server version/);
   });
 
-  it("reportCapabilities never claims process_tree_control, disk_limit, or network_destination_restriction (none are real yet)", () => {
+  it("reportCapabilities never claims network_destination_restriction (permanent limitation of this backend); process_tree_control/disk_limit are real as of WU38-03 (see that describe block below)", () => {
     const report = backend.reportCapabilities();
-    expect(report.capabilities).not.toContain("process_tree_control");
-    expect(report.capabilities).not.toContain("disk_limit");
     expect(report.capabilities).not.toContain("network_destination_restriction");
     expect(report.capabilities).toContain("filesystem_isolation");
     expect(report.capabilities).toContain("network_deny");
