@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.28.0 (M37-WU04: human approval and branch/patch handoff added)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.28.0");
+  it("is the current released version 0.29.0 (M38-WU01: sandbox threat model, platform decision, and backend contract added)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.29.0");
   });
 });

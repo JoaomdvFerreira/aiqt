@@ -213,6 +213,24 @@
         "tests/integration/execution-adapter-claude-code-legacy-compat.test.ts"
       ],
       "notes": "cli.test.ts's 'aiqt CLI entrypoint' describe block carries the original per-milestone command-set/exit-code assertions; later milestones (M22+) split their own dedicated historical-compatibility test files rather than extending it."
+    },
+    "sandboxBackendContract": {
+      "primary": "src/schema/sandbox-backend.schema.ts",
+      "supporting": [
+        "src/workflow/sandbox-backend-contract.ts",
+        "src/workflow/sandbox-platform-decision.ts",
+        "src/workflow/sandbox-capability-evaluation.ts",
+        "src/workflow/sandbox-fallback-policy.ts",
+        "src/workflow/sandbox-filesystem-policy.ts",
+        "src/workflow/sandbox-environment-policy.ts",
+        "src/workflow/sandbox-network-policy.ts",
+        "src/workflow/sandbox-process-policy.ts",
+        "src/workflow/sandbox-resource-policy.ts",
+        "docs/engineering/m38-sandbox-threat-model.md",
+        "docs/engineering/m38-sandbox-platform-decision.md",
+        "tests/unit/sandbox-wu01-boundary-scan.test.ts"
+      ],
+      "notes": "M38-WU01: contract-only -- capability enum (SandboxCapabilitySchema) plus MINIMUM_REQUIRED_SANDBOX_CAPABILITIES, filesystem/network/environment/process/resource policy schemas, an evidence schema, and a pure, zero-implementer SandboxBackend interface (sandbox-backend-contract.ts, mirroring autonomousRunContract's AgentAdapter precedent). decideSandboxPlatformSupport (sandbox-platform-decision.ts) chose Linux-only via an OCI-container backend as the initial supported platform, with Windows/macOS explicitly unsupported and fail-closed (see the platform decision doc for the full rationale -- this repository's CI runs exclusively on ubuntu-latest). evaluateSandboxCapabilities/evaluateSandboxNetworkCapability (sandbox-capability-evaluation.ts) return exactly two outcomes -- sufficient, or a SandboxFallbackRecommendation -- with no third 'proceed unsandboxed' branch; sandbox-fallback-policy.ts is the single function that ever produces that recommendation, and it always points at the M37 request/import workflow (aiqt autonomous run), never a bare process launch. The five sandbox-*-policy.ts files are pure structural validators only (no real mount/network/process/resource enforcement exists yet); sandbox-filesystem-policy.ts reuses autonomousRunContract's isAiqtOwnRepository guard unmodified for the self-management check. No CLI command references anything in this entry; no process-spawn/network/container surface exists anywhere in these files, verified by tests/unit/sandbox-wu01-boundary-scan.test.ts (mirroring autonomous-run-boundary-scan.test.ts's M36-WU01 pattern). Do not treat this entry as evidence that live sandboxed execution is enabled for any real target -- it is the platform decision, threat model, and pure data/interface contract a real backend (WU38-02) must be built against."
     }
   }
 }
