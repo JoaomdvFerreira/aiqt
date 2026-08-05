@@ -120,7 +120,7 @@ describe.skipIf(!dockerAvailable)("M38-WU04 aiqt autonomous agent-import --live 
       liveConfigPath!,
     );
 
-    expect(result.status).toBe("passed");
+    expect(result.status, `summary: ${result.summary}; data: ${JSON.stringify(result.data)}`).toBe("passed");
     const evidence = result.data as { commandsExecuted: string[]; filesChanged: string[]; cleanupStatus: string; terminationReason: string };
     expect(evidence.commandsExecuted.length).toBeGreaterThan(0);
     expect(evidence.terminationReason).toBe("completed");
@@ -161,7 +161,7 @@ describe.skipIf(!dockerAvailable)("M38-WU04 aiqt autonomous agent-import --live 
     const requestId = (runResult.data as { agentRequestId: string }).agentRequestId;
 
     const result = await importLive(runId, requestId, [{ command: "git", args: ["mv", "README.md", "README2.md"] }], liveConfigPath!);
-    expect(result.status).toBe("failed");
+    expect(result.status, `summary: ${result.summary}; data: ${JSON.stringify(result.data)}`).toBe("failed");
     const evidence = result.data as { terminationReason: string };
     expect(evidence.terminationReason).toBe("completed");
   });
