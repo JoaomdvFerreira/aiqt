@@ -68,7 +68,7 @@ describe("M35-WU01: every test file receives a full classification", () => {
     ).toEqual([]);
   });
 
-  it("the confirmed post-M38-WU04 baseline has exactly two skipped/conditional files, deliberately", () => {
+  it("the confirmed post-M38-WU05 baseline has exactly three skipped/conditional files, deliberately", () => {
     // M38-WU02 (build spec: "Implement one real backend...") was the
     // first deliberate departure from the WU35-01 "zero skipped tests"
     // baseline: tests/integration/sandbox-docker-backend.test.ts's
@@ -79,23 +79,25 @@ describe("M35-WU01: every test file receives a full classification", () => {
     // machine) -- the same "real dependency, not always present" shape
     // version-check.test.ts and built-binary-smoke.test.ts already
     // handle via other means. M38-WU04 added a second file with the
-    // exact same reviewed shape: tests/integration/sandbox-live-
-    // execution.test.ts's real `--live` end-to-end suite. Both log why
-    // and skip when Docker is unavailable (never silently pass, never
-    // fail the whole run) -- see docs/engineering/m35-test-suite-
-    // inventory.md Sec 3 for the deliberate update recording this.
+    // exact same reviewed shape (tests/integration/sandbox-live-
+    // execution.test.ts's real `--live` end-to-end suite), and M38-WU05
+    // added a third (tests/integration/sandbox-escape-testing.test.ts's
+    // real adversarial escape-test suite). All three log why and skip
+    // when Docker is unavailable (never silently pass, never fail the
+    // whole run) -- see docs/engineering/m35-test-suite-inventory.md
+    // Sec 3 for the deliberate update recording this.
     const skipped = rows.filter((r) => r.hasSkippedOrConditional);
     expect(
       skipped.map((r) => r.path).sort(),
-      "A test file now uses it.skip/describe.skip/it.todo/skipIf beyond the two reviewed M38 " +
+      "A test file now uses it.skip/describe.skip/it.todo/skipIf beyond the three reviewed M38 " +
         "exceptions. If this is intentional, update docs/engineering/m35-test-suite-inventory.md Sec 3 " +
         "deliberately -- it must not drift silently.",
-    ).toEqual(["tests/integration/sandbox-docker-backend.test.ts", "tests/integration/sandbox-live-execution.test.ts"]);
+    ).toEqual(["tests/integration/sandbox-docker-backend.test.ts", "tests/integration/sandbox-escape-testing.test.ts", "tests/integration/sandbox-live-execution.test.ts"]);
   });
 
-  it("the confirmed post-M38-WU02 baseline's two platform-guarded files are unchanged", () => {
+  it("the confirmed post-M38-WU05 baseline's three platform-guarded files are unchanged", () => {
     const guarded = rows.filter((r) => r.hasPlatformGuard).map((r) => r.path).sort();
-    expect(guarded).toEqual(["tests/integration/sandbox-docker-backend.test.ts", "tests/unit/prompt-out-path.test.ts"]);
+    expect(guarded).toEqual(["tests/integration/sandbox-docker-backend.test.ts", "tests/integration/sandbox-escape-testing.test.ts", "tests/unit/prompt-out-path.test.ts"]);
   });
 
   it("the critical-coverage domains from the build spec's minimum list are all non-empty", () => {

@@ -81,8 +81,8 @@ function hasCliSpawn(text: string): boolean {
  * autonomous-run files M36-WU02 added, the 2 more M36-WU03 added, the
  * 3 more M36-WU04 added, the 1 more M36-WU05 added, the 1 more M37-WU01
  * added, the 1 more M37-WU03 added, the 1 more M37-WU04 added, the
- * 1 more M37-WU05 added, the 1 more M38-WU02 added, and the 1 more
- * M38-WU04 added (48 total). A
+ * 1 more M37-WU05 added, the 1 more M38-WU02 added, the 1 more
+ * M38-WU04 added, and the 1 more M38-WU05 added (49 total). A
  * file added to or removed from this set must be a deliberate, reviewed
  * change to the policy document -- this test does not silently absorb a new
  * spawning file into "already accounted for".
@@ -180,6 +180,11 @@ const KNOWN_SPAWNING_FILES = [
   // real `git` (via initGitFixtureRepo's fixture and direct inspection
   // assertions), self-skipping when Docker is unavailable.
   "tests/integration/sandbox-live-execution.test.ts",
+  // M38-WU05 (+1): real Docker-daemon escape testing (parent-repo write,
+  // host-home read, sibling-worktree access, secret access, network
+  // access, process/CPU/memory/disk limits, orphan process, nested
+  // cancellation), self-skipping when Docker is unavailable.
+  "tests/integration/sandbox-escape-testing.test.ts",
 ].sort();
 
 /**
