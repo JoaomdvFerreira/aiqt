@@ -2,6 +2,7 @@ import type { AutonomousRiskClass } from "../schema/autonomous-run.schema.js";
 import { RISK_CLASSES_REQUIRING_APPROVAL, RISK_CLASSES_ALWAYS_BLOCKED } from "../schema/autonomous-run.schema.js";
 import { buildContextManifest, type ContextManifestInput } from "./execution-context-manifest.js";
 import { buildContinuationCapsule, type BuildContinuationCapsuleInput } from "./execution-continuation.js";
+import { classifyValidationCommands } from "./execution-validation-classifier.js";
 import {
   EXECUTION_GUIDANCE_PROTOCOL_VERSION,
   type WorkComplexity,
@@ -17,6 +18,7 @@ import {
   type ExecutionGuidanceSubagents,
   type ExecutionGuidance,
   type ExecutionGuidanceProfileConfigPartial,
+  type ValidationTier,
 } from "../schema/execution-guidance.schema.js";
 
 /**
@@ -224,13 +226,23 @@ export interface ValidationGuidanceInput {
   /** A recorded, human/agent-authored justification for running the full suite at this Work Unit. Absent/empty means no exception was taken. */
   explicitFullSuiteReason?: string | null;
   isMilestoneClosure?: boolean;
+  /** This Work Unit's own `validationCommands` (build spec Sec 7, "Existing validation commands"). Omit to keep the WU39-01/02/03 fixed static+focused default unchanged. */
+  explicitValidationCommands?: readonly string[];
 }
 
 /**
  * Progressive validation defaults (build spec Sec 7). Ordinary Work Units
  * never default to `full`; a Work-Unit-level exception requires a
  * non-empty `explicitFullSuiteReason`, which is then surfaced verbatim in
- * `reasons` rather than silently honored.
+ * `reasons` rather than silently honored. When `explicitValidationCommands`
+ * is supplied (M39-WU04), each command is conservatively classified
+ * (execution-validation-classifier.ts) and folded in: static/focused/
+ * impacted/unclassified commands are real now-required steps (an unknown
+ * scope is never guessed into a lenient tier -- it is required now, not
+ * silently deferred); a full/milestone-tier command found in the Work
+ * Unit's own plan without `explicitFullSuiteReason` stays deferred but is
+ * recorded as a visible reason, never silently absorbed or silently
+ * dropped.
  */
 export function buildValidationGuidance(input: ValidationGuidanceInput = {}): ExecutionGuidanceValidation {
   const explicitReason = input.explicitFullSuiteReason?.trim() || null;
@@ -249,15 +261,48 @@ export function buildValidationGuidance(input: ValidationGuidanceInput = {}): Ex
     };
   }
 
-  const requiredNow: ExecutionGuidanceValidation["requiredNow"] = [
-    { tier: "static", reason: "Structural checks (typecheck/lint/build) run for every Work Unit." },
-    { tier: "focused", reason: "Tests directly covering this Work Unit's changed behavior run for every Work Unit." },
-  ];
+  let requiredNow: ExecutionGuidanceValidation["requiredNow"];
   const deferred: ExecutionGuidanceValidation["deferred"] = [
     { tier: "impacted", reason: "Deferred unless directly justified by cross-cutting blast radius." },
     { tier: "milestone", reason: "Deferred to milestone closure by default." },
     { tier: "full", reason: "Deferred to milestone closure by default; ordinary Work Units must not default to the full suite." },
   ];
+
+  if (input.explicitValidationCommands && input.explicitValidationCommands.length > 0) {
+    requiredNow = [];
+    const seenNowTiers = new Set<ValidationTier>();
+    for (const classified of classifyValidationCommands(input.explicitValidationCommands)) {
+      if (classified.tier === "full" || classified.tier === "milestone") {
+        reasons.push(`Command "${classified.command}" classifies as ${classified.tier}, but no full-suite-at-Work-Unit reason was recorded; deferred to milestone closure, not silently required or discarded.`);
+        continue;
+      }
+      if (!seenNowTiers.has(classified.tier)) {
+        seenNowTiers.add(classified.tier);
+        requiredNow.push({
+          tier: classified.tier,
+          reason:
+            classified.tier === "unclassified"
+              ? `Command "${classified.command}" has a validation scope that could not be conservatively classified; running as originally specified rather than guessing a safe tier.`
+              : `Explicit command from this Work Unit's own validationCommands: "${classified.command}".`,
+        });
+      }
+    }
+    if (requiredNow.length === 0) {
+      requiredNow.push({ tier: "static", reason: "Structural checks (typecheck/lint/build) run for every Work Unit." });
+    }
+    // A tier actively required now (e.g. "impacted" justified by its
+    // presence in the Work Unit's own plan) must not also appear as a
+    // generic deferred placeholder.
+    const requiredTiers = new Set(requiredNow.map((step) => step.tier));
+    for (let i = deferred.length - 1; i >= 0; i -= 1) {
+      if (requiredTiers.has(deferred[i].tier)) deferred.splice(i, 1);
+    }
+  } else {
+    requiredNow = [
+      { tier: "static", reason: "Structural checks (typecheck/lint/build) run for every Work Unit." },
+      { tier: "focused", reason: "Tests directly covering this Work Unit's changed behavior run for every Work Unit." },
+    ];
+  }
 
   if (explicitReason) {
     const fullIndex = deferred.findIndex((step) => step.tier === "full");
@@ -309,6 +354,8 @@ export interface ComposeExecutionGuidanceInput {
   contextManifestInput?: Omit<ContextManifestInput, "workUnitId" | "complexity"> | null;
   /** Real continuation-capsule input (WU39-02). Omit to keep `continuation: null` (WU39-01 behavior) for callers not yet wired to supply it. */
   continuationInput?: BuildContinuationCapsuleInput | null;
+  /** This Work Unit's own `validationCommands` (WU39-04). Omit to keep the WU39-01/02/03 fixed static+focused default. */
+  explicitValidationCommands?: readonly string[];
 }
 
 /**
@@ -338,6 +385,7 @@ export function composeExecutionGuidance(input: ComposeExecutionGuidanceInput): 
     validation: buildValidationGuidance({
       explicitFullSuiteReason: input.explicitFullSuiteReason,
       isMilestoneClosure: input.isMilestoneClosure,
+      explicitValidationCommands: input.explicitValidationCommands,
     }),
     output: buildOutputPolicy(),
     subagents: buildSubagentGuidance(complexity.value, input.subagentJustification),

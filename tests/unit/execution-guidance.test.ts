@@ -165,6 +165,25 @@ describe("execution-guidance (M39-WU01)", () => {
     expect(withReason.reasons.join(" ")).toContain("canonical schema-version gate");
   });
 
+  it("classifies this Work Unit's own validationCommands, requiring static/focused now and deferring a full-suite command without a reason (M39-WU04)", () => {
+    const guidance = buildValidationGuidance({ explicitValidationCommands: ["pnpm test", "pnpm build"] });
+    expect(guidance.requiredNow.map((s) => s.tier)).toEqual(["static"]);
+    expect(guidance.requiredNow.some((s) => s.tier === "full")).toBe(false);
+    expect(guidance.deferred.some((s) => s.tier === "full")).toBe(true);
+    expect(guidance.reasons.join(" ")).toMatch(/"pnpm test".*classifies as full/);
+  });
+
+  it("never guesses an unclassified explicit command into a lenient tier -- requires it now instead", () => {
+    const guidance = buildValidationGuidance({ explicitValidationCommands: ["./scripts/custom-check.sh"] });
+    expect(guidance.requiredNow.some((s) => s.tier === "unclassified")).toBe(true);
+  });
+
+  it("does not double-list a tier as both required-now and generically deferred (e.g. an explicitly-listed impacted command)", () => {
+    const guidance = buildValidationGuidance({ explicitValidationCommands: ["pnpm build", "run impacted tests for this change"] });
+    expect(guidance.requiredNow.some((s) => s.tier === "impacted")).toBe(true);
+    expect(guidance.deferred.some((s) => s.tier === "impacted")).toBe(false);
+  });
+
   it("output policy defaults to compact-success/full-failure", () => {
     expect(buildOutputPolicy()).toEqual({ passingCommandDetail: "summary", failureDetail: "full" });
   });
