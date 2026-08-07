@@ -410,7 +410,7 @@ WU40-02 must define a concrete deterministic mapping from available evidence sta
 Every assessment must expose:
 
 - total score;
-- 🟢/🟠/🔴 status;
+- 🟢/🟡/🟠/🔴 status;
 - category contributions;
 - major risk contributors;
 - mitigations;
@@ -916,7 +916,7 @@ M40 is complete only when:
 - deterministic 0–100 scoring exists;
 - Green/Yellow/Orange/Red thresholds are exact;
 - `<50` vs `>=50` approval authority is enforced in the decision model;
-- `>=76` yields human + waiver publication authority;
+- `>=75` yields human + waiver publication authority;
 - candidate integrity and publication authority remain separate outputs;
 - release readiness fails closed on material evidence/provenance mismatch;
 - CLI human/JSON outputs follow M33;
