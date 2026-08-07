@@ -22,8 +22,8 @@ describe("isRelevantPath (M19 §11/§12/§22.4)", () => {
     expect(isRelevantPath(".github/workflows/validate.yml")).toBe(true);
   });
 
-  it("classifies docs/versioning.md as relevant (public release policy documentation)", () => {
-    expect(isRelevantPath("docs/versioning.md")).toBe(true);
+  it("classifies docs/governance/versioning.md as relevant (public release policy documentation)", () => {
+    expect(isRelevantPath("docs/governance/versioning.md")).toBe(true);
   });
 
   it("classifies a pure test-only file as not relevant", () => {

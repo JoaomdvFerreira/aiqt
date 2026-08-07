@@ -7,16 +7,16 @@
  * unambiguously would be the moment it exists) part of AIQT's public
  * contract. Adding a new relevant surface (e.g. a future `docs/cli/`
  * reference tree) means adding an explicit entry here and to
- * docs/versioning.md's rationale table -- never inferring it from content.
+ * docs/governance/versioning.md's rationale table -- never inferring it from content.
  *
  * Directory entries match by prefix (after normalizing to forward slashes);
  * file entries match exactly. As of M19-RC1, `git ls-files docs/` shows
- * this repository has exactly one tracked documentation file
- * (docs/versioning.md -- everything else under docs/ is local-only PDFs
- * and spec drafts, gitignored via docs/* + a per-file negation); there is
- * no docs/cli/**, docs/commands/**, docs/reference/**, docs/workflow/**,
- * docs/architecture/**, or docs/specifications/** in the actual repository
- * structure, so none of those speculative paths are listed below.
+ * this repository's release/version policy tracked at
+ * docs/governance/versioning.md (post-Documentation-Hygiene-pass location;
+ * docs/ as a whole is now tracked, not gitignored); no docs/cli/**,
+ * docs/commands/**, docs/reference/**, docs/workflow/**, docs/architecture/**,
+ * or docs/specifications/** exists in the actual repository structure, so
+ * none of those speculative paths are listed below.
  */
 
 /** Each entry's own comment documents *why* it defines AIQT's public contract. */
@@ -28,7 +28,7 @@ const RELEVANT_DIRECTORY_PREFIXES: readonly string[] = [
 const RELEVANT_EXACT_FILES: readonly string[] = [
   "package.json", // the canonical version source, and the published command/dependency surface.
   "pnpm-lock.yaml", // resolved dependency versions that ship with every release.
-  "docs/versioning.md", // the contributor-facing release/version policy itself.
+  "docs/governance/versioning.md", // the contributor-facing release/version policy itself.
   "README.md", // the universal public entry point (install/usage/compatibility) -- listed even though this repository does not yet have one, so the policy is already correct the moment it is added; git diff simply never matches a nonexistent path until then.
 ];
 
