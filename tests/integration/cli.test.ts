@@ -110,6 +110,14 @@ describe("aiqt CLI entrypoint", () => {
       // (this fixture's plan --example carries an unresolvable
       // agentContextRefs entry, so a real warning is expected here).
       expect(res.stdout).toContain("Next recommended command:");
+      // M39-WU-HF01: the compact Execution Guidance block now trails the
+      // packet, ahead of the shared footer -- additive text only.
+      const packetEnd = res.stdout.indexOf("Execution Guidance");
+      const footerStart = res.stdout.indexOf("Next recommended command:");
+      expect(packetEnd).toBeGreaterThan(-1);
+      expect(packetEnd).toBeLessThan(footerStart);
+      expect(res.stdout).toMatch(/Complexity: \w+/);
+      expect(res.stdout).toContain("Subagents: none");
     },
     // M21 vitest-3 upgrade: this test chains 5 real spawnSync CLI child
     // processes (init/update/update/plan/next). The default 5000ms
