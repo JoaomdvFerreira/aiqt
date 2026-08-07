@@ -452,12 +452,12 @@ describe("runVersionCheck: public documentation classification (M19-RC1 §7/§10
     expect(result.increment).toBe("patch");
   });
 
-  it("fails when docs/versioning.md (release policy) changes but the version is unchanged", () => {
+  it("fails when docs/governance/versioning.md (release policy) changes but the version is unchanged", () => {
     dir = initRepo("0.6.1");
-    commitChange(dir, "docs/versioning.md", "updated release policy\n", "versioning policy change");
+    commitChange(dir, "docs/governance/versioning.md", "updated release policy\n", "versioning policy change");
     const result = runVersionCheck({ cwd: dir, base: "main~1", ...withCurrentVersionReader("0.6.1") });
     expect(result.status).toBe("failed");
-    expect(result.relevantPaths).toContain("docs/versioning.md");
+    expect(result.relevantPaths).toContain("docs/governance/versioning.md");
   });
 
   it("fails when a CI workflow file (release-validation tooling) changes but the version is unchanged", () => {
@@ -476,7 +476,7 @@ describe("runVersionCheck: public documentation classification (M19-RC1 §7/§10
     expect(result.relevantPaths).toContain("src/cli/register-commands.ts");
   });
 
-  it("keeps an internal-note-only documentation change exempt (not README.md, not docs/versioning.md)", () => {
+  it("keeps an internal-note-only documentation change exempt (not README.md, not docs/governance/versioning.md)", () => {
     dir = initRepo("0.6.1");
     commitChange(dir, "docs/internal-scratch-notes.md", "private planning notes\n", "internal note only");
     const result = runVersionCheck({ cwd: dir, base: "main~1", ...withCurrentVersionReader("0.6.1") });
