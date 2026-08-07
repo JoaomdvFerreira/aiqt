@@ -103,7 +103,7 @@ Run `aiqt --help` (or `aiqt <command> --help`) for the full, current list —
 this table is illustrative, not exhaustive.
 
 Every command supports `--json` for machine-readable output. See
-[`docs/engineering/cli-machine-contract.md`](docs/engineering/cli-machine-contract.md)
+[`docs/governance/cli-machine-contract.md`](docs/governance/cli-machine-contract.md)
 for the exact result shape, exit-code table, and stream policy an agent or
 script can rely on.
 
@@ -135,8 +135,9 @@ against a written build specification, decomposed into small, independently
 committed and tagged Work Units, and closed only after full local validation,
 a clean-clone rebuild, and a green real CI run on the supported Node.js
 version (see `package.json#engines`). Milestone specifications live in
-[`docs/`](docs/); engineering process and governance notes live in
-[`docs/engineering/`](docs/engineering/) and [`GOVERNANCE.md`](GOVERNANCE.md).
+[`docs/milestones/`](docs/milestones/); engineering process and governance
+notes live in [`docs/governance/`](docs/governance/) and
+[`GOVERNANCE.md`](GOVERNANCE.md).
 
 ## Development
 

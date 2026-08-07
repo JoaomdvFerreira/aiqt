@@ -122,3 +122,12 @@ lifecycle tests, and a long-form closure report — is reserved for
 Gate check (baseline verification + owner confirmation for any new or
 reused owner) and the reporting limits in §6, without the full hazard
 table unless an exception applies.
+
+## 9. Documentation budget
+
+A normal milestone should retain at most one build specification and one
+closure report, plus additional documents only for reusable contracts,
+architecture decisions, threat models, or durable operational policy. Work
+Unit prompts, raw logs, routine implementation reports, and reproducible
+CI/test evidence should not normally be retained as permanent
+documentation.
