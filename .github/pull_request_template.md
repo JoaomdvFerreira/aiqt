@@ -22,7 +22,7 @@ lifecycle" and "GitHub Release governance" sections before merging.
 ## Risk score
 
 <!-- 0-100, per docs/governance/versioning.md's GitHub Release governance
-     scale (0-24 green, 25-75 orange, 76-100 red). -->
+     scale (0-24 green, 25-49 yellow, 50-74 orange, 75-100 red). -->
 
 ## Known limitations
 
