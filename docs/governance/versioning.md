@@ -433,18 +433,36 @@ and **Risk / Potential Risks**.
 
 The **Risk / Potential Risks** section must include:
 
-- an overall risk score, `0`–`100`:
-  - `0`–`24` = green (low risk)
-  - `25`–`75` = orange (moderate risk)
-  - `76`–`100` = red (high risk)
+- an overall risk score, `0`–`100`, using the four-band scale:
+  - `0`–`24` = 🟢 green (low risk)
+  - `25`–`49` = 🟡 yellow (elevated-but-bounded risk)
+  - `50`–`74` = 🟠 orange (substantial risk)
+  - `75`–`100` = 🔴 red (high risk)
 - the main contributing risks and their mitigations;
 - residual risks after mitigation;
 - a recommendation for broader use.
 
-**Approval policy:**
+**Approval policy** (the automation boundary sits at `50`, not at a band
+edge — yellow is still agent-approvable):
 
-- risk `< 50` → agent approval is permitted;
-- risk `>= 50` → human review and approval is required before publication.
+- risk `< 50` (green or yellow) → agent/automation approval is permitted
+  once all other release/merge gates pass;
+- risk `50`–`74` (orange) → human approval is mandatory before
+  publication;
+- risk `75`–`100` (red) → human approval **plus an explicit waiver** is
+  mandatory before publication.
+
+Boundary examples (illustrative, not exhaustive):
+
+| Score | Band | Approval |
+|---|---|---|
+| 24 | 🟢 Green | agent/automation permitted |
+| 25 | 🟡 Yellow | agent/automation permitted |
+| 49 | 🟡 Yellow | agent/automation permitted |
+| 50 | 🟠 Orange | human approval required |
+| 74 | 🟠 Orange | human approval required |
+| 75 | 🔴 Red | human approval + explicit waiver required |
+| 100 | 🔴 Red | human approval + explicit waiver required |
 
 **A release must never be published before:**
 
