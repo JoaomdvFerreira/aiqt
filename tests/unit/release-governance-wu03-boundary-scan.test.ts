@@ -57,7 +57,7 @@ describe("M40-WU03 boundary scan: release CLI stays read-only/bounded-local, no 
     }
   });
 
-  it("register-commands.ts registers exactly the 5 build-spec release subcommands (assess/validate/notes/prepare/status), no draft yet", () => {
+  it("register-commands.ts registers the 5 build-spec WU40-03 release subcommands (assess/validate/notes/prepare/status)", () => {
     const registerText = readFileSync(join(repoRoot, "src/cli/register-commands.ts"), "utf8");
     const releaseSection = registerText.slice(registerText.indexOf('.command("release")'));
     expect(releaseSection).toMatch(/\.command\("assess"\)/);
@@ -65,6 +65,5 @@ describe("M40-WU03 boundary scan: release CLI stays read-only/bounded-local, no 
     expect(releaseSection).toMatch(/\.command\("notes"\)/);
     expect(releaseSection).toMatch(/\.command\("prepare"\)/);
     expect(releaseSection).toMatch(/\.command\("status"\)/);
-    expect(releaseSection).not.toMatch(/\.command\("draft"\)/);
   });
 });

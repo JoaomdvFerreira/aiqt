@@ -67,6 +67,7 @@ import {
   type RawReleaseNotesOptions,
   type RawReleasePrepareOptions,
   type RawReleaseStatusOptions,
+  type RawReleaseDraftOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -155,6 +156,7 @@ import { runReleaseValidate } from "./commands/release-validate.command.js";
 import { runReleaseNotes } from "./commands/release-notes.command.js";
 import { runReleasePrepare } from "./commands/release-prepare.command.js";
 import { runReleaseStatus } from "./commands/release-status.command.js";
+import { runReleaseDraft } from "./commands/release-draft.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman, renderResultFooter } from "../core/output/human-output.js";
@@ -1702,6 +1704,19 @@ export function buildProgram(): Command {
     .action((raw: RawReleaseStatusOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runReleaseStatus(ctx, { candidate: raw.candidate, evidenceDir: raw.evidenceDir });
+      emit(result, ctx.json);
+    });
+
+  releaseCommand
+    .command("draft")
+    .description("Create a GitHub release DRAFT for an integrity-checked candidate -- never publishes (M40-WU04)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "load the release candidate input JSON from a file")
+    .option("--stdin", "read the release candidate input JSON from standard input", false)
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token (defaults to GITHUB_TOKEN)")
+    .action(async (raw: RawReleaseDraftOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runReleaseDraft(ctx, { fromFile: raw.fromFile, stdin: Boolean(raw.stdin), tokenEnv: raw.tokenEnv });
       emit(result, ctx.json);
     });
 

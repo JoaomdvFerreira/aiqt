@@ -509,3 +509,10 @@ export interface RawReleaseStatusOptions {
   candidate?: string;
   evidenceDir?: string;
 }
+
+export interface RawReleaseDraftOptions {
+  json?: boolean;
+  fromFile?: string;
+  stdin?: boolean;
+  tokenEnv?: string;
+}
