@@ -168,7 +168,7 @@ export function runNextPreview(
       exitCode: ExitCode.Success,
       data: {
         mutation: false,
-        executionGuidance: buildExecutionGuidanceForWorkUnit(workUnit, paths.root),
+        executionGuidance: buildExecutionGuidanceForWorkUnit(workUnit, paths.root, state),
         ...buildCandidateReportingData(selection),
         selectedMilestoneId: milestone?.id ?? null,
         readinessReason:

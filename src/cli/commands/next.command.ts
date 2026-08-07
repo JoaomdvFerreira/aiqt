@@ -332,7 +332,7 @@ export function runNext(ctx: CommandContext, options: RunNextOptions = {}): Comm
         packetFormat: "markdown" as const,
         contentHash,
         packet: packetBody,
-        executionGuidance: buildExecutionGuidanceForWorkUnit(workUnit, paths.root),
+        executionGuidance: buildExecutionGuidanceForWorkUnit(workUnit, paths.root, state),
         ...buildCandidateReportingData(selection),
         statusChanges: [
           { entityType: "workUnit", id: workUnit.id, from: "ready", to: "in_progress" },
