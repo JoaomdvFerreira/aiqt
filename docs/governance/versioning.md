@@ -135,11 +135,11 @@ changed path requires a bump only if it matches:
 | `package.json` | exact file | the canonical version source and published command/dependency surface |
 | `pnpm-lock.yaml` | exact file | resolved dependency versions that ship with every release |
 | `.github/workflows/**` | CI/release-validation tooling | changes what gets enforced before a release is considered valid |
-| `docs/versioning.md` | exact file | the contributor-facing release/version policy itself |
+| `docs/governance/versioning.md` | exact file | the contributor-facing release/version policy itself |
 | `README.md` | exact file | the universal public entry point (install/usage/compatibility) — listed even though this repository does not have one yet, so the policy is already correct the moment it's added |
 
 As of this policy revision (M21), `git ls-files docs/` confirms this
-repository has three tracked files under `docs/`: `docs/versioning.md`
+repository has three tracked files under `docs/`: `docs/governance/versioning.md`
 (this policy — on the relevant-paths allowlist above), plus two files
 added in M21 (`docs/coverage-baseline.md`, `docs/maintainer-recovery.md`)
 that are **deliberately not** on the allowlist. Both are operational/
@@ -160,7 +160,7 @@ inferred from scanning file content for keywords.
 **Everything else is exempt**, including but not limited to: `tests/**`
 (pure test-only changes never require a bump on their own), `coverage/`
 and other generated report output, editor configuration, and any file
-under `docs/` other than `docs/versioning.md` (internal implementation
+under `docs/` other than `docs/governance/versioning.md` (internal implementation
 notes, archived planning drafts, historical milestone specs — all
 gitignored, and even if one were force-added, it is still not on the
 allowlist). This is a strict allowlist, not a heuristic — a path not
@@ -288,13 +288,86 @@ GitHub's own `github.event.before`, resolved via the tested pure function
   e.g. a checkout that doesn't reach it) → the resolution step itself
   fails the job immediately, rather than silently skipping enforcement.
 
+## Milestone branch lifecycle
+
+Future milestones follow this lifecycle:
+
+```
+clean main
+    |
+milestone/<milestone>-<short-name>      (e.g. milestone/m39-agent-execution-efficiency)
+    |
+Work Unit implementation
+    |
+focused validation
+    |
+detailed WU commit + WU tag
+    |
+next WU (repeat)
+    |
+milestone closure validation (full suite, typecheck, lint, build)
+    |
+closure report
+    |
+release risk assessment
+    |
+Pull Request to main
+    |
+merge                                    (prefer a merge commit for the
+    |                                     milestone PR if needed to preserve
+    |                                     existing WU commit/tag provenance;
+    |                                     never rewrite existing history)
+post-merge main CI green
+    |
+release tag (v<version>) + milestone tag
+    |
+GitHub Release
+```
+
+A milestone branch is created only when starting that milestone's Work Units
+— not preemptively. Existing Git history is never rewritten to fit this
+lifecycle onto already-closed milestones.
+
 ## Tag conventions
 
 - **Milestone tag** — `m<N>[-suffix]-<slug>`, e.g. `m19-version-governance`.
+- **Work Unit tag** — created after each WU's commit, per
+  [`milestone-protocol.md`](milestone-protocol.md)'s per-WU discipline.
 - **Semantic-version tag** — `v<version>`, e.g. `v0.6.0`.
 
-Both are created manually by whoever merges the milestone, after full
-validation passes locally; CI never creates tags automatically.
+All are created manually by whoever merges the milestone, after full
+validation passes locally; CI never creates tags automatically. See
+`AGENTS.md` for the per-WU commit/tag discipline agents must follow.
+
+## GitHub Release governance
+
+Every GitHub Release for a milestone must contain at least these sections:
+**Summary**, **Implemented Work Units**, **Major Changes**, **Validation**,
+**Known Limitations**, **Compatibility / Migration Notes**, **Provenance**,
+and **Risk / Potential Risks**.
+
+The **Risk / Potential Risks** section must include:
+
+- an overall risk score, `0`–`100`:
+  - `0`–`24` = green (low risk)
+  - `25`–`75` = orange (moderate risk)
+  - `76`–`100` = red (high risk)
+- the main contributing risks and their mitigations;
+- residual risks after mitigation;
+- a recommendation for broader use.
+
+**Approval policy:**
+
+- risk `< 50` → agent approval is permitted;
+- risk `>= 50` → human review and approval is required before publication.
+
+**A release must never be published before:**
+
+1. the milestone PR is merged to `main`;
+2. post-merge `main` CI is green.
+
+Historical release reconstruction for pre-existing tags without a Release
+is out of scope here — see the M44 milestone.
 
 ## Contributor checklist
 
@@ -310,10 +383,13 @@ For every completed milestone/change:
 6. run `pnpm version:check` (local mode);
 7. run `pnpm version:check -- --base <target-branch>` (comparison mode)
    against the branch you intend to merge into;
-8. merge;
+8. open a Pull Request to the target branch and merge only after CI is
+   green;
 9. create the milestone tag;
 10. create the semantic-version tag;
-11. push the feature branch, the target branch, and both tags explicitly.
+11. push the feature branch, the target branch, and both tags explicitly;
+12. publish the GitHub Release per the governance above, once post-merge
+    CI is green.
 
 CI enforces that a required version bump is present before merge. CI
 never creates the bump itself — that decision and commit always belong to

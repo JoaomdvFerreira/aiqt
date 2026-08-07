@@ -34,7 +34,7 @@ equivalent remaining     -- the specific file/test that now covers the same
                              equivalent coverage remains and why that is
                              acceptable (see Sec 3, "demonstrably obsolete")
 criticality               -- the classification from
-                             docs/engineering/m35-test-suite-inventory.md
+                             docs/milestones/completed/m35/m35-test-suite-inventory.md
                              (Critical / High-value / Normal / Low-signal)
 risk                      -- what could go wrong if this removal is wrong
                              (a real regression path, not a generic
@@ -68,7 +68,7 @@ Per the build spec (Sec 5): **Critical and High-value tests require explicit own
 
 In this repository's Lean Milestone Protocol, "owner review" means: the Work Unit's own commit message must show the specific reasoning above (Sec 2's seven fields) in enough detail that a reader who did not perform the change could verify it independently, **and** the change must not be bundled into a commit whose primary stated purpose is something else — a Critical/High-value test reduction gets its own clearly-labeled reasoning, not a passing mention inside an unrelated commit body.
 
-87 of this repository's 232 test files are currently classified High-value and 60 Critical (`docs/engineering/m35-test-suite-inventory.md` Sec 3.2) — a combined 63% of the suite. This gate is therefore the default path for most files a future Work Unit might touch, not an edge case.
+87 of this repository's 232 test files are currently classified High-value and 60 Critical (`docs/milestones/completed/m35/m35-test-suite-inventory.md` Sec 3.2) — a combined 63% of the suite. This gate is therefore the default path for most files a future Work Unit might touch, not an edge case.
 
 ## 5. Handling each candidate category
 
@@ -97,7 +97,7 @@ Per the build spec's cross-Work-Unit invariants (Sec 8) and Success Metrics (Sec
 
 Primary target (build spec Sec 4): **authoritative per-commit CI duration under 5 minutes**.
 
-Current baseline (`docs/engineering/m35-test-suite-inventory.md` Sec 4.3): ~9 minutes (Node 24 leg alone, once Node 22 is removed from the mandatory matrix per Sec 2 of that document). The inventory's Sec 4.5 cost-concentration finding (top 30 of 232 files = 96% of measured execution time) is the direct input to WU35-03's prioritization — the runtime target is reached by optimizing the identified performance-heavy set, not by broad, undifferentiated test removal across the whole suite. **No test may be removed merely to improve the headline runtime number** (build spec Sec 3, explicit invariant #11) — every reduction must independently satisfy Sec 2 through Sec 5 of this policy regardless of its runtime effect.
+Current baseline (`docs/milestones/completed/m35/m35-test-suite-inventory.md` Sec 4.3): ~9 minutes (Node 24 leg alone, once Node 22 is removed from the mandatory matrix per Sec 2 of that document). The inventory's Sec 4.5 cost-concentration finding (top 30 of 232 files = 96% of measured execution time) is the direct input to WU35-03's prioritization — the runtime target is reached by optimizing the identified performance-heavy set, not by broad, undifferentiated test removal across the whole suite. **No test may be removed merely to improve the headline runtime number** (build spec Sec 3, explicit invariant #11) — every reduction must independently satisfy Sec 2 through Sec 5 of this policy regardless of its runtime effect.
 
 ## 8. Before/after recording requirement
 

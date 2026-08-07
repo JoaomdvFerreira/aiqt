@@ -6,7 +6,7 @@ AIQT is currently pre-1.0 (`0.x`) with a single actively maintained line:
 the latest published version on `main`. There is no long-term-support or
 backport policy for older `0.x` releases -- security fixes land as a new
 patch/minor release on the current line, per
-[the versioning policy](docs/versioning.md).
+[the versioning policy](docs/governance/versioning.md).
 
 | Version | Supported |
 |---|---|

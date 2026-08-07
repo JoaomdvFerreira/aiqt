@@ -18,7 +18,7 @@ If `pnpm install --frozen-lockfile` fails immediately with a lockfile
 compatibility error, check that the active pnpm major version is 7 (`pnpm
 --version`) -- a pnpm 8/9/10/11 install can silently rewrite
 `pnpm-lock.yaml` to an incompatible format (this happened once during
-M19-RC1; see `docs/versioning.md`). If that happens, `git checkout --
+M19-RC1; see `docs/governance/versioning.md`). If that happens, `git checkout --
 pnpm-lock.yaml` to discard the rewrite and re-run with the correct pnpm
 version.
 
@@ -120,7 +120,7 @@ documented in `GOVERNANCE.md`.
 
 ## 8. Release checklist
 
-For every completed milestone (extends `docs/versioning.md`'s existing
+For every completed milestone (extends `docs/governance/versioning.md`'s existing
 contributor checklist):
 
 1. implement the change on a feature branch;
@@ -136,7 +136,7 @@ contributor checklist):
    push --tags`);
 8. verify the real CI run via `gh run view` -- do not consider the
    milestone closed on local validation alone;
-9. update this runbook and `docs/versioning.md` if the release process
+9. update this runbook and `docs/governance/versioning.md` if the release process
    itself changed.
 
 ## 9. Rollback to the previous milestone tag
@@ -161,7 +161,7 @@ an already-pushed tag or commit.
 pull requests for the npm ecosystem and GitHub Actions. None are
 auto-merged. Review each PR like any other change: CI must pass, and a
 version bump is required if the update touches a relevant path
-(`package.json`, `pnpm-lock.yaml`) per `docs/versioning.md`'s policy.
+(`package.json`, `pnpm-lock.yaml`) per `docs/governance/versioning.md`'s policy.
 
 **The npm ecosystem entry has `open-pull-requests-limit: 0`** (set
 2026-07-20, supply-chain maintenance). This is a deliberate response to a

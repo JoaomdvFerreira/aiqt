@@ -70,7 +70,7 @@ cite [repository-owner-map.json](repository-owner-map.json).
 
 Common contracts (canonical JSON, SHA-256 digesting, exit-code ranges,
 trust ordering, evidence scope, versioning policy, CI workflow shape) live
-in their owning source files and `docs/versioning.md`. Milestone specs and
+in their owning source files and `docs/governance/versioning.md`. Milestone specs and
 prompts reference these by file path via the owner map rather than
 copying their definitions inline. When an owner's behavior must change,
 the specification says so explicitly and updates the owner map entry.
