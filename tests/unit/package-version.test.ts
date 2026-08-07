@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.32.4 (README visual revamp + version-check docs-path fix)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.32.4");
+  it("is the current released version 0.33.0 (M39-WU01: Execution Guidance contract)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.33.0");
   });
 });
