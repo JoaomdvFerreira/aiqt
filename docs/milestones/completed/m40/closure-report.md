@@ -5,7 +5,7 @@
 ## Baseline / final commits
 
 - Branch created from `main` at `b4ef7a6` (`Merge pull request #7 from JoaomdvFerreira/governance/four-band-risk-scale`).
-- M39 entry baseline verified: `docs/milestones/completed/m39/{build-spec.md,closure-report.md}` present (build spec filename is `AIQT_Milestone_39_Build_Specification.md`, following the same pattern this milestone's spec uses); no `.aiqt/` self-management state existed at branch creation; working tree was clean.
+- M39 entry baseline verified: `docs/milestones/completed/m39/{AIQT_Milestone_39_Build_Specification.md,closure-report.md}` present; no `.aiqt/` self-management state existed at branch creation; working tree was clean. (M40's own build specification was normalized to `docs/milestones/completed/m40/build-spec.md` during pre-PR documentation hygiene, post-dating this line's original wording.)
 - Package version: `0.33.1` → `0.34.0` (minor: new backward-compatible public capability, the `aiqt release` command family; no breaking change, no schema change).
 - Schema version: unchanged (`0.5.0`) — M40 introduced no canonical `.aiqt/state.json`/`project.json` schema change. Local release-governance evidence is deliberately persisted outside `.aiqt/` (under `.aiqt-release/`), so no `AIQT_SCHEMA_VERSION` bump was needed or made.
 
