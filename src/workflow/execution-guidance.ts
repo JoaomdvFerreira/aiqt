@@ -1,5 +1,7 @@
 import type { AutonomousRiskClass } from "../schema/autonomous-run.schema.js";
 import { RISK_CLASSES_REQUIRING_APPROVAL, RISK_CLASSES_ALWAYS_BLOCKED } from "../schema/autonomous-run.schema.js";
+import { buildContextManifest, type ContextManifestInput } from "./execution-context-manifest.js";
+import { buildContinuationCapsule, type BuildContinuationCapsuleInput } from "./execution-continuation.js";
 import {
   EXECUTION_GUIDANCE_PROTOCOL_VERSION,
   type WorkComplexity,
@@ -200,11 +202,13 @@ export function buildAgentGuidance(
 }
 
 /**
- * Stable, deterministic placeholder (build spec Sec 6/9: "define, but do
- * not fully implement"). Never reads repository content or estimates real
- * provider token usage -- WU39-02 replaces this with the real prioritized
- * manifest/footprint estimate without changing this function's signature
- * or the `ExecutionGuidance.context` field shape.
+ * Stable, deterministic fallback used only when the caller supplies no
+ * `contextManifestInput` (build spec Sec 6/9). `composeExecutionGuidance`
+ * calls the real `buildContextManifest` (execution-context-manifest.ts,
+ * WU39-02) whenever manifest input is provided; this placeholder keeps
+ * `ExecutionGuidance.context` populated with a stable, empty-but-typed
+ * shape for callers that have not yet been wired to supply real context
+ * candidates.
  */
 export function buildContextPlaceholder(): ExecutionGuidanceContext {
   return {
@@ -301,6 +305,10 @@ export interface ComposeExecutionGuidanceInput {
   explicitFullSuiteReason?: string | null;
   isMilestoneClosure?: boolean;
   subagentJustification?: string | null;
+  /** Real context-candidate input (WU39-02). Omit to keep the stable placeholder (WU39-01 behavior) for callers not yet wired to supply it. */
+  contextManifestInput?: Omit<ContextManifestInput, "workUnitId" | "complexity"> | null;
+  /** Real continuation-capsule input (WU39-02). Omit to keep `continuation: null` (WU39-01 behavior) for callers not yet wired to supply it. */
+  continuationInput?: BuildContinuationCapsuleInput | null;
 }
 
 /**
@@ -315,14 +323,18 @@ export function composeExecutionGuidance(input: ComposeExecutionGuidanceInput): 
     suggestedFileCount: input.workUnit.suggestedFiles.length,
     profileConfig: input.profileConfig,
   });
+  const context = input.contextManifestInput
+    ? buildContextManifest({ ...input.contextManifestInput, workUnitId: input.workUnitId, complexity: complexity.value })
+    : buildContextPlaceholder();
+  const continuation = input.continuationInput ? buildContinuationCapsule(input.continuationInput) : null;
 
   return {
     version: EXECUTION_GUIDANCE_PROTOCOL_VERSION,
     workUnitId: input.workUnitId,
     complexity,
     agent,
-    context: buildContextPlaceholder(),
-    continuation: null,
+    context,
+    continuation,
     validation: buildValidationGuidance({
       explicitFullSuiteReason: input.explicitFullSuiteReason,
       isMilestoneClosure: input.isMilestoneClosure,

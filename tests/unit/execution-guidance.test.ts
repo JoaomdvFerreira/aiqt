@@ -211,9 +211,29 @@ describe("execution-guidance (M39-WU01)", () => {
       "src/workflow/execution-guidance.ts",
       "src/schema/execution-guidance.schema.ts",
       "src/services/execution-guidance-profile-config-file.ts",
+      "src/workflow/execution-context-manifest.ts",
+      "src/workflow/execution-continuation.ts",
     ]) {
       const source = readFileSync(join(repoRoot, relPath), "utf8");
       expect(source).not.toMatch(/writeStateModel|atomicWriteFileSync|appendRunlogEvent/);
     }
+  });
+
+  it("keeps the WU39-01 placeholder context/null continuation behavior when no manifest/continuation input is supplied (M39-WU02 backward compatibility)", () => {
+    const guidance = composeExecutionGuidance({ workUnitId: "WU-8", workUnit: baseInput() });
+    expect(guidance.context.items).toEqual([]);
+    expect(guidance.continuation).toBeNull();
+  });
+
+  it("wires the real context manifest and continuation capsule when M39-WU02 input is supplied", () => {
+    const guidance = composeExecutionGuidance({
+      workUnitId: "WU-9",
+      workUnit: baseInput(),
+      contextManifestInput: { suggestedFiles: ["src/a.ts"] },
+      continuationInput: { directDependencies: [] },
+    });
+    expect(guidance.context.items.some((i) => i.path === "work-unit:WU-9")).toBe(true);
+    expect(guidance.context.items.some((i) => i.path === "src/a.ts")).toBe(true);
+    expect(guidance.continuation).not.toBeNull();
   });
 });
