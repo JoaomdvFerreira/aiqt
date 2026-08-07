@@ -16,6 +16,7 @@ import {
   buildSelectionBlockedResult,
   buildCandidateReportingData,
   buildAlternativeCandidateGuidance,
+  buildExecutionGuidanceForWorkUnit,
   type RawSelectionOptions,
 } from "./next-selection-helpers.js";
 import type { StateModel } from "../../schema/state.schema.js";
@@ -86,7 +87,7 @@ export function runNextPreview(
       });
     }
 
-    const { project, state } = loadProject(ctx);
+    const { paths, project, state } = loadProject(ctx);
 
     const hasWorkGraph = state.workGraph.milestones.length > 0;
     if (!hasWorkGraph) {
@@ -167,6 +168,7 @@ export function runNextPreview(
       exitCode: ExitCode.Success,
       data: {
         mutation: false,
+        executionGuidance: buildExecutionGuidanceForWorkUnit(workUnit, paths.root, state),
         ...buildCandidateReportingData(selection),
         selectedMilestoneId: milestone?.id ?? null,
         readinessReason:

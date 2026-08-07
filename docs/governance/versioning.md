@@ -328,6 +328,91 @@ A milestone branch is created only when starting that milestone's Work Units
 — not preemptively. Existing Git history is never rewritten to fit this
 lifecycle onto already-closed milestones.
 
+## Pull Request human-approval gate
+
+Before a milestone (or any) Pull Request is merged, all of the following
+must hold:
+
+- CI/check requirements are satisfied;
+- the PR is mergeable (no conflicts);
+- no blocking review issue remains open;
+- applicable risk governance is satisfied (see GitHub Release governance
+  below for the risk-score approval thresholds that also inform this gate);
+- explicit human approval exists.
+
+### Machine-readable approval signal
+
+AIQT Pull Requests are currently created using the same GitHub identity as
+the human maintainer, so GitHub does not permit a native `APPROVED` review
+from that identity on its own PR. While this remains true, the label
+
+```text
+approved-for-merge
+```
+
+on the Pull Request is the authoritative machine-readable signal that
+human approval has been given. It substitutes for a native GitHub review
+approval in this operating mode — it does not add an additional, separate
+requirement on top of one.
+
+### Ownership of the label
+
+- Only the human maintainer may apply `approved-for-merge`.
+- An agent must never add this label to its own PR, under any
+  circumstance.
+- An agent must never infer approval from conversation text, an earlier
+  prompt, CI status, a risk score, or the mere absence of review comments.
+  The label itself, read directly from GitHub, is the only valid signal.
+- An agent may only *read* the label; applying or removing it as a grant
+  of approval is exclusively the maintainer's action.
+
+### Approval applies to the reviewed PR state, not the PR in general
+
+Human approval is granted for the specific PR state that was reviewed. If
+source code, tests, documentation, version metadata, generated artifacts,
+or any other tracked content changes after `approved-for-merge` was
+applied:
+
+- the previous approval is invalid, regardless of how small the change is;
+- `approved-for-merge` must be removed before, or as part of, making that
+  change (an agent making such a change removes the label itself rather
+  than leaving a stale approval in place);
+- CI/checks must run again as applicable to the new commit;
+- the human must review the updated PR;
+- the human must re-apply `approved-for-merge` before merge.
+
+An agent must never merge a PR merely because a stale `approved-for-merge`
+label remains present after new commits were pushed following its
+removal — the label is re-evaluated per PR state, not treated as a
+standing grant.
+
+### Merge gate
+
+Immediately before performing a merge, an agent must verify directly from
+GitHub (not from memory of an earlier check in the same conversation)
+that:
+
+- the PR is open;
+- the target and source branches are the expected ones;
+- `approved-for-merge` is present;
+- required/current checks are green;
+- the PR is mergeable;
+- no known blocking review issue remains;
+- risk governance permits the merge.
+
+If any of these fails, the agent stops without merging and reports the
+specific failing condition.
+
+### Future compatibility
+
+This label-based mechanism is the current fallback governance control,
+adopted specifically because PRs share the maintainer's own GitHub
+identity. If AIQT later merges PRs under a separate bot/GitHub App
+identity, adopts native required reviewers, or adds branch
+protection/rulesets, native GitHub review approval may supersede this
+label mechanism — but only through a deliberate governance update to this
+document, not silently or by assumption.
+
 ## Tag conventions
 
 - **Milestone tag** — `m<N>[-suffix]-<slug>`, e.g. `m19-version-governance`.

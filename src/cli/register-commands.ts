@@ -148,6 +148,8 @@ import { runAutonomousAgentImport } from "./commands/autonomous-agent-import.com
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman, renderResultFooter } from "../core/output/human-output.js";
+import { renderExecutionGuidanceHuman } from "../workflow/execution-guidance-render.js";
+import type { ExecutionGuidance } from "../schema/execution-guidance.schema.js";
 import { ExitCode } from "../core/output/exit-codes.js";
 import { AiqtError } from "../core/output/aiqt-error.js";
 import type { CommandResult } from "../core/output/result.js";
@@ -279,9 +281,14 @@ export function buildProgram(): Command {
       // footer still trails it so a degraded/warning packet (M33-WU01
       // Contradiction D) isn't silently indistinguishable from a clean one.
       if (!ctx.json && !raw.preview && result.exitCode === ExitCode.Success) {
-        const data = result.data as { packet?: string } | undefined;
+        const data = result.data as { packet?: string; executionGuidance?: ExecutionGuidance } | undefined;
         if (typeof data?.packet === "string") {
-          process.stdout.write(data.packet + renderResultFooter(result) + "\n");
+          // M39-WU-HF01 (build spec Sec 9 example): the compact Execution
+          // Guidance block trails the packet, ahead of the shared result
+          // footer -- additive text only, never altering the packet body
+          // that was hashed/persisted above in next.command.ts.
+          const guidanceBlock = data.executionGuidance ? "\n\n" + renderExecutionGuidanceHuman(data.executionGuidance) : "";
+          process.stdout.write(data.packet + guidanceBlock + renderResultFooter(result) + "\n");
           process.exitCode = result.exitCode;
           return;
         }

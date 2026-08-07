@@ -1,12 +1,17 @@
 import { makeResult, type CommandResult } from "../../core/output/result.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
 import type { StateModel } from "../../schema/state.schema.js";
+import type { WorkUnit } from "../../schema/work-unit.schema.js";
 import type {
   NextSelectionRequest,
   NextSelectionResult,
   ReadyCandidate,
   SelectionBlockingReason,
 } from "../../workflow/next-work-unit-selector.js";
+import { composeExecutionGuidance } from "../../workflow/execution-guidance.js";
+import type { ExecutionGuidance } from "../../schema/execution-guidance.schema.js";
+import { resolveExecutionGuidanceProfileConfig } from "../../services/execution-guidance-profile-resolution-service.js";
+import { latestCheckpointForWorkUnit } from "../../services/checkpoint-amendment-service.js";
 
 /**
  * M20 §6/§11: shared CLI-layer plumbing for `aiqt next`'s three selection
@@ -190,4 +195,70 @@ export function buildCandidateReportingData(selection: NextSelectionResult): {
 export function buildAlternativeCandidateGuidance(selection: NextSelectionResult): string | null {
   if (selection.globalCandidates.length <= 1 || !selection.selectedWorkUnit) return null;
   return `Multiple work units are effectively ready. Default selection: ${selection.selectedWorkUnit.id}. Use --work-unit or --milestone to choose another ready branch.`;
+}
+
+/**
+ * M39-WU04/WU05 (build spec Sec 9, "aiqt next --preview" / "aiqt next"):
+ * shared execution-guidance builder called identically by
+ * next.command.ts (apply) and next-preview.command.ts (preview), so the
+ * selected work unit is guaranteed identical guidance for the same
+ * canonical state -- mirroring this file's own established preview/apply
+ * parity discipline. Advisory only; never blocks or mutates. A malformed
+ * project-level profile config file falls back to generic (no concrete
+ * mapping) guidance for this call rather than failing the surrounding
+ * read-only/mutating command over an optional, advisory config file.
+ *
+ * WU39-05 completes the integration WU39-04 deferred: direct
+ * dependencies' latest checkpoints (already-canonical `state.checkpoints`
+ * via `latestCheckpointForWorkUnit` -- no new lookup/store) now feed both
+ * the context manifest's should_read tier (their `filesChanged`) and the
+ * continuation capsule (summary/validation/open-issue carry-forward). A
+ * dependency with no checkpoint yet contributes nothing to either, rather
+ * than failing.
+ */
+export function buildExecutionGuidanceForWorkUnit(workUnit: WorkUnit, repoRoot: string, state: StateModel): ExecutionGuidance {
+  const profileOutcome = resolveExecutionGuidanceProfileConfig({ cwd: repoRoot });
+  const profileConfig = profileOutcome.ok ? profileOutcome.config : null;
+  // `workUnit.dependencies` holds dependency-EDGE ids, not prerequisite
+  // Work Unit ids directly -- resolve through `state.workGraph.dependencies`
+  // first, mirroring this file's own `satisfiedBlockingDependencies`
+  // computation used elsewhere in the apply/preview commands.
+  const prerequisiteWorkUnitIds = [
+    ...new Set(
+      workUnit.dependencies
+        .map((depId) => state.workGraph.dependencies.find((d) => d.id === depId))
+        .filter((d): d is NonNullable<typeof d> => d !== undefined && (d.type === "blocks" || d.type === "requires"))
+        .map((d) => d.fromId),
+    ),
+  ];
+  const directDependencies = prerequisiteWorkUnitIds.map((depWorkUnitId) => ({
+    workUnitId: depWorkUnitId,
+    checkpoint: latestCheckpointForWorkUnit(state, depWorkUnitId) ?? null,
+  }));
+
+  return composeExecutionGuidance({
+    workUnitId: workUnit.id,
+    workUnit: {
+      objective: workUnit.objective,
+      scope: workUnit.scope,
+      outOfScope: workUnit.outOfScope,
+      acceptanceCriteria: workUnit.acceptanceCriteria,
+      suggestedFiles: workUnit.suggestedFiles,
+      dependencies: workUnit.dependencies,
+      autonomousRiskClass: null,
+    },
+    profileConfig,
+    contextManifestInput: {
+      explicitAgentContextRefs: workUnit.agentContextRefs,
+      suggestedFiles: workUnit.suggestedFiles,
+      dependencyContext: directDependencies
+        .filter((dep) => dep.checkpoint !== null)
+        .map((dep) => ({ workUnitId: dep.workUnitId, changedFiles: dep.checkpoint!.filesChanged })),
+    },
+    continuationInput: {
+      directDependencies,
+      currentWorkUnitPriorCheckpoint: latestCheckpointForWorkUnit(state, workUnit.id) ?? null,
+    },
+    explicitValidationCommands: workUnit.validationCommands,
+  });
 }

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import type { CommandContext } from "../command-context.js";
 import { makeResult, type CommandResult } from "../../core/output/result.js";
 import { ExitCode } from "../../core/output/exit-codes.js";
-import { intakeCandidate } from "../../services/autonomous-candidate-intake-service.js";
+import { intakeCandidate, buildDryRunClassificationReport } from "../../services/autonomous-candidate-intake-service.js";
 import { isAlwaysBlocked } from "../../workflow/autonomous-run-safety-classifier.js";
 import { isValidRunStatusTransition } from "../../workflow/autonomous-run-lifecycle.js";
 import { isApprovalRequired } from "../../workflow/autonomous-run-approval.js";
@@ -219,6 +219,17 @@ export async function runAutonomousClassify(ctx: CommandContext, options: Autono
         : `Run ${runId} classified as "${intake.safetyAssessment.riskClass}" and may proceed without approval.`,
     exitCode: alwaysBlocked ? ExitCode.WorkflowBlocked : ExitCode.Success,
     nextRecommendedCommand: nextCommand,
-    data: { runId, status: record.status, safetyAssessment: intake.safetyAssessment, budgets: record.budgets, policy: record.policy },
+    data: {
+      runId,
+      status: record.status,
+      safetyAssessment: intake.safetyAssessment,
+      budgets: record.budgets,
+      policy: record.policy,
+      // M39-HF02: purely advisory (complexity/reasoning/agent-class only);
+      // never persisted to AutonomousRunRecord and never influences
+      // riskClass/approval/budgets/policy above, all already computed
+      // from classifyCandidate's own safety assessment alone.
+      executionGuidance: buildDryRunClassificationReport(intake).executionGuidance,
+    },
   });
 }

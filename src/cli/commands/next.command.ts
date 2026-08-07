@@ -27,6 +27,7 @@ import {
   buildSelectionBlockedResult,
   buildCandidateReportingData,
   buildAlternativeCandidateGuidance,
+  buildExecutionGuidanceForWorkUnit,
   type RawSelectionOptions,
 } from "./next-selection-helpers.js";
 import { applyWorkUnitStartTransition } from "../../workflow/status-transitions.js";
@@ -331,6 +332,7 @@ export function runNext(ctx: CommandContext, options: RunNextOptions = {}): Comm
         packetFormat: "markdown" as const,
         contentHash,
         packet: packetBody,
+        executionGuidance: buildExecutionGuidanceForWorkUnit(workUnit, paths.root, state),
         ...buildCandidateReportingData(selection),
         statusChanges: [
           { entityType: "workUnit", id: workUnit.id, from: "ready", to: "in_progress" },
