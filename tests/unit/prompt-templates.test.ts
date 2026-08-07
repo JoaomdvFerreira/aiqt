@@ -279,6 +279,16 @@ describe("renderDriverPrompt", () => {
     const input = { project: baseProject(), state: baseState(), idea: "idea" };
     expect(renderDriverPrompt(input)).toBe(renderDriverPrompt(input));
   });
+
+  it("M39-HF02: tells the agent to follow aiqt next's Execution Guidance block, start from its context, expand only on evidence, and follow progressive validation rather than defaulting to the full suite", () => {
+    const prompt = renderDriverPrompt({ project: null, state: null, idea: null });
+    expect(prompt).toContain("Execution guidance discipline:");
+    expect(prompt).toMatch(/Execution Guidance block/);
+    expect(prompt).toMatch(/Follow it rather than re-deriving your own judgment/);
+    expect(prompt).toMatch(/must-read\/should-read context/);
+    expect(prompt).toMatch(/expand beyond it only when evidence/);
+    expect(prompt).toMatch(/Do not default to running the full test suite/);
+  });
 });
 
 describe("renderInterviewPrompt", () => {

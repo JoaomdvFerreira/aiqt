@@ -1,6 +1,8 @@
 import { AutonomousCandidateSchema, type AutonomousCandidate, type AutonomousSafetyAssessment, type ProhibitedAreaTag } from "../schema/autonomous-run.schema.js";
 import { classifyCandidate, isAlwaysBlocked, requiresApproval } from "../workflow/autonomous-run-safety-classifier.js";
 import { runRepositoryPreflight, type RepositoryPreflightResult } from "../workflow/autonomous-run-preflight.js";
+import { classifyWorkComplexity, recommendAgentClass } from "../workflow/execution-guidance.js";
+import type { WorkComplexity, ReasoningEffort, AgentClass, RecommendationConfidence } from "../schema/execution-guidance.schema.js";
 
 /**
  * M36-WU02 (build spec Sec "Scope": "candidate intake; issue
@@ -73,10 +75,50 @@ export function intakeCandidate(input: IntakeCandidateInput): IntakeCandidateRes
 }
 
 /**
+ * M39-HF02 (build spec Sec 9, "Prompt/autonomous integration": "Where
+ * M37/M38 already expose an equivalent bounded task, reuse the same
+ * decision service without weakening sandbox, approval, command,
+ * network, or resource policy"). Purely advisory: complexity/reasoning/
+ * agent-class only, reusing the exact same
+ * classifyWorkComplexity/recommendAgentClass functions the WU39
+ * decision owner already exports -- no second decision owner, no new
+ * classification logic. `AutonomousCandidate` has no scope/
+ * suggestedFiles/dependencies/validationCommands (unlike a WorkUnit), so
+ * only objective/acceptanceCriteria and the already-computed
+ * `riskClass` feed the classification; a full `ExecutionGuidance` object
+ * (context manifest, continuation, validation tiers) does not apply to
+ * an issue-shaped candidate and is deliberately not forced here.
+ */
+export interface CandidateExecutionGuidanceSummary {
+  complexity: WorkComplexity;
+  confidence: RecommendationConfidence;
+  reasoningEffort: ReasoningEffort;
+  recommendedClass: AgentClass;
+}
+
+function buildCandidateExecutionGuidanceSummary(candidate: AutonomousCandidate, riskClass: AutonomousSafetyAssessment["riskClass"]): CandidateExecutionGuidanceSummary {
+  const complexity = classifyWorkComplexity({
+    objective: candidate.objective,
+    scope: [],
+    outOfScope: [],
+    acceptanceCriteria: candidate.acceptanceCriteria,
+    suggestedFiles: [],
+    dependencies: [],
+    autonomousRiskClass: riskClass,
+  });
+  const { recommendedClass, reasoningEffort } = recommendAgentClass(complexity.value);
+  return { complexity: complexity.value, confidence: complexity.confidence, reasoningEffort, recommendedClass };
+}
+
+/**
  * A stable, JSON-serializable summary of an intake result -- the "dry-
  * run classification output" the build spec names. Never includes a
  * recommendation to proceed past classification; that decision belongs
- * to a future Work Unit's approval-gate wiring, not this one.
+ * to a future Work Unit's approval-gate wiring, not this one. The
+ * `executionGuidance` field is advisory-only and never influences
+ * `riskClass`/`canProceedWithoutApproval`/`requiresApproval`/
+ * `alwaysBlocked` -- those are computed exactly as before, from
+ * `classifyCandidate`'s own safety assessment alone.
  */
 export interface DryRunClassificationReport {
   issueId: string | null;
@@ -85,6 +127,7 @@ export interface DryRunClassificationReport {
   requiresApproval: boolean | null;
   alwaysBlocked: boolean | null;
   reason: string;
+  executionGuidance: CandidateExecutionGuidanceSummary | null;
 }
 
 export function buildDryRunClassificationReport(result: IntakeCandidateResult): DryRunClassificationReport {
@@ -96,6 +139,7 @@ export function buildDryRunClassificationReport(result: IntakeCandidateResult): 
       requiresApproval: null,
       alwaysBlocked: null,
       reason: `Candidate rejected at intake: ${result.issues.join("; ")}`,
+      executionGuidance: null,
     };
   }
   const { riskClass, reason } = result.safetyAssessment;
@@ -108,5 +152,6 @@ export function buildDryRunClassificationReport(result: IntakeCandidateResult): 
     requiresApproval: needsApproval,
     alwaysBlocked,
     reason,
+    executionGuidance: buildCandidateExecutionGuidanceSummary(result.candidate, riskClass),
   };
 }

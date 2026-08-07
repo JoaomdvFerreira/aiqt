@@ -147,6 +147,25 @@ export function renderDriverPrompt(input: DriverPromptInput): string {
   lines.push("- Continue until aiqt review and aiqt export report the project is complete.");
   lines.push("");
 
+  // M39 §9 ("Prompt/autonomous integration"): static operating-discipline
+  // text only -- no classification/recommendation logic lives here. The
+  // real, per-Work-Unit Execution Guidance is computed once by the single
+  // shared decision owner (src/workflow/execution-guidance.ts) and printed
+  // by `aiqt next` itself (M39-WU-HF01); this section only tells the agent
+  // to follow that already-rendered block rather than re-deriving its own
+  // judgment about context breadth or validation depth.
+  lines.push("Execution guidance discipline:");
+  lines.push(
+    "Running aiqt next prints an Execution Guidance block for the selected work unit (complexity, reasoning effort, agent class, context priorities, validation tiers, subagent policy). Follow it rather than re-deriving your own judgment.",
+  );
+  lines.push(
+    "Start from the block's must-read/should-read context; expand beyond it only when evidence in the repository shows that context was insufficient, not as a default habit.",
+  );
+  lines.push(
+    "Follow the block's validation guidance for this work unit (ordinarily static + focused). Do not default to running the full test suite after every work unit; broad/full validation is expected at milestone/release closure, or when the block itself records an explicit reason.",
+  );
+  lines.push("");
+
   lines.push("Optional human-review path:");
   lines.push(
     "Save generated JSON under .aiqt/inputs/ and use aiqt import <type> --from-file <path> instead of --stdin when a human wants to inspect the JSON first.",

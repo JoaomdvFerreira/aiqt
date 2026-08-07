@@ -131,4 +131,36 @@ describe("buildDryRunClassificationReport (M36-WU02)", () => {
     expect(report.canProceedWithoutApproval).toBeNull();
     expect(report.reason).toContain("issueId: too short");
   });
+
+  it("M39-HF02: a successful intake carries an advisory executionGuidance summary that never affects the approval/risk decision", () => {
+    const report = buildDryRunClassificationReport({
+      ok: true,
+      candidate: { issueId: "ISSUE-4", source: "issue", repository: "r", baseRef: "HEAD", objective: "Fix a typo", acceptanceCriteria: ["typo fixed"], constraints: [], requestedPermissions: [] },
+      preflight: { isGitRepository: true, repositoryDirty: false, baseRefResolvable: true, resolvedBaseCommit: "abc" },
+      safetyAssessment: { riskClass: "low_risk_autonomous", prohibitedAreas: [], requiredApprovals: [], commandPolicyProfile: "standard", networkPolicy: "denied", reason: "clean" },
+    });
+    expect(report.executionGuidance).not.toBeNull();
+    expect(report.executionGuidance?.complexity).toBeDefined();
+    expect(report.executionGuidance?.reasoningEffort).toBeDefined();
+    expect(report.executionGuidance?.recommendedClass).toBeDefined();
+    // Advisory only -- the safety/approval fields are unaffected by its presence.
+    expect(report.canProceedWithoutApproval).toBe(true);
+  });
+
+  it("M39-HF02: executionGuidance is null for a rejected (ok: false) intake, matching the other advisory-null fields", () => {
+    const report = buildDryRunClassificationReport({ ok: false, reason: "invalid_candidate_shape", issues: ["issueId: too short"] });
+    expect(report.executionGuidance).toBeNull();
+  });
+
+  it("M39-HF02: an always-blocked risk class strengthens the advisory complexity/reasoning without changing alwaysBlocked", () => {
+    const report = buildDryRunClassificationReport({
+      ok: true,
+      candidate: { issueId: "ISSUE-5", source: "issue", repository: "r", baseRef: "HEAD", objective: "x", acceptanceCriteria: ["y"], constraints: [], requestedPermissions: [] },
+      preflight: { isGitRepository: true, repositoryDirty: false, baseRefResolvable: true, resolvedBaseCommit: "abc" },
+      safetyAssessment: { riskClass: "high_risk_prohibited", prohibitedAreas: ["secrets"], requiredApprovals: [], commandPolicyProfile: "none", networkPolicy: "denied", reason: "touches secrets" },
+    });
+    expect(report.executionGuidance?.complexity).toBe("architectural");
+    expect(report.executionGuidance?.reasoningEffort).toBe("high");
+    expect(report.alwaysBlocked).toBe(true);
+  });
 });
