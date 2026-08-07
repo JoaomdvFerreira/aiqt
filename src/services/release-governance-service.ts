@@ -6,12 +6,18 @@ import { readStateModel } from "../state/workflow-state-store.js";
 import { buildReleaseCandidate, type ReleaseIntentInput, type ReleaseIntentMilestoneInput } from "../workflow/release-candidate.js";
 import { buildReleaseProvenance, type ReleaseProvenanceFacts } from "../workflow/release-provenance.js";
 import { assessReleaseReadiness, type ReleaseReadinessFacts } from "../workflow/release-readiness.js";
+import { assessReleaseRisk, UNKNOWN_RELEASE_RISK_SIGNALS, type ReleaseRiskSignals } from "../workflow/release-risk.js";
+import { buildInitialApprovalEvidence } from "../workflow/release-approval.js";
+import { NOT_CREATED_DRAFT_STATE } from "../schema/release-governance.schema.js";
 import type {
+  ReleaseApprovalEvidence,
   ReleaseBlockingFinding,
   ReleaseCandidate,
+  ReleaseDecision,
   ReleaseEvidenceStatus,
   ReleaseProvenance,
   ReleaseReadinessAssessment,
+  ReleaseRiskAssessment,
 } from "../schema/release-governance.schema.js";
 
 /**
@@ -48,6 +54,7 @@ export interface ReleaseIntentRequest {
   approvalAuthorityDecision?: string | null;
   declaredNotApplicable?: string[];
   declaredPresent?: string[];
+  riskSignals?: ReleaseRiskSignals;
 }
 
 export type ReleaseCandidateAssemblyResult =
@@ -127,20 +134,12 @@ function tagAlreadyExists(cwd: string, tag: string): boolean {
   return resolveRefSafely(cwd, `refs/tags/${tag}`) !== null;
 }
 
-export function assessReleaseCandidate(request: ReleaseIntentRequest): ReleaseAssessmentOutcome {
+type AssessmentCoreResult = { ok: true; core: ReleaseAssessment } | { ok: false; blockingFindings: ReleaseBlockingFinding[] };
+
+function buildAssessmentCore(request: ReleaseIntentRequest, facts: ReleaseProvenanceFacts): AssessmentCoreResult {
   const assembly = assembleReleaseCandidate(request);
   if (!assembly.ok) return { ok: false, blockingFindings: assembly.blockingFindings };
 
-  const facts: ReleaseProvenanceFacts = {
-    ciCommit: request.ciCommit ?? null,
-    ciRunIdentity: request.ciRunIdentity ?? null,
-    ciStatus: request.ciStatus ?? "missing",
-    validationEvidenceDigest: request.validationEvidenceDigest ?? null,
-    securityEvidenceStatus: request.securityEvidenceStatus ?? "missing",
-    releaseNotesDigest: request.releaseNotesDigest ?? null,
-    riskAssessmentVersion: request.riskAssessmentVersion ?? null,
-    approvalAuthorityDecision: request.approvalAuthorityDecision ?? null,
-  };
   const provenance = buildReleaseProvenance(assembly.candidate, facts);
 
   const readinessFacts: ReleaseReadinessFacts = {
@@ -150,5 +149,63 @@ export function assessReleaseCandidate(request: ReleaseIntentRequest): ReleaseAs
   };
   const readiness = assessReleaseReadiness(assembly.candidate, provenance, readinessFacts);
 
-  return { ok: true, assessment: { candidate: assembly.candidate, provenance, readiness } };
+  return { ok: true, core: { candidate: assembly.candidate, provenance, readiness } };
+}
+
+function provenanceFactsFromRequest(request: ReleaseIntentRequest, overrides: Partial<ReleaseProvenanceFacts> = {}): ReleaseProvenanceFacts {
+  return {
+    ciCommit: request.ciCommit ?? null,
+    ciRunIdentity: request.ciRunIdentity ?? null,
+    ciStatus: request.ciStatus ?? "missing",
+    validationEvidenceDigest: request.validationEvidenceDigest ?? null,
+    securityEvidenceStatus: request.securityEvidenceStatus ?? "missing",
+    releaseNotesDigest: request.releaseNotesDigest ?? null,
+    riskAssessmentVersion: request.riskAssessmentVersion ?? null,
+    approvalAuthorityDecision: request.approvalAuthorityDecision ?? null,
+    ...overrides,
+  };
+}
+
+export function assessReleaseCandidate(request: ReleaseIntentRequest): ReleaseAssessmentOutcome {
+  const result = buildAssessmentCore(request, provenanceFactsFromRequest(request));
+  if (!result.ok) return { ok: false, blockingFindings: result.blockingFindings };
+  return { ok: true, assessment: result.core };
+}
+
+export type ReleaseDecisionOutcome = { ok: true; decision: ReleaseDecision } | { ok: false; blockingFindings: ReleaseBlockingFinding[] };
+
+/**
+ * Full decision envelope (build spec Sec 5.7, 7): candidate + provenance +
+ * readiness + risk + approval-authority + draft state, all derived from the
+ * same evidence snapshot. `risk.requiredApprovalAuthority` is folded back
+ * into the provenance digest's `approvalAuthorityDecision` field so the
+ * digest reflects the actual decision made, not a caller guess.
+ */
+export function assessReleaseDecision(request: ReleaseIntentRequest): ReleaseDecisionOutcome {
+  const signals = request.riskSignals ?? UNKNOWN_RELEASE_RISK_SIGNALS;
+
+  const provisional = buildAssessmentCore(request, provenanceFactsFromRequest(request));
+  if (!provisional.ok) return { ok: false, blockingFindings: provisional.blockingFindings };
+
+  const risk: ReleaseRiskAssessment = assessReleaseRisk(provisional.core.candidate, provisional.core.provenance, provisional.core.readiness, signals);
+
+  const finalResult = buildAssessmentCore(
+    request,
+    provenanceFactsFromRequest(request, { riskAssessmentVersion: risk.assessmentVersion, approvalAuthorityDecision: risk.requiredApprovalAuthority }),
+  );
+  if (!finalResult.ok) return { ok: false, blockingFindings: finalResult.blockingFindings };
+
+  const approval: ReleaseApprovalEvidence = buildInitialApprovalEvidence(risk);
+
+  return {
+    ok: true,
+    decision: {
+      candidate: finalResult.core.candidate,
+      provenance: finalResult.core.provenance,
+      readiness: finalResult.core.readiness,
+      risk,
+      approval,
+      draft: NOT_CREATED_DRAFT_STATE,
+    },
+  };
 }

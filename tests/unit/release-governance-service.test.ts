@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { execFileSync } from "node:child_process";
 import { makeTempDir, removeDir, initGitFixtureRepo } from "../helpers.js";
-import { assembleReleaseCandidate, assessReleaseCandidate, type ReleaseIntentRequest } from "../../src/services/release-governance-service.js";
+import { assembleReleaseCandidate, assessReleaseCandidate, assessReleaseDecision, type ReleaseIntentRequest } from "../../src/services/release-governance-service.js";
+import type { ReleaseRiskSignals } from "../../src/workflow/release-risk.js";
 
 /**
  * M40-WU01: real-Git integration coverage for the orchestration layer --
@@ -104,5 +105,70 @@ describe("release-governance-service: real Git resolution", () => {
     expect(outcome.ok).toBe(false);
     if (outcome.ok) return;
     expect(outcome.blockingFindings.some((f) => f.id === "RELEASE-IDENTITY-MISSING-REPOSITORY")).toBe(true);
+  });
+});
+
+describe("release-governance-service: assessReleaseDecision (WU40-02) folds risk/approval into the same evidence snapshot", () => {
+  let dir: string;
+  let headCommit: string;
+
+  beforeEach(() => {
+    dir = makeTempDir("aiqt-release-decision-");
+    headCommit = initGitFixtureRepo(dir);
+    execFileSync("git", ["tag", "m1-done"], { cwd: dir });
+  });
+
+  afterEach(() => {
+    removeDir(dir);
+  });
+
+  const bestSignals: ReleaseRiskSignals = {
+    regressionExposureLevel: "low",
+    blastRadiusLevel: "low",
+    testConfidenceLevel: "high",
+    operationalComplexityLevel: "low",
+    breakingChangesDeclared: false,
+    migrationDeclared: false,
+    rollbackDeclared: true,
+    dogfoodMaturityLevel: "proven",
+    knownLimitationsDeclared: true,
+  };
+
+  it("a low-risk decision reports agent approval permitted and a not_created draft state", () => {
+    const outcome = assessReleaseDecision({
+      cwd: dir,
+      repositoryIdentity: "example/widget",
+      packageVersion: "1.0.0",
+      intendedReleaseTag: "v1.0.0",
+      milestones: [{ milestoneId: "m1", tag: "m1-done", closureCommit: headCommit }],
+      ciCommit: headCommit,
+      ciStatus: "verified",
+      validationEvidenceDigest: "sha256:aaaa",
+      securityEvidenceStatus: "verified",
+      declaredPresent: ["breakingChanges", "migration", "rollback", "knownLimitations", "releaseNotes"],
+      riskSignals: bestSignals,
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.decision.risk?.status).toBe("green");
+    expect(outcome.decision.approval?.authority).toBe("agent_approval_permitted");
+    expect(outcome.decision.approval?.humanApprovedBy).toBeNull();
+    expect(outcome.decision.draft.status).toBe("not_created");
+    expect(outcome.decision.provenance.approvalAuthorityDecision).toBe("agent_approval_permitted");
+  });
+
+  it("omitting risk signals falls back to the maximally-conservative unknown defaults, never a fabricated low score", () => {
+    const outcome = assessReleaseDecision({
+      cwd: dir,
+      repositoryIdentity: "example/widget",
+      packageVersion: "1.0.0",
+      intendedReleaseTag: "v1.0.0",
+      milestones: [{ milestoneId: "m1", tag: "m1-done", closureCommit: headCommit }],
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.decision.risk).not.toBeNull();
+    expect(outcome.decision.risk?.status).not.toBe("green");
+    expect(outcome.decision.approval?.authority).not.toBe("agent_approval_permitted");
   });
 });
