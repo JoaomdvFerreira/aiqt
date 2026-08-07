@@ -3,8 +3,8 @@
  * surface in this repository. Exactly three fixed operations against
  * literal, encoded-parameter path templates -- there is no generic
  * "call any URL"/"call any method" escape hatch, mirroring the
- * git-command-runner.ts/sandbox-docker-command-runner.ts discipline of
- * one reviewed call site per allowlisted operation. `draft: true` is
+ * git-command-runner.ts's discipline of one reviewed call site per
+ * allowlisted operation. `draft: true` is
  * hardcoded in createReleaseDraft's request body -- no code path in this
  * file, or anywhere else in the repository, can ever request a published
  * release. No retry loop: each operation makes exactly one HTTP request.

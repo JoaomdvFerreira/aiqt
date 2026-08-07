@@ -124,6 +124,11 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   { pattern: /^m34-validation-workload-inventory|^m35-test-inventory-classification/, domain: "validation-infrastructure", criticality: "Critical" },
   { pattern: /^autonomous-/, domain: "autonomous-run-safety", criticality: "Critical" },
   { pattern: /^sandbox-/, domain: "sandbox-execution-safety", criticality: "Critical" },
+  // M40-WU05: release candidate/provenance/risk/readiness/CLI/draft --
+  // boundary-scan files already match the earlier /boundary-scan/ rule
+  // above and the dogfood suite already matches /dogfood/ below; this
+  // covers the remaining release-*.test.ts unit/integration coverage.
+  { pattern: /^release-/, domain: "release-governance", criticality: "Critical" },
   { pattern: /dogfood/, domain: "self-consistency", criticality: "Normal" },
 ];
 

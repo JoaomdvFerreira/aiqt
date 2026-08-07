@@ -1,7 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { execFileSync } from "node:child_process";
 import { writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+
+// M34-WU02: this file spawns real subprocesses (git, via initGitFixtureRepo).
+// Uses the shared class constant, not a locally hardcoded literal.
+vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 import { makeTempDir, removeDir, initGitFixtureRepo, contextFor } from "../helpers.js";
 import { runReleaseDraft } from "../../src/cli/commands/release-draft.command.js";
 import { checkDraftPrerequisites, parseOwnerRepo, missingGithubTokenActions } from "../../src/workflow/release-draft-policy.js";

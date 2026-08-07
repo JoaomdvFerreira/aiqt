@@ -43,7 +43,13 @@ describe("aiqt autonomous CLI registration (M37-WU01)", () => {
 
   it("no raw-output bypass: every autonomous subcommand's action routes its result through the shared emit() helper, not a direct process.stdout.write of an unwrapped payload", () => {
     const text = readFileSync(join(process.cwd(), "src", "cli", "register-commands.ts"), "utf8");
-    const autonomousSectionMatch = text.match(/const autonomousCommand[\s\S]*?return program;/);
+    // M40-WU03 added a `releaseCommand` registration section after
+    // `autonomousCommand` and before `return program;` -- stop the
+    // (lazy) match at whichever comes first so this section never
+    // absorbs a later, unrelated command family's own legitimate
+    // process.stdout.write (e.g. `aiqt release notes`'s specialized
+    // human-mode renderer).
+    const autonomousSectionMatch = text.match(/const autonomousCommand[\s\S]*?(?=\n {2}const releaseCommand|\n {2}return program;)/);
     expect(autonomousSectionMatch, "could not locate the autonomous command registration section").not.toBeNull();
     const section = autonomousSectionMatch![0];
     // Every .action(...) block in this section ends with an emit(result, ctx.json) call, and none of
