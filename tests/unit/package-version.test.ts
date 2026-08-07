@@ -15,7 +15,7 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.32.3 (M38-WU04 fix: capture real changed-files evidence before cleanup destroys the container)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.32.3");
+  it("is the current released version 0.32.4 (README visual revamp + version-check docs-path fix)", () => {
+    expect(AIQT_PACKAGE_VERSION).toBe("0.32.4");
   });
 });
