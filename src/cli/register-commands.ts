@@ -70,6 +70,7 @@ import {
   type RawReleaseDraftOptions,
   type RawValidationSelectOptions,
   type RawValidationExplainOptions,
+  type RawDefectsDiscoverOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -140,6 +141,7 @@ import { runEvidenceGateExceptionCreate } from "./commands/evidence-gate-excepti
 import { runEvidenceGateExceptionRevoke } from "./commands/evidence-gate-exception-revoke.command.js";
 import { runEvidenceGateExceptionList } from "./commands/evidence-gate-exception-list.command.js";
 import { runEvidenceGateEnforcementStatus } from "./commands/evidence-gate-enforcement-status.command.js";
+import { runDefectsDiscover } from "./commands/defects-discover.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
 import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
@@ -1160,6 +1162,33 @@ export function buildProgram(): Command {
     .action((raw: { json?: boolean }) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runEvidenceGateExceptionList(ctx);
+      emit(result, ctx.json);
+    });
+
+  const defectsCommand = program
+    .command("defects")
+    .description("Defect discovery, triage, and remediation queue (M42): bounded evidence -> deterministic defect -> resumable queue");
+
+  defectsCommand
+    .command("discover")
+    .description("Bounded discovery from failed validation/checkpoint-issue evidence (plus one optional explicit human report); deterministic dedup by fingerprint")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--work-unit <id>", "bound discovery to one Work Unit's checkpoints")
+    .option("--human-title <text>", "title of an explicit human-reported defect candidate")
+    .option("--human-summary <text>", "summary of the human-reported defect candidate")
+    .option("--human-evidence <locator>", "bounded evidence locator for the human-reported defect candidate")
+    .option("--human-severity <severity>", "critical | high | medium | low | info (default: medium)")
+    .option("--preview", "report what discovery would do without persisting", false)
+    .action(async (raw: RawDefectsDiscoverOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runDefectsDiscover(ctx, {
+        workUnitId: raw.workUnit,
+        humanTitle: raw.humanTitle,
+        humanSummary: raw.humanSummary,
+        humanEvidence: raw.humanEvidence,
+        humanSeverity: raw.humanSeverity,
+        preview: Boolean(raw.preview),
+      });
       emit(result, ctx.json);
     });
 

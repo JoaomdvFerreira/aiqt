@@ -1749,6 +1749,57 @@ export function buildExceptionRevokedEvent(input: {
   };
 }
 
+export interface DefectCandidateDiscoveredEventData {
+  defectId: string;
+  sourceKind: string;
+  fingerprint: string;
+  outcome: "created" | "enriched";
+}
+
+export function buildDefectCandidateDiscoveredEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: DefectCandidateDiscoveredEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "defect.candidate_discovered",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary:
+      input.data.outcome === "created"
+        ? `Discovered defect candidate ${input.data.defectId} from ${input.data.sourceKind}`
+        : `Linked new evidence to existing defect ${input.data.defectId} from ${input.data.sourceKind}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface DefectStatusChangedEventData {
+  defectId: string;
+  fromStatus: string;
+  toStatus: string;
+  reason?: string;
+}
+
+export function buildDefectStatusChangedEvent(input: {
+  id: string;
+  timestamp: string;
+  relatedIds: string[];
+  data: DefectStatusChangedEventData;
+}): RunlogEvent {
+  return {
+    id: input.id,
+    type: "defect.status_changed",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Defect ${input.data.defectId}: ${input.data.fromStatus} -> ${input.data.toStatus}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 export function runlogHealthWarning(health: RunlogHealth): Issue | null {
   if (health.malformedLines === 0) return null;
   return {

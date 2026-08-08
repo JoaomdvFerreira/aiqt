@@ -530,3 +530,17 @@ export interface RawValidationExplainOptions {
   json?: boolean;
   workUnit?: string;
 }
+
+// ---------------------------------------------------------------------------
+// M42-WU02: aiqt defects discover (bounded discovery/dedup/freshness CLI surface).
+// ---------------------------------------------------------------------------
+
+export interface RawDefectsDiscoverOptions {
+  json?: boolean;
+  workUnit?: string;
+  humanTitle?: string;
+  humanSummary?: string;
+  humanEvidence?: string;
+  humanSeverity?: string;
+  preview?: boolean;
+}
