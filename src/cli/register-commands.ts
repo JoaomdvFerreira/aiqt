@@ -62,6 +62,12 @@ import {
   type RawAutonomousResultOptions,
   type RawAutonomousCleanupOptions,
   type RawAutonomousAgentImportOptions,
+  type RawReleaseAssessOptions,
+  type RawReleaseValidateOptions,
+  type RawReleaseNotesOptions,
+  type RawReleasePrepareOptions,
+  type RawReleaseStatusOptions,
+  type RawReleaseDraftOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -145,6 +151,12 @@ import { runAutonomousCancel } from "./commands/autonomous-cancel.command.js";
 import { runAutonomousResult } from "./commands/autonomous-result.command.js";
 import { runAutonomousCleanup } from "./commands/autonomous-cleanup.command.js";
 import { runAutonomousAgentImport } from "./commands/autonomous-agent-import.command.js";
+import { runReleaseAssess } from "./commands/release-assess.command.js";
+import { runReleaseValidate } from "./commands/release-validate.command.js";
+import { runReleaseNotes } from "./commands/release-notes.command.js";
+import { runReleasePrepare } from "./commands/release-prepare.command.js";
+import { runReleaseStatus } from "./commands/release-status.command.js";
+import { runReleaseDraft } from "./commands/release-draft.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman, renderResultFooter } from "../core/output/human-output.js";
@@ -1611,6 +1623,100 @@ export function buildProgram(): Command {
     .action(async (raw: RawAutonomousAgentImportOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = await runAutonomousAgentImport(ctx, { run: raw.run, fromFile: raw.fromFile, stdin: Boolean(raw.stdin), configPath: raw.config, evidenceDir: raw.evidenceDir, live: Boolean(raw.live) });
+      emit(result, ctx.json);
+    });
+
+  // ---------------------------------------------------------------------
+  // M40-WU03: aiqt release ... (release governance CLI surface). No
+  // command below ever creates or publishes a GitHub Release (WU40-04
+  // scope) -- assess/validate are read-only, notes is pure rendering,
+  // prepare/status only ever touch bounded local evidence.
+  // ---------------------------------------------------------------------
+  const releaseCommand = program
+    .command("release")
+    .description("Assess, validate, render notes for, and locally prepare a release candidate (M40) -- never publishes a GitHub Release");
+
+  releaseCommand
+    .command("assess")
+    .description("Read-only evidence/risk assessment for a release candidate")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "load the release candidate input JSON from a file")
+    .option("--stdin", "read the release candidate input JSON from standard input", false)
+    .action(async (raw: RawReleaseAssessOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runReleaseAssess(ctx, { fromFile: raw.fromFile, stdin: Boolean(raw.stdin) });
+      emit(result, ctx.json);
+    });
+
+  releaseCommand
+    .command("validate")
+    .description("Read-only readiness/provenance gate for a release candidate (no risk scoring)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "load the release candidate input JSON from a file")
+    .option("--stdin", "read the release candidate input JSON from standard input", false)
+    .action(async (raw: RawReleaseValidateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runReleaseValidate(ctx, { fromFile: raw.fromFile, stdin: Boolean(raw.stdin) });
+      emit(result, ctx.json);
+    });
+
+  releaseCommand
+    .command("notes")
+    .description("Render deterministic release notes (risk/readiness/approval shown near the top) for a release candidate")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "load the release candidate input JSON from a file")
+    .option("--stdin", "read the release candidate input JSON from standard input", false)
+    .action(async (raw: RawReleaseNotesOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runReleaseNotes(ctx, { fromFile: raw.fromFile, stdin: Boolean(raw.stdin) });
+
+      if (!ctx.json && result.exitCode !== undefined) {
+        const data = result.data as { notes?: string } | undefined;
+        if (typeof data?.notes === "string") {
+          process.stdout.write(data.notes + renderResultFooter(result) + "\n");
+          process.exitCode = result.exitCode;
+          return;
+        }
+      }
+
+      emit(result, ctx.json);
+    });
+
+  releaseCommand
+    .command("prepare")
+    .description("Produce bounded local release evidence/notes for a release candidate -- never publishes or contacts GitHub")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "load the release candidate input JSON from a file")
+    .option("--stdin", "read the release candidate input JSON from standard input", false)
+    .option("--evidence-dir <path>", "override the local release-evidence output directory (defaults to ./.aiqt-release)")
+    .action(async (raw: RawReleasePrepareOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runReleasePrepare(ctx, { fromFile: raw.fromFile, stdin: Boolean(raw.stdin), evidenceDir: raw.evidenceDir });
+      emit(result, ctx.json);
+    });
+
+  releaseCommand
+    .command("status")
+    .description("Read current candidate/draft readiness from locally-prepared release evidence, without mutation")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--candidate <candidateId>", "report only this candidate (omit to list all locally-prepared candidate ids)")
+    .option("--evidence-dir <path>", "override the local release-evidence output directory (defaults to ./.aiqt-release)")
+    .action((raw: RawReleaseStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runReleaseStatus(ctx, { candidate: raw.candidate, evidenceDir: raw.evidenceDir });
+      emit(result, ctx.json);
+    });
+
+  releaseCommand
+    .command("draft")
+    .description("Create a GitHub release DRAFT for an integrity-checked candidate -- never publishes (M40-WU04)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--from-file <path>", "load the release candidate input JSON from a file")
+    .option("--stdin", "read the release candidate input JSON from standard input", false)
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token (defaults to GITHUB_TOKEN)")
+    .action(async (raw: RawReleaseDraftOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runReleaseDraft(ctx, { fromFile: raw.fromFile, stdin: Boolean(raw.stdin), tokenEnv: raw.tokenEnv });
       emit(result, ctx.json);
     });
 

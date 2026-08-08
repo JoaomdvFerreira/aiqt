@@ -82,10 +82,13 @@ function hasCliSpawn(text: string): boolean {
  * 3 more M36-WU04 added, the 1 more M36-WU05 added, the 1 more M37-WU01
  * added, the 1 more M37-WU03 added, the 1 more M37-WU04 added, the
  * 1 more M37-WU05 added, the 1 more M38-WU02 added, the 1 more
- * M38-WU04 added, and the 1 more M38-WU05 added (49 total). A
- * file added to or removed from this set must be a deliberate, reviewed
- * change to the policy document -- this test does not silently absorb a new
- * spawning file into "already accounted for".
+ * M38-WU04 added, the 1 more M38-WU05 added (49 total), and the 4 more
+ * M40-WU05 added (53 total: 3 release-governance files reclassified
+ * from tests/unit/ to tests/integration/ once found to spawn git
+ * transitively via initGitFixtureRepo, plus the new M40 dogfood suite).
+ * A file added to or removed from this set must be a deliberate,
+ * reviewed change to the policy document -- this test does not silently
+ * absorb a new spawning file into "already accounted for".
  */
 const KNOWN_SPAWNING_FILES = [
   // Git/worktree integration (7) -- +2 in M36-WU02: both call only the
@@ -185,6 +188,14 @@ const KNOWN_SPAWNING_FILES = [
   // access, process/CPU/memory/disk limits, orphan process, nested
   // cancellation), self-skipping when Docker is unavailable.
   "tests/integration/sandbox-escape-testing.test.ts",
+  // M40-WU05 (+4): the release-governance CLI/service integration suites
+  // (reclassified from tests/unit/ during WU40-05 integrated review,
+  // once found to spawn git transitively via initGitFixtureRepo) plus
+  // the release-decision dogfood suite (same transitive Git spawn).
+  "tests/integration/m40-release-governance-dogfood.test.ts",
+  "tests/integration/release-cli.test.ts",
+  "tests/integration/release-draft.test.ts",
+  "tests/integration/release-governance-service.test.ts",
 ].sort();
 
 /**

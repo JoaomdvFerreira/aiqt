@@ -474,3 +474,45 @@ export interface RawAutonomousAgentImportOptions {
   evidenceDir?: string;
   live?: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// M40-WU03: aiqt release ... (release governance CLI surface).
+// ---------------------------------------------------------------------------
+
+export interface RawReleaseAssessOptions {
+  json?: boolean;
+  fromFile?: string;
+  stdin?: boolean;
+}
+
+export interface RawReleaseValidateOptions {
+  json?: boolean;
+  fromFile?: string;
+  stdin?: boolean;
+}
+
+export interface RawReleaseNotesOptions {
+  json?: boolean;
+  fromFile?: string;
+  stdin?: boolean;
+}
+
+export interface RawReleasePrepareOptions {
+  json?: boolean;
+  fromFile?: string;
+  stdin?: boolean;
+  evidenceDir?: string;
+}
+
+export interface RawReleaseStatusOptions {
+  json?: boolean;
+  candidate?: string;
+  evidenceDir?: string;
+}
+
+export interface RawReleaseDraftOptions {
+  json?: boolean;
+  fromFile?: string;
+  stdin?: boolean;
+  tokenEnv?: string;
+}

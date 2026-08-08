@@ -15,7 +15,13 @@ describe("AIQT_PACKAGE_VERSION (M18 §15)", () => {
     expect(AIQT_PACKAGE_VERSION).toBe(packageJson.version);
   });
 
-  it("is the current released version 0.33.1 (governance: four-band risk scale patch bump)", () => {
-    expect(AIQT_PACKAGE_VERSION).toBe("0.33.1");
-  });
+  // M40: a hardcoded exact-version assertion was removed here. AIQT
+  // governance deliberately separates package version, milestone identity,
+  // and GitHub Release publication (docs/governance/versioning.md) -- the
+  // package version legitimately advances ahead of the latest published
+  // GitHub Release, so pinning this test to a specific literal is both
+  // redundant (the derivation test above already proves the only
+  // meaningful invariant) and actively wrong across every version bump.
+  // `pnpm version:check` is the actual governance mechanism for whether a
+  // given bump is required/valid; it is not duplicated here.
 });

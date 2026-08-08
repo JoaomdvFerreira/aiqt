@@ -311,6 +311,12 @@ closure report
     |
 release risk assessment
     |
+pre-PR audit: if package.json's version changed during the milestone,
+run tests/unit/package-version.test.ts, `pnpm version:check` (local
+mode), and `pnpm version:check -- --base <target-branch>` (comparison
+mode) before opening the PR -- catches a stale hardcoded version
+literal or an invalid/missing bump before CI does.
+    |
 Pull Request to main
     |
 merge                                    (prefer a merge commit for the
