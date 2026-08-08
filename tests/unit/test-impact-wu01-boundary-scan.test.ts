@@ -39,8 +39,8 @@ describe("M41-WU01 boundary scan: test-impact contract/inventory files are pure,
     expect(text).toMatch(/from\s+["']\.\.\/tooling\/test-inventory-classifier\.js["']/);
   });
 
-  it("no CLI command file references the test-impact contract yet (no public surface exists before WU41-03)", () => {
+  it("register-commands.ts never imports the WU01 contract/inventory modules directly (only via the WU03 CLI command files)", () => {
     const registerText = readFileSync(join(repoRoot, "src/cli/register-commands.ts"), "utf8");
-    expect(registerText).not.toMatch(/test-impact|test-inventory\.js/);
+    expect(registerText).not.toMatch(/from\s+["'].*test-inventory\.js["']|from\s+["'].*test-impact-input\.js["']/);
   });
 });

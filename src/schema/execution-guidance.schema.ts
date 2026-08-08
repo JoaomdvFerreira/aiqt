@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { TestImpactSelection } from "./test-impact.schema.js";
 
 /**
  * M39-WU01 (build spec Sec 4): the shared, provider-neutral Execution
@@ -77,6 +78,8 @@ export interface ExecutionGuidanceValidation {
   deferred: ValidationStep[];
   fullSuiteRequiredAt: FullSuiteRequiredAt;
   reasons: string[];
+  /** M41-WU03: the shared test-impact selection for this Work Unit, or null when no test-impact input was supplied (callers not yet wired, or milestone closure -- which always requires full regardless of selection). */
+  testImpact: TestImpactSelection | null;
 }
 
 export interface ExecutionGuidanceOutput {

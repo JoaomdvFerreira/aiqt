@@ -3,6 +3,8 @@ import { RISK_CLASSES_REQUIRING_APPROVAL, RISK_CLASSES_ALWAYS_BLOCKED } from "..
 import { buildContextManifest, type ContextManifestInput } from "./execution-context-manifest.js";
 import { buildContinuationCapsule, type BuildContinuationCapsuleInput } from "./execution-continuation.js";
 import { classifyValidationCommands } from "./execution-validation-classifier.js";
+import { selectTestImpact } from "./test-impact-selection.js";
+import type { TestImpactInput, TestImpactSelection } from "../schema/test-impact.schema.js";
 import {
   EXECUTION_GUIDANCE_PROTOCOL_VERSION,
   type WorkComplexity,
@@ -228,6 +230,8 @@ export interface ValidationGuidanceInput {
   isMilestoneClosure?: boolean;
   /** This Work Unit's own `validationCommands` (build spec Sec 7, "Existing validation commands"). Omit to keep the WU39-01/02/03 fixed static+focused default unchanged. */
   explicitValidationCommands?: readonly string[];
+  /** M41-WU03: real test-impact selection input. Omit to keep `testImpact: null` (pre-M41 behavior) for callers not yet wired to supply it. */
+  testImpactInput?: TestImpactInput | null;
 }
 
 /**
@@ -258,6 +262,7 @@ export function buildValidationGuidance(input: ValidationGuidanceInput = {}): Ex
       deferred: [],
       fullSuiteRequiredAt: "milestone_closure",
       reasons,
+      testImpact: null,
     };
   }
 
@@ -304,16 +309,48 @@ export function buildValidationGuidance(input: ValidationGuidanceInput = {}): Ex
     ];
   }
 
+  // M41-WU03 (build spec Sec 8): the shared test-impact selection only
+  // ever ADDS a requiredNow step (never removes one already present from
+  // the explicit-command/default logic above) -- broadening, not
+  // narrowing, matching build spec Sec 5.4. Applies to both the
+  // explicit-command and default paths; never reached for milestone
+  // closure (already returned above).
+  let testImpact: TestImpactSelection | null = null;
+  if (input.testImpactInput) {
+    testImpact = selectTestImpact(input.testImpactInput);
+    const requiredTiers = new Set(requiredNow.map((step) => step.tier));
+    if (testImpact.escalation === "full_required" && !requiredTiers.has("full")) {
+      requiredNow.push({
+        tier: "full",
+        reason: `Test-impact evidence requires full validation now: ${testImpact.evidenceGaps.map((g) => g.message).join(" ")}`,
+      });
+      reasons.push(`Test-impact selector escalated to full_required (confidence ${testImpact.confidence}).`);
+    } else if ((testImpact.escalation === "broaden_required" || testImpact.escalation === "insufficient_evidence") && !requiredTiers.has("impacted")) {
+      requiredNow.push({
+        tier: "impacted",
+        reason: `Test-impact evidence is ${testImpact.confidence} confidence (${testImpact.escalation}); broadening rather than silently narrowing: ${testImpact.evidenceGaps
+          .slice(0, 3)
+          .map((g) => g.message)
+          .join(" ")}`,
+      });
+      reasons.push(`Test-impact selector recommended broadening (${testImpact.escalation}, confidence ${testImpact.confidence}).`);
+    }
+    const newRequiredTiers = new Set(requiredNow.map((step) => step.tier));
+    for (let i = deferred.length - 1; i >= 0; i -= 1) {
+      if (newRequiredTiers.has(deferred[i].tier)) deferred.splice(i, 1);
+    }
+  }
+
   if (explicitReason) {
     const fullIndex = deferred.findIndex((step) => step.tier === "full");
     if (fullIndex >= 0) deferred.splice(fullIndex, 1);
     requiredNow.push({ tier: "full", reason: explicitReason });
     reasons.push(`Full-suite-at-Work-Unit exception recorded: ${explicitReason}`);
-    return { requiredNow, deferred, fullSuiteRequiredAt: "work_unit", reasons };
+    return { requiredNow, deferred, fullSuiteRequiredAt: "work_unit", reasons, testImpact };
   }
 
   reasons.push("No explicit full-suite exception recorded; full suite deferred to milestone closure per milestone-protocol.md Sec 4.");
-  return { requiredNow, deferred, fullSuiteRequiredAt: "milestone_closure", reasons };
+  return { requiredNow, deferred, fullSuiteRequiredAt: "milestone_closure", reasons, testImpact };
 }
 
 /** Fixed output policy (build spec Sec 8): never configurable per Work Unit, so this is a constant, not a heuristic. */
@@ -356,6 +393,8 @@ export interface ComposeExecutionGuidanceInput {
   continuationInput?: BuildContinuationCapsuleInput | null;
   /** This Work Unit's own `validationCommands` (WU39-04). Omit to keep the WU39-01/02/03 fixed static+focused default. */
   explicitValidationCommands?: readonly string[];
+  /** Real test-impact selection input (WU41-03). Omit to keep `validation.testImpact: null` for callers not yet wired to supply it. */
+  testImpactInput?: TestImpactInput | null;
 }
 
 /**
@@ -386,6 +425,7 @@ export function composeExecutionGuidance(input: ComposeExecutionGuidanceInput): 
       explicitFullSuiteReason: input.explicitFullSuiteReason,
       isMilestoneClosure: input.isMilestoneClosure,
       explicitValidationCommands: input.explicitValidationCommands,
+      testImpactInput: input.testImpactInput,
     }),
     output: buildOutputPolicy(),
     subagents: buildSubagentGuidance(complexity.value, input.subagentJustification),

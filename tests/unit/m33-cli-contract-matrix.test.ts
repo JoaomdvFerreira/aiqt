@@ -74,9 +74,9 @@ describe("M33-WU05: CLI contract matrix -- every actionable command exposes --js
   });
 });
 
-// 73 actionable (leaf) commands as of M40-WU04 (72 as of M40-WU03, +1 for
-// the M40-WU04 `aiqt release draft` command) -- distinct from the
-// *.command.ts file count (some files export multiple registered
+// 75 actionable (leaf) commands as of M41-WU03 (73 as of M40-WU04, +2 for
+// the M41-WU03 `aiqt validation select|explain` family) -- distinct from
+// the *.command.ts file count (some files export multiple registered
 // commands, e.g. workspace.command.ts covers prepare/status/release/
 // recover).
-const EXPECTED_COMMAND_COUNT = 73;
+const EXPECTED_COMMAND_COUNT = 75;
