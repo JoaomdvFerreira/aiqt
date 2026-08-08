@@ -9,7 +9,7 @@ import {
   buildMaintenanceRunCancelledEvent,
 } from "../state/runlog-store.js";
 import { selectDueSchedule, computeMissedOccurrenceCount, computeNextDueAtAfterEvaluation, computeOccurrenceId } from "../workflow/maintenance-due-engine.js";
-import { runStructuralReviewTask, runDefectDiscoveryTask, type MaintenanceTaskResult } from "../workflow/maintenance-task-handlers.js";
+import { runStructuralReviewTask, runDefectDiscoveryTask, runDefectRemediationTask, type MaintenanceTaskResult } from "../workflow/maintenance-task-handlers.js";
 import type { AiqtPaths } from "../core/filesystem/paths.js";
 import type { StateModel } from "../schema/state.schema.js";
 import type { MaintenanceSchedule, MaintenanceOccurrenceRecord, MaintenanceOccurrenceResultStatus } from "../schema/maintenance-schedule.schema.js";
@@ -149,9 +149,7 @@ export function runDueMaintenanceOccurrence(cwd: string, paths: AiqtPaths, now: 
           ? runStructuralReviewTask({ cwd, state: claimedState, schedule, now, allocateEventId: nextEventId })
           : schedule.taskKind === "defect_discovery"
             ? runDefectDiscoveryTask({ cwd, state: claimedState, schedule, now, allocateEventId: nextEventId })
-            : (() => {
-                throw new Error("defect_remediation dispatch is not yet available");
-              })();
+            : runDefectRemediationTask({ cwd, state: claimedState, schedule, now, allocateEventId: nextEventId });
     } catch (err) {
       // A handler threw (e.g. the repository isn't a Git repo, so
       // structural review can't resolve a commit). The claim must never be

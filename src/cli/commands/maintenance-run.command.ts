@@ -93,6 +93,7 @@ export function runMaintenanceRunDue(ctx: CommandContext): CommandResult {
         changedFiles: [paths.stateFile, paths.runlogFile],
         affectedItems: [outcome.schedule.id],
         exitCode: mapping.exitCode,
+        requiresHumanInput: outcome.result.resultStatus === "needs_input",
         data: {
           outcome: "ran",
           occurrenceId: outcome.occurrenceId,

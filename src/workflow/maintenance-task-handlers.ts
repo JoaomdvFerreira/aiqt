@@ -7,6 +7,10 @@ import { consolidateFindings, suppressKnownBenignFindings } from "./structural-r
 import { discoverFromCheckpoints } from "./defect-discovery.js";
 import { applyDiscoveryCandidates } from "../services/defect-discovery-service.js";
 import { buildDefectCandidateDiscoveredEvent } from "../state/runlog-store.js";
+import { sortByQueuePriority } from "./defect-triage.js";
+import { computeRemediationRisk } from "./remediation-risk.js";
+import { prepareRemediation } from "../services/defect-remediation-service.js";
+import { nextId } from "../state/ids.js";
 
 /**
  * M45-WU03 (build spec Sec 11): typed internal handlers, one per
@@ -119,5 +123,86 @@ export function runDefectDiscoveryTask(ctx: MaintenanceTaskContext): Maintenance
     nextState,
     additionalRunlogEvents,
     data: { created: result.created.map((c) => c.defectId), enriched: result.enriched.map((e) => e.defectId), skippedAtCap: result.skippedAtCap.length },
+  };
+}
+
+const REMEDIATION_ACCEPTANCE_CONTRACT =
+  'Validation evidence must be recorded via "aiqt defects record-validation" before this remediation is considered resolved. Scheduled remediation only prepares the decision -- it never records validation on its own.';
+
+/**
+ * Build spec Sec 5.1/12/WU45-04: selects at most one eligible (`queued`)
+ * defect via M42's own deterministic queue ordering (sortByQueuePriority),
+ * and calls prepareRemediation -- the exact function `aiqt defects
+ * remediate` calls -- with no `approvedBy` (this is an unattended
+ * occurrence). Deliberately does NOT bridge to live M36-M39 sandboxed
+ * execution (see the maintenanceScheduling owner-map entry for the full
+ * reasoning): a schedule may only ever produce the same bounded
+ * external-agent handoff/request M42 already produces, never execute
+ * code. The schedule's own `policy.maxAutomaticRisk` (schema-bounded to
+ * <=49) is checked BEFORE calling prepareRemediation, so it can narrow
+ * the automation window below the global <50 boundary but never widen it
+ * past 50 -- prepareRemediation's own internal >=50 human-approval gate
+ * remains the final, unconditional backstop either way.
+ */
+export function runDefectRemediationTask(ctx: MaintenanceTaskContext): MaintenanceTaskResult {
+  const defects = ctx.state.defects ?? [];
+  const queued = defects.filter((d) => d.status === "queued");
+
+  if (queued.length === 0) {
+    return {
+      resultStatus: "passed",
+      summary: "Defect remediation: no eligible queued defect.",
+      nextState: ctx.state,
+      additionalRunlogEvents: [],
+      data: { selectedDefectId: null },
+    };
+  }
+
+  const selected = sortByQueuePriority(queued)[0];
+  const scope = selected.affectedFiles ?? [];
+  const risk = computeRemediationRisk({ scope, affectedWorkUnitId: selected.affectedWorkUnitId });
+  const automaticCeiling = ctx.schedule.policy.maxAutomaticRisk ?? 49;
+
+  if (risk.score > automaticCeiling) {
+    return {
+      resultStatus: "needs_input",
+      summary: `Defect remediation: "${selected.defectId}" remediation risk ${risk.score}/100 (${risk.band}) exceeds the automatic ceiling of ${automaticCeiling}; human approval is required. No state was changed.`,
+      nextState: ctx.state,
+      additionalRunlogEvents: [],
+      data: { selectedDefectId: selected.defectId, riskScore: risk.score, riskBand: risk.band, automaticCeiling, requiresHumanApproval: true },
+    };
+  }
+
+  const remediationId = nextId(
+    "REM",
+    defects.map((d) => d.remediation?.remediationId).filter((id): id is string => Boolean(id)),
+  );
+  const outcome = prepareRemediation({
+    defect: selected,
+    remediationId,
+    objective: `Scheduled remediation of ${selected.defectId}: ${selected.title}`,
+    scope: [...scope],
+    outOfScope: [],
+    acceptanceContract: REMEDIATION_ACCEPTANCE_CONTRACT,
+    now: ctx.now,
+  });
+
+  if (!outcome.ok) {
+    return {
+      resultStatus: "blocked",
+      summary: `Defect remediation: ${outcome.reason}`,
+      nextState: ctx.state,
+      additionalRunlogEvents: [],
+      data: { selectedDefectId: selected.defectId, riskScore: risk.score, riskBand: risk.band },
+    };
+  }
+
+  const nextDefects = defects.map((d) => (d.defectId === selected.defectId ? outcome.defect : d));
+  return {
+    resultStatus: "passed",
+    summary: `Defect remediation: prepared ${remediationId} for ${selected.defectId} (risk ${risk.score}/100, ${risk.band}); status now "in_progress". Validation must still be recorded separately.`,
+    nextState: { ...ctx.state, defects: nextDefects },
+    additionalRunlogEvents: [],
+    data: { selectedDefectId: selected.defectId, remediationId, riskScore: risk.score, riskBand: risk.band },
   };
 }
