@@ -68,6 +68,7 @@ import {
   type RawReleasePrepareOptions,
   type RawReleaseStatusOptions,
   type RawReleaseDraftOptions,
+  type RawReleaseHistoryOptions,
   type RawValidationSelectOptions,
   type RawValidationExplainOptions,
   type RawDefectsDiscoverOptions,
@@ -176,6 +177,7 @@ import { runReleaseNotes } from "./commands/release-notes.command.js";
 import { runReleasePrepare } from "./commands/release-prepare.command.js";
 import { runReleaseStatus } from "./commands/release-status.command.js";
 import { runReleaseDraft } from "./commands/release-draft.command.js";
+import { runReleaseHistory } from "./commands/release-history.command.js";
 import { runValidationSelect } from "./commands/validation-select.command.js";
 import { runValidationExplain } from "./commands/validation-explain.command.js";
 import { errorToResult } from "../core/output/result.js";
@@ -1894,6 +1896,20 @@ export function buildProgram(): Command {
     .action(async (raw: RawReleaseDraftOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = await runReleaseDraft(ctx, { fromFile: raw.fromFile, stdin: Boolean(raw.stdin), tokenEnv: raw.tokenEnv });
+      emit(result, ctx.json);
+    });
+
+  // ---------------------------------------------------------------------
+  // M44-WU02: aiqt release history (bounded, read-only historical release-
+  // target inventory -- repository-local Git evidence only).
+  // ---------------------------------------------------------------------
+  releaseCommand
+    .command("history")
+    .description("Read-only inventory of bounded, repository-local historical release targets (M44)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: RawReleaseHistoryOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runReleaseHistory(ctx);
       emit(result, ctx.json);
     });
 

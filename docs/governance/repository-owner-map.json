@@ -313,8 +313,12 @@
     },
     "historicalReleaseReconstruction": {
       "primary": "src/schema/historical-reconstruction.schema.ts",
-      "supporting": [],
-      "contractSummary": "M44's transient historical-reconstruction contract: HistoricalReleaseTarget/ReconstructionAssessment are never a ReleaseCandidate/ReleaseDecision (releaseGovernance/releaseProvenance own those). Reuses ReleaseEvidenceStatus (verified/reconstructed/partial/missing/waived) from release-governance.schema.ts unchanged; adds HistoricalEvidenceConflict as a blocking-finding-style disagreement between two evidence items rather than a sixth evidence-item status. A sufficiently evidenced target is mapped into the existing releaseGovernance/releaseProvenance/releaseRiskAssessment owners, never re-implemented. Full engineering history: docs/milestones/active/m44/build-spec.md (docs/milestones/completed/m44/ at closure).",
+      "supporting": [
+        "src/workflow/historical-evidence.ts",
+        "src/services/historical-reconstruction-service.ts",
+        "src/cli/commands/release-history.command.ts"
+      ],
+      "contractSummary": "M44's transient historical-reconstruction contract: HistoricalReleaseTarget/ReconstructionAssessment are never a ReleaseCandidate/ReleaseDecision (releaseGovernance/releaseProvenance own those). Reuses ReleaseEvidenceStatus (verified/reconstructed/partial/missing/waived) from release-governance.schema.ts unchanged; adds HistoricalEvidenceConflict as a blocking-finding-style disagreement between two evidence items rather than a sixth evidence-item status. historical-evidence.ts is the pure Git/file evidence-collection layer (discoverSemverReleaseTags, selectBaseRelease's ancestry-only fail-closed algorithm, discoverMilestoneReferences); historical-reconstruction-service.ts is the sole orchestration point that sequences those reads against a real cwd, mirroring release-governance-service.ts's split. A sufficiently evidenced target is mapped into the existing releaseGovernance/releaseProvenance/releaseRiskAssessment owners, never re-implemented. Full engineering history: docs/milestones/active/m44/build-spec.md (docs/milestones/completed/m44/ at closure).",
       "lastVerifiedCommit": "93419d503e18d1060524ba45524b54e6aea7020d"
     },
     "adaptiveTestSelection": {

@@ -182,6 +182,54 @@ export function gitLsFilesOthersExcludeStandard(cwd: string): string[] {
     .filter((line) => line.length > 0);
 }
 
+/** All local tag names, unsorted (M44-WU02 historical-target discovery). */
+export function gitListTags(cwd: string): string[] {
+  const out = execGit(["tag", "--list"], { cwd }).stdout;
+  return out
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+/**
+ * Content of `path` as it existed at `commit`, or null if the path did not
+ * exist at that commit (M44-WU02: historical package/schema-version
+ * reconstruction). `commit` must already be a resolved sha or verified ref
+ * -- callers never pass raw operator strings here unvalidated.
+ */
+export function gitShowFileAtCommit(cwd: string, commit: string, path: string): string | null {
+  try {
+    return execGit(["show", `${commit}:${path}`], { cwd }).stdout;
+  } catch (err) {
+    if (err instanceof GitRunnerError) return null;
+    throw err;
+  }
+}
+
+/**
+ * True if `ancestorCommit` is an ancestor of (or equal to) `descendantCommit`
+ * (M44-WU02 ancestry-aware base-release selection). `git merge-base
+ * --is-ancestor` exits 1 for "not an ancestor", which is a meaningful
+ * boolean result here, not a runner error.
+ */
+export function gitIsAncestor(cwd: string, ancestorCommit: string, descendantCommit: string): boolean {
+  const result = execGit(["merge-base", "--is-ancestor", ancestorCommit, descendantCommit], {
+    cwd,
+    allowExitCodeOne: true,
+  });
+  return !result.exitedWithCodeOne;
+}
+
+/** Author-date commit timestamp in strict ISO 8601, or null if `commit` cannot be resolved (M44-WU02: Git metadata only, never wall-clock "now"). */
+export function gitCommitTimeIso(cwd: string, commit: string): string | null {
+  try {
+    return execGit(["log", "-1", "--format=%cI", commit], { cwd }).stdout.trim() || null;
+  } catch (err) {
+    if (err instanceof GitRunnerError) return null;
+    throw err;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Mutating allowlist (M25 §8) -- exactly `worktree add` and `worktree
 // remove`, each with a fixed argument template. No caller can supply a

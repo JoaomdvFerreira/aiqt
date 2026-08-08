@@ -16,6 +16,10 @@ import {
   gitLsFilesOthersExcludeStandard,
   gitWorktreeAdd,
   gitWorktreeRemove,
+  gitListTags,
+  gitShowFileAtCommit,
+  gitIsAncestor,
+  gitCommitTimeIso,
   GitRunnerError,
 } from "../../src/workspaces/git-command-runner.js";
 
@@ -170,5 +174,44 @@ describe("git-command-runner (M25 §8, disposable repository)", () => {
       expect((err as GitRunnerError).message.split("\n")).toHaveLength(1);
     }
     expect(threw).toBe(true);
+  });
+
+  // M44-WU02: the four new read-only ops added for historical-evidence
+  // discovery -- tag listing, file-at-commit, ancestry, and commit time.
+  describe("M44-WU02 historical-evidence primitives", () => {
+    it("gitListTags lists a created tag", () => {
+      execFileSync("git", ["tag", "v1.0.0", headSha], { cwd: repoDir! });
+      try {
+        expect(gitListTags(repoDir!)).toContain("v1.0.0");
+      } finally {
+        execFileSync("git", ["tag", "-d", "v1.0.0"], { cwd: repoDir! });
+      }
+    });
+
+    it("gitShowFileAtCommit reads an existing tracked file's content at a commit", () => {
+      const content = gitShowFileAtCommit(repoDir!, headSha, "README.md");
+      expect(content).toBe("hello\n");
+    });
+
+    it("gitShowFileAtCommit returns null for a path that did not exist at that commit", () => {
+      expect(gitShowFileAtCommit(repoDir!, headSha, "does-not-exist.json")).toBeNull();
+    });
+
+    it("gitIsAncestor is true for a commit's own ancestor and false otherwise", () => {
+      writeFileSync(join(repoDir!, "second.txt"), "second\n");
+      execFileSync("git", ["add", "second.txt"], { cwd: repoDir! });
+      execFileSync("git", ["commit", "--quiet", "-m", "second"], { cwd: repoDir! });
+      const secondSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoDir!, encoding: "utf8" }).trim();
+
+      expect(gitIsAncestor(repoDir!, headSha, secondSha)).toBe(true);
+      expect(gitIsAncestor(repoDir!, secondSha, headSha)).toBe(false);
+    });
+
+    it("gitCommitTimeIso returns a parseable ISO 8601 timestamp for a real commit, and null for an unresolvable ref", () => {
+      const iso = gitCommitTimeIso(repoDir!, headSha);
+      expect(iso).not.toBeNull();
+      expect(Number.isNaN(Date.parse(iso!))).toBe(false);
+      expect(gitCommitTimeIso(repoDir!, "refs/does-not-exist")).toBeNull();
+    });
   });
 });
