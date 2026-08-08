@@ -18,6 +18,7 @@ import { RequiredModeActivationPlanSchema, MAX_ACTIVATION_PLANS } from "./requir
 import { RequiredModeActivationSchema } from "./required-mode-activation.schema.js";
 import { RequiredEvidenceExceptionSchema, MAX_EXCEPTIONS } from "./required-evidence-exception.schema.js";
 import { DefectRecordSchema, MAX_DEFECTS } from "./defect.schema.js";
+import { MaintenanceScheduleSchema, MaintenanceOccurrenceRecordSchema, MAX_MAINTENANCE_SCHEDULES } from "./maintenance-schedule.schema.js";
 
 export const ProjectStatusSchema = z.enum([
   "draft",
@@ -85,5 +86,19 @@ export const StateModelSchema = z.object({
    * separate `RemediationQueueEntry` list, file, or database exists.
    */
   defects: z.array(DefectRecordSchema).max(MAX_DEFECTS).optional(),
+  /**
+   * M45 §7: optional, additive. Missing entirely on pre-M45 state files;
+   * never materialized by a read-only command. No schedule is ever created
+   * or enabled by migration/defaulting -- pre-M45 state defaults to zero
+   * schedules (build spec Sec 7.4).
+   */
+  maintenanceSchedules: z.array(MaintenanceScheduleSchema).max(MAX_MAINTENANCE_SCHEDULES).optional(),
+  /**
+   * M45 §8.3/§13.2: optional, additive. A nullable singleton (never an
+   * array) so "no parallel scheduled maintenance" is structural. Absent
+   * entirely on pre-M45 state; explicitly null (not just absent) once a
+   * project has run its first occurrence and returned to idle.
+   */
+  maintenanceActiveOccurrence: MaintenanceOccurrenceRecordSchema.nullable().optional(),
 });
 export type StateModel = z.infer<typeof StateModelSchema>;

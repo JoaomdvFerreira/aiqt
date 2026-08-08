@@ -205,6 +205,13 @@ const KNOWN_SPAWNING_FILES = [
   // real disposable Git repository (linear + divergent-branch history)
   // directly via `execFileSync("git", ...)`, mirroring git-command-runner.test.ts.
   "tests/integration/historical-evidence.test.ts",
+  // M45-WU03 (+1): the maintenance run-due dispatch suite uses
+  // initGitFixtureRepo (structural review needs a real commit to resolve
+  // reviewCommit against).
+  "tests/integration/maintenance-run-due.test.ts",
+  // M45-WU05 (+1): the closing dogfood suite also uses initGitFixtureRepo
+  // for its structural-review scenarios.
+  "tests/integration/maintenance-dogfood.test.ts",
 ].sort();
 
 /**

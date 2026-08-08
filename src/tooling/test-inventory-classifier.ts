@@ -142,6 +142,10 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   // rules above; this covers the remaining defect-*.test.ts unit/
   // integration coverage.
   { pattern: /^defects?-/, domain: "defect-lifecycle", criticality: "High-value" },
+  // M45: background maintenance scheduling -- typed dispatch into the
+  // existing defect-lifecycle/structural-review domains above, but the
+  // schedule/due-engine/occurrence contract itself is its own domain.
+  { pattern: /^maintenance-/, domain: "maintenance-scheduling", criticality: "Critical" },
   // M43: bounded structural review and its M42 defect-intake integration.
   { pattern: /^structural-|^m43-|^review-structural/, domain: "structural-review", criticality: "High-value" },
   { pattern: /dogfood/, domain: "self-consistency", criticality: "Normal" },

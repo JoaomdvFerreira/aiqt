@@ -78,6 +78,11 @@ import {
   type RawDefectsTransitionOptions,
   type RawDefectsRemediateOptions,
   type RawDefectsRecordValidationOptions,
+  type RawMaintenanceScheduleAddOptions,
+  type RawMaintenanceScheduleListOptions,
+  type RawMaintenanceScheduleUpdateOptions,
+  type RawMaintenanceStatusOptions,
+  type RawMaintenanceHistoryOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -172,6 +177,17 @@ import { runAutonomousCancel } from "./commands/autonomous-cancel.command.js";
 import { runAutonomousResult } from "./commands/autonomous-result.command.js";
 import { runAutonomousCleanup } from "./commands/autonomous-cleanup.command.js";
 import { runAutonomousAgentImport } from "./commands/autonomous-agent-import.command.js";
+import {
+  runMaintenanceScheduleAdd,
+  runMaintenanceScheduleList,
+  runMaintenanceScheduleInspect,
+  runMaintenanceScheduleUpdate,
+  runMaintenanceScheduleEnable,
+  runMaintenanceScheduleDisable,
+  runMaintenanceScheduleRemove,
+} from "./commands/maintenance-schedule.command.js";
+import { runMaintenanceStatus, runMaintenanceHistory } from "./commands/maintenance-status.command.js";
+import { runMaintenanceRunDue, runMaintenanceCancel } from "./commands/maintenance-run.command.js";
 import { runReleaseAssess } from "./commands/release-assess.command.js";
 import { runReleaseValidate } from "./commands/release-validate.command.js";
 import { runReleaseNotes } from "./commands/release-notes.command.js";
@@ -1804,6 +1820,148 @@ export function buildProgram(): Command {
     .action(async (raw: RawAutonomousAgentImportOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = await runAutonomousAgentImport(ctx, { run: raw.run, fromFile: raw.fromFile, stdin: Boolean(raw.stdin), configPath: raw.config, evidenceDir: raw.evidenceDir, live: Boolean(raw.live) });
+      emit(result, ctx.json);
+    });
+
+  // ---------------------------------------------------------------------
+  // M45-WU02: aiqt maintenance ... (background maintenance scheduling CLI
+  // surface). schedule add/list/inspect/update/enable/disable/remove
+  // mutate only scheduling state; none of them executes a maintenance
+  // task as a side effect (that is `run-due`, WU45-03).
+  // ---------------------------------------------------------------------
+  const maintenanceCommand = program
+    .command("maintenance")
+    .description("Operator-controlled scheduling for bounded AIQT maintenance workflows (M45): timing intent only, never execution/approval authority");
+
+  const maintenanceScheduleCommand = maintenanceCommand
+    .command("schedule")
+    .description("Create, inspect, and mutate persistent maintenance schedules");
+
+  maintenanceScheduleCommand
+    .command("add")
+    .description("Create a new maintenance schedule (structural_review | defect_discovery | defect_remediation)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .requiredOption("--task-kind <kind>", "structural_review | defect_discovery | defect_remediation")
+    .requiredOption("--cadence <duration>", 'how often, e.g. "1h", "6h", "1d", "7d"')
+    .option("--anchor-at <isoTimestamp>", "UTC cadence-alignment point (defaults to now)")
+    .option("--max-automatic-risk <n>", "0-49: lower the existing automatic-approval risk ceiling for defect_remediation (never raises it)")
+    .option("--disabled", "create the schedule disabled instead of enabled", false)
+    .action((raw: RawMaintenanceScheduleAddOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceScheduleAdd(ctx, {
+        taskKind: raw.taskKind,
+        cadence: raw.cadence,
+        anchorAt: raw.anchorAt,
+        maxAutomaticRisk: raw.maxAutomaticRisk !== undefined ? Number(raw.maxAutomaticRisk) : undefined,
+        disabled: Boolean(raw.disabled),
+      });
+      emit(result, ctx.json);
+    });
+
+  maintenanceScheduleCommand
+    .command("list")
+    .description("Read-only listing of all maintenance schedules")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: RawMaintenanceScheduleListOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceScheduleList(ctx);
+      emit(result, ctx.json);
+    });
+
+  maintenanceScheduleCommand
+    .command("inspect <scheduleId>")
+    .description("Read-only detail for one maintenance schedule")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((scheduleId: string, raw: RawMaintenanceScheduleListOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceScheduleInspect(ctx, scheduleId);
+      emit(result, ctx.json);
+    });
+
+  maintenanceScheduleCommand
+    .command("update <scheduleId>")
+    .description("Update a schedule's cadence and/or policy -- never mutates its enabled state or runs its task")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--cadence <duration>", 'new cadence, e.g. "1h", "6h", "1d", "7d"')
+    .option("--max-automatic-risk <n>", "0-49, or omit this flag entirely to leave unchanged")
+    .action((scheduleId: string, raw: RawMaintenanceScheduleUpdateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceScheduleUpdate(ctx, scheduleId, {
+        cadence: raw.cadence,
+        maxAutomaticRisk: raw.maxAutomaticRisk !== undefined ? Number(raw.maxAutomaticRisk) : undefined,
+      });
+      emit(result, ctx.json);
+    });
+
+  maintenanceScheduleCommand
+    .command("enable <scheduleId>")
+    .description("Enable a schedule for future due selection (never affects an already-active occurrence)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((scheduleId: string, raw: RawMaintenanceScheduleListOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceScheduleEnable(ctx, scheduleId);
+      emit(result, ctx.json);
+    });
+
+  maintenanceScheduleCommand
+    .command("disable <scheduleId>")
+    .description("Disable a schedule so it is never selected as due (never kills an already-active occurrence)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((scheduleId: string, raw: RawMaintenanceScheduleListOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceScheduleDisable(ctx, scheduleId);
+      emit(result, ctx.json);
+    });
+
+  maintenanceScheduleCommand
+    .command("remove <scheduleId>")
+    .description("Remove a schedule -- fails closed if it has an active occurrence; never erases runlog history")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((scheduleId: string, raw: RawMaintenanceScheduleListOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceScheduleRemove(ctx, scheduleId);
+      emit(result, ctx.json);
+    });
+
+  maintenanceCommand
+    .command("status")
+    .description("Read-only compact operator view: schedules, next due, active occurrence")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: RawMaintenanceStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceStatus(ctx);
+      emit(result, ctx.json);
+    });
+
+  maintenanceCommand
+    .command("history")
+    .description("Read-only maintenance event history, derived from the runlog")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--schedule-id <id>", "bound history to one schedule")
+    .option("--limit <n>", "maximum events to return (default 50)")
+    .action((raw: RawMaintenanceHistoryOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceHistory(ctx, { scheduleId: raw.scheduleId, limit: raw.limit !== undefined ? Number(raw.limit) : undefined });
+      emit(result, ctx.json);
+    });
+
+  maintenanceCommand
+    .command("run-due")
+    .description("Execute at most one due maintenance occurrence via typed dispatch -- never a shell command, never parallel (M45-WU03/WU04)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: RawMaintenanceStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceRunDue(ctx);
+      emit(result, ctx.json);
+    });
+
+  maintenanceCommand
+    .command("cancel <occurrenceId>")
+    .description("Cancel the current active maintenance occurrence -- bookkeeping only, no live process to signal")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((occurrenceId: string, raw: RawMaintenanceStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceCancel(ctx, occurrenceId);
       emit(result, ctx.json);
     });
 

@@ -19,8 +19,8 @@ function expectBlock(fn: () => void): AiqtError {
 
 describe("version compatibility", () => {
   it("classifies the current schema version", () => {
-    expect(classifyCanonicalVersion("0.6.0")).toBe("current");
-    expect(() => assertCompatibleVersion("0.6.0", "state.json")).not.toThrow();
+    expect(classifyCanonicalVersion("0.7.0")).toBe("current");
+    expect(() => assertCompatibleVersion("0.7.0", "state.json")).not.toThrow();
   });
 
   it("classifies and proceeds for an older compatible version", () => {
@@ -31,6 +31,11 @@ describe("version compatibility", () => {
   it("M42: classifies pre-defect-queue 0.5.0 state as older compatible", () => {
     expect(classifyCanonicalVersion("0.5.0")).toBe("older_compatible");
     expect(() => assertCompatibleVersion("0.5.0", "state.json")).not.toThrow();
+  });
+
+  it("M45: classifies pre-maintenance-schedule 0.6.0 state as older compatible", () => {
+    expect(classifyCanonicalVersion("0.6.0")).toBe("older_compatible");
+    expect(() => assertCompatibleVersion("0.6.0", "state.json")).not.toThrow();
   });
 
   it("classifies and blocks a future unsupported version with exit code 3", () => {
