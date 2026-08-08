@@ -139,6 +139,7 @@ describe("M33-WU02: missingProjectResult (bespoke pre-check pattern)", () => {
 const LOCAL_FAILURE_HELPER_FILES = [
   "defects-discover.command.ts",
   "defects-inspect.command.ts",
+  "defects-intake-structural.command.ts",
   "defects-list.command.ts",
   "defects-queue.command.ts",
   "defects-record-validation.command.ts",
@@ -173,6 +174,8 @@ const LOCAL_FAILURE_HELPER_FILES = [
   "execution-import.command.ts",
   "execution-stale.command.ts",
   "execution-status.command.ts",
+  "review-structural-explain.command.ts",
+  "review-structural.command.ts",
   "workspace.command.ts",
 ].sort();
 

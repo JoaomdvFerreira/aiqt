@@ -296,7 +296,7 @@
     "releaseGovernance": {
       "primary": "src/workflow/release-readiness.ts",
       "supporting": ["src/cli/commands/release-status.command.ts", "src/cli/commands/release-prepare.command.ts", "src/cli/commands/release-validate.command.ts", "src/cli/commands/release-notes.command.ts", "src/state/release-decision-store.ts"],
-      "contractSummary": "M40's release-readiness/status/prepare/validate/notes surface: aggregates CI/version/risk/provenance state into one read-only readiness view and a governed release-decision record, without itself creating a tag, GitHub Release, or performing a merge. Full engineering history: docs/milestones/completed/m40/build-spec.md and closure-report.md.",
+      "contractSummary": "M40's release-readiness/status/prepare/validate/notes surface: aggregates CI/version/risk/provenance state into one read-only readiness view and a governed release-decision record, without itself creating a tag, GitHub Release, or performing a merge. Full engineering history: docs/archive/milestones/m40/build-spec.md and closure-report.md.",
       "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "releaseRiskAssessment": {
@@ -334,6 +334,36 @@
       "supporting": ["src/services/defect-discovery-service.ts", "src/services/defect-triage-service.ts", "src/services/defect-remediation-service.ts", "src/workflow/defect-discovery.ts", "src/workflow/remediation-risk.ts", "src/cli/commands/defects-discover.command.ts", "src/cli/commands/defects-triage.command.ts", "src/cli/commands/defects-remediate.command.ts", "src/cli/commands/defects-record-validation.command.ts"],
       "contractSummary": "aiqt defects discover|list|inspect|triage|queue|transition|remediate|record-validation. Discovery (failed_validation/checkpoint_issue/human_reported only; other sources explicitly reported unsupported) never authorizes remediation. Triage (computeTriageDecision) is pure/deterministic; remediation risk (remediation-risk.ts) is scored from scope alone, independent of defect severity, using the same four-band scale as releaseRiskAssessment but a distinct scoring input -- risk >=50 requires explicit human approval or nothing is persisted. Validation evidence, not agent assertion, controls resolution/reopen. No live execution surface is invoked; this is the bounded external-agent handoff/request path, not a second execution engine. Full engineering history: docs/milestones/completed/m42/build-spec.md and closure-report.md.",
       "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
+    },
+    "structuralReviewContract": {
+      "primary": "src/schema/structural-review.schema.ts",
+      "supporting": ["src/workflow/structural-finding-fingerprint.ts", "src/workflow/structural-review-freshness.ts", "src/workflow/structural-review-domains.ts", "src/workflow/structural-review-consolidation.ts"],
+      "contractSummary": "M43's StructuralFinding/StructuralReview/StructuralReviewDomain contract -- transient evidence objects, NOT part of canonical StateModel, never persisted to state.json or the runlog by review execution. findingKey excludes reviewCommit (stable across commits for the same real condition); reviewCommit is the separate Section-3.4 freshness binding. Significance/confidence are deliberately distinct types from M42's DefectSeverity/DefectConfidence.",
+      "lastVerifiedCommit": "f6b998f949982b16c7ffeadd3d21f64ef88e131a"
+    },
+    "structuralReviewEngine": {
+      "primary": "src/workflow/structural-review-engine.ts",
+      "supporting": [
+        "src/workflow/structural-review-evidence.ts",
+        "src/workflow/structural-finding-builder.ts",
+        "src/workflow/structural-rules/ownership-divergence-rules.ts",
+        "src/workflow/structural-rules/dependency-coupling-rules.ts",
+        "src/workflow/structural-rules/responsibility-concentration-rules.ts",
+        "src/workflow/structural-rules/dead-structural-paths-rules.ts",
+        "src/workflow/structural-rules/public-contract-drift-rules.ts",
+        "src/workflow/structural-rules/test-infrastructure-rules.ts",
+        "src/workflow/structural-rules/execution-safety-boundary-rules.ts",
+        "src/cli/commands/review-structural.command.ts",
+        "src/cli/commands/review-structural-explain.command.ts"
+      ],
+      "contractSummary": "`aiqt review structural [--domain]` / `aiqt review structural explain <findingKey>` -- read-only, offline-capable, bounded to 7 deterministic domain rule sets (ownership divergence, dependency cycles, responsibility hotspots, dead structural paths, public-contract drift, test-infrastructure hotspots reusing M35's classifyAllTestFiles, execution-safety-boundary duplication). Never mutates canonical state or appends a runlog event; nested under the existing `reviewCommand`, `aiqt review --mode` semantics unchanged. Full engineering history: docs/milestones/completed/m43/build-spec.md and closure-report.md.",
+      "lastVerifiedCommit": "f6b998f949982b16c7ffeadd3d21f64ef88e131a"
+    },
+    "structuralFindingDefectIntake": {
+      "primary": "src/services/structural-finding-intake-service.ts",
+      "supporting": ["src/workflow/structural-finding-defect-adapter.ts", "src/cli/commands/defects-intake-structural.command.ts", "src/workflow/structural-providers/provider-contract.ts", "src/workflow/structural-providers/graphify-provider.ts"],
+      "contractSummary": "`aiqt defects intake-structural <findingKey>` -- the sole explicit, freshness-bound path from an M43 StructuralFinding into the M42 defect lifecycle (sourceKind \"review_finding\"). Verifies freshness (reviewCommit == current HEAD) and intake eligibility before reusing M42's applyDiscoveryCandidates verbatim -- no parallel defect pipeline. Intake only ever produces a `candidate`-status defect; it never triages, queues, or authorizes remediation. graphify-provider.ts is the only StructuralEvidenceProvider implementer: honestly reports unavailable (no Graphify integration exists), proving optional-provider isolation without fabricating one.",
+      "lastVerifiedCommit": "f6b998f949982b16c7ffeadd3d21f64ef88e131a"
     }
   }
 }

@@ -88,6 +88,8 @@ import { EXAMPLE_PLAN_INPUT } from "./commands/plan-example.js";
 import { runCheckpoint } from "./commands/checkpoint.command.js";
 import { EXAMPLE_CHECKPOINT_INPUT } from "./commands/checkpoint-example.js";
 import { runReviewCommand } from "./commands/review.command.js";
+import { runReviewStructural } from "./commands/review-structural.command.js";
+import { runReviewStructuralExplain } from "./commands/review-structural-explain.command.js";
 import { runReviewAcknowledge } from "./commands/review-acknowledge.command.js";
 import { runExport } from "./commands/export.command.js";
 import { runStart } from "./commands/start.command.js";
@@ -154,6 +156,7 @@ import { runDefectsQueue } from "./commands/defects-queue.command.js";
 import { runDefectsTransition } from "./commands/defects-transition.command.js";
 import { runDefectsRemediate } from "./commands/defects-remediate.command.js";
 import { runDefectsRecordValidation } from "./commands/defects-record-validation.command.js";
+import { runDefectsIntakeStructural } from "./commands/defects-intake-structural.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
 import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
@@ -486,6 +489,27 @@ export function buildProgram(): Command {
     .action((raw: RawReviewOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runReviewCommand(ctx, { mode: raw.mode });
+      emit(result, ctx.json);
+    });
+
+  const reviewStructuralCommand = reviewCommand
+    .command("structural")
+    .description("Bounded, read-only project structural review (M43): ownership, dependency, hotspot, dead-path, contract-drift, test-infrastructure, and execution-safety-boundary domains")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--domain <domain>", "limit review to one domain")
+    .action((raw: { json?: boolean; domain?: string }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runReviewStructural(ctx, { domain: raw.domain });
+      emit(result, ctx.json);
+    });
+
+  reviewStructuralCommand
+    .command("explain <findingKey>")
+    .description("Read-only detail for one current structural finding (re-evaluated fresh; findings are transient, never stored)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((findingKey: string, raw: { json?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runReviewStructuralExplain(ctx, findingKey);
       emit(result, ctx.json);
     });
 
@@ -1298,6 +1322,17 @@ export function buildProgram(): Command {
         note: raw.note,
         preview: Boolean(raw.preview),
       });
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("intake-structural <findingKey>")
+    .description("Explicit, freshness-bound intake of one M43 structural finding into the M42 defect lifecycle (M43); reuses M42 discovery/dedup, never authorizes remediation")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--preview", "validate and report without persisting", false)
+    .action(async (findingKey: string, raw: { json?: boolean; preview?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runDefectsIntakeStructural(ctx, findingKey, { preview: Boolean(raw.preview) });
       emit(result, ctx.json);
     });
 
