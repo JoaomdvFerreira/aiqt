@@ -137,6 +137,14 @@ describe("M33-WU02: missingProjectResult (bespoke pre-check pattern)", () => {
  * *implementation* of each wrapper has changed.
  */
 const LOCAL_FAILURE_HELPER_FILES = [
+  "defects-discover.command.ts",
+  "defects-inspect.command.ts",
+  "defects-list.command.ts",
+  "defects-queue.command.ts",
+  "defects-record-validation.command.ts",
+  "defects-remediate.command.ts",
+  "defects-transition.command.ts",
+  "defects-triage.command.ts",
   "evidence-gate-advisory-feedback.command.ts",
   "evidence-gate-advisory-refresh.command.ts",
   "evidence-gate-enforcement-activation-activate.command.ts",

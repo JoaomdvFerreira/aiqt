@@ -132,6 +132,11 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   // M41: test-impact inventory/selection/escalation and its read-only
   // validation select/explain CLI surface.
   { pattern: /test-impact|-impact\.test\.ts$|^validation-select-explain/, domain: "test-impact-selection", criticality: "Critical" },
+  // M42: defect discovery/triage/queue/remediation lifecycle -- schema and
+  // dogfood coverage already match the earlier -schema.test.ts$/dogfood
+  // rules above; this covers the remaining defect-*.test.ts unit/
+  // integration coverage.
+  { pattern: /^defect-/, domain: "defect-lifecycle", criticality: "High-value" },
   { pattern: /dogfood/, domain: "self-consistency", criticality: "Normal" },
 ];
 

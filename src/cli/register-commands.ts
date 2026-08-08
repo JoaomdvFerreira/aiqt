@@ -70,6 +70,12 @@ import {
   type RawReleaseDraftOptions,
   type RawValidationSelectOptions,
   type RawValidationExplainOptions,
+  type RawDefectsDiscoverOptions,
+  type RawDefectsListOptions,
+  type RawDefectsTriageOptions,
+  type RawDefectsTransitionOptions,
+  type RawDefectsRemediateOptions,
+  type RawDefectsRecordValidationOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -140,6 +146,14 @@ import { runEvidenceGateExceptionCreate } from "./commands/evidence-gate-excepti
 import { runEvidenceGateExceptionRevoke } from "./commands/evidence-gate-exception-revoke.command.js";
 import { runEvidenceGateExceptionList } from "./commands/evidence-gate-exception-list.command.js";
 import { runEvidenceGateEnforcementStatus } from "./commands/evidence-gate-enforcement-status.command.js";
+import { runDefectsDiscover } from "./commands/defects-discover.command.js";
+import { runDefectsList } from "./commands/defects-list.command.js";
+import { runDefectsInspect } from "./commands/defects-inspect.command.js";
+import { runDefectsTriage } from "./commands/defects-triage.command.js";
+import { runDefectsQueue } from "./commands/defects-queue.command.js";
+import { runDefectsTransition } from "./commands/defects-transition.command.js";
+import { runDefectsRemediate } from "./commands/defects-remediate.command.js";
+import { runDefectsRecordValidation } from "./commands/defects-record-validation.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
 import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
@@ -1160,6 +1174,130 @@ export function buildProgram(): Command {
     .action((raw: { json?: boolean }) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runEvidenceGateExceptionList(ctx);
+      emit(result, ctx.json);
+    });
+
+  const defectsCommand = program
+    .command("defects")
+    .description("Defect discovery, triage, and remediation queue (M42): bounded evidence -> deterministic defect -> resumable queue");
+
+  defectsCommand
+    .command("discover")
+    .description("Bounded discovery from failed validation/checkpoint-issue evidence (plus one optional explicit human report); deterministic dedup by fingerprint")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--work-unit <id>", "bound discovery to one Work Unit's checkpoints")
+    .option("--human-title <text>", "title of an explicit human-reported defect candidate")
+    .option("--human-summary <text>", "summary of the human-reported defect candidate")
+    .option("--human-evidence <locator>", "bounded evidence locator for the human-reported defect candidate")
+    .option("--human-severity <severity>", "critical | high | medium | low | info (default: medium)")
+    .option("--preview", "report what discovery would do without persisting", false)
+    .action(async (raw: RawDefectsDiscoverOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runDefectsDiscover(ctx, {
+        workUnitId: raw.workUnit,
+        humanTitle: raw.humanTitle,
+        humanSummary: raw.humanSummary,
+        humanEvidence: raw.humanEvidence,
+        humanSeverity: raw.humanSeverity,
+        preview: Boolean(raw.preview),
+      });
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("list")
+    .description("Read-only listing of defect records, optionally filtered by --status")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--status <status>", "candidate | triaged | queued | in_progress | needs_human | deferred | resolved | reopened | invalid | duplicate")
+    .action((raw: RawDefectsListOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runDefectsList(ctx, { status: raw.status });
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("inspect <defectId>")
+    .description("Read-only full record for one defect, including its triage decision when present")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((defectId: string, raw: { json?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runDefectsInspect(ctx, defectId);
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("triage <defectId>")
+    .description("Run deterministic triage on one defect and apply the resulting status transition(s)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--preview", "compute and report the triage decision without persisting", false)
+    .action(async (defectId: string, raw: RawDefectsTriageOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runDefectsTriage(ctx, defectId, { preview: Boolean(raw.preview) });
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("queue")
+    .description("Read-only, deterministically ordered view of the queue-eligible defects (queued | in_progress | needs_human)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: { json?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runDefectsQueue(ctx);
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("transition <defectId>")
+    .description("Explicit human-driven status override (e.g. defer/invalidate/queue) -- validated against the same transition table triage uses")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--to <status>", "target DefectStatus")
+    .option("--reason <text>", "bounded, non-empty reason")
+    .option("--preview", "validate and report without persisting", false)
+    .action(async (defectId: string, raw: RawDefectsTransitionOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runDefectsTransition(ctx, defectId, { to: raw.to, reason: raw.reason, preview: Boolean(raw.preview) });
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("remediate <defectId>")
+    .description("Build a bounded remediation request and, when eligible, start remediation (queued -> in_progress); risk >=50 requires --approved-by")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--objective <text>", "bounded remediation objective")
+    .option("--scope <paths>", "comma-separated in-scope file/area paths")
+    .option("--out-of-scope <paths>", "comma-separated explicitly out-of-scope paths")
+    .option("--acceptance <text>", "acceptance/reproduction contract this remediation must satisfy")
+    .option("--approved-by <human-id>", "explicit human identity; required when remediation risk is 50 or higher")
+    .option("--preview", "compute and report without persisting", false)
+    .action(async (defectId: string, raw: RawDefectsRemediateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runDefectsRemediate(ctx, defectId, {
+        objective: raw.objective,
+        scope: raw.scope,
+        outOfScope: raw.outOfScope,
+        acceptance: raw.acceptance,
+        approvedBy: raw.approvedBy,
+        preview: Boolean(raw.preview),
+      });
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("record-validation <defectId>")
+    .description("Record remediation validation evidence; \"passed\" resolves the defect, \"failed\" returns it to the queue with evidence preserved")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--outcome <outcome>", "passed | failed")
+    .option("--evidence <locator>", "bounded evidence locator for the validation result")
+    .option("--note <text>", "optional bounded note")
+    .option("--preview", "validate and report without persisting", false)
+    .action(async (defectId: string, raw: RawDefectsRecordValidationOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runDefectsRecordValidation(ctx, defectId, {
+        outcome: raw.outcome,
+        evidence: raw.evidence,
+        note: raw.note,
+        preview: Boolean(raw.preview),
+      });
       emit(result, ctx.json);
     });
 

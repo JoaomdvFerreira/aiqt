@@ -530,3 +530,52 @@ export interface RawValidationExplainOptions {
   json?: boolean;
   workUnit?: string;
 }
+
+// ---------------------------------------------------------------------------
+// M42-WU02: aiqt defects discover (bounded discovery/dedup/freshness CLI surface).
+// ---------------------------------------------------------------------------
+
+export interface RawDefectsDiscoverOptions {
+  json?: boolean;
+  workUnit?: string;
+  humanTitle?: string;
+  humanSummary?: string;
+  humanEvidence?: string;
+  humanSeverity?: string;
+  preview?: boolean;
+}
+
+export interface RawDefectsListOptions {
+  json?: boolean;
+  status?: string;
+}
+
+export interface RawDefectsTriageOptions {
+  json?: boolean;
+  preview?: boolean;
+}
+
+export interface RawDefectsTransitionOptions {
+  json?: boolean;
+  to?: string;
+  reason?: string;
+  preview?: boolean;
+}
+
+export interface RawDefectsRemediateOptions {
+  json?: boolean;
+  objective?: string;
+  scope?: string;
+  outOfScope?: string;
+  acceptance?: string;
+  approvedBy?: string;
+  preview?: boolean;
+}
+
+export interface RawDefectsRecordValidationOptions {
+  json?: boolean;
+  outcome?: string;
+  evidence?: string;
+  note?: string;
+  preview?: boolean;
+}

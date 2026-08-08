@@ -256,7 +256,7 @@
         "src/workflow/execution-continuation.ts",
         "src/workflow/execution-guidance-render.ts",
         "src/services/execution-guidance-profile-resolution-service.ts",
-        "docs/milestones/completed/m39/AIQT_Milestone_39_Build_Specification.md",
+        "docs/archive/milestones/m39/AIQT_Milestone_39_Build_Specification.md",
         "tests/unit/execution-guidance.test.ts",
         "tests/unit/execution-context-manifest.test.ts",
         "tests/unit/execution-continuation.test.ts",

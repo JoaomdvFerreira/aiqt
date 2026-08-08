@@ -34,7 +34,8 @@ export type WorkflowAction =
   | "execution"
   | "autonomous"
   | "release"
-  | "validation";
+  | "validation"
+  | "defects";
 
 export interface CommandResult<TData = unknown> {
   status: CommandStatus;
