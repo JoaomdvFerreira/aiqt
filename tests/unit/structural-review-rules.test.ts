@@ -8,6 +8,7 @@ import { runResponsibilityConcentrationRule } from "../../src/workflow/structura
 import { runUnreferencedCommandFileRule } from "../../src/workflow/structural-rules/dead-structural-paths-rules.js";
 import { runNodeVersionConsistencyRule } from "../../src/workflow/structural-rules/public-contract-drift-rules.js";
 import { runDuplicateExecutionAuthorityRule } from "../../src/workflow/structural-rules/execution-safety-boundary-rules.js";
+import { runProcessHeavyTestTimeoutRule } from "../../src/workflow/structural-rules/test-infrastructure-rules.js";
 
 const COMMIT = "c".repeat(40);
 
@@ -135,6 +136,14 @@ describe("structural review rules (fixture-based, no live-repo dependency)", () 
       writeFile(dir, "package.json", JSON.stringify({ engines: { node: ">=24.0.0" } }));
       writeFile(dir, ".github/workflows/validate.yml", "jobs:\n  quality:\n    steps:\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n");
       expect(runNodeVersionConsistencyRule(dir, COMMIT)).toHaveLength(0);
+    });
+  });
+
+  describe("runProcessHeavyTestTimeoutRule", () => {
+    it("degrades to no findings (never throws) when the target has no tests/ directory", () => {
+      dir = makeTempDir();
+      writeFile(dir, "src/a.ts", "export const a = 1;");
+      expect(runProcessHeavyTestTimeoutRule(dir, COMMIT)).toEqual([]);
     });
   });
 

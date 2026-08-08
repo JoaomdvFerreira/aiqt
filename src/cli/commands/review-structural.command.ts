@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { runStructuralReview } from "../../workflow/structural-review-engine.js";
 import { consolidateFindings, suppressKnownBenignFindings } from "../../workflow/structural-review-consolidation.js";
 import { isKnownStructuralDomain } from "../../workflow/structural-review-domains.js";
+import { graphifyProvider } from "../../workflow/structural-providers/graphify-provider.js";
 import type { StructuralReview } from "../../schema/structural-review.schema.js";
 
 /**
@@ -36,30 +37,43 @@ export function runReviewStructural(ctx: CommandContext, options: RunReviewStruc
     );
   }
 
-  const raw = runStructuralReview({ repoRoot: resolve(ctx.cwd), domains: options.domain ? [options.domain] : undefined });
-  const consolidated = suppressKnownBenignFindings(consolidateFindings(raw.findings));
+  try {
+    const repoRoot = resolve(ctx.cwd);
+    const raw = runStructuralReview({ repoRoot, domains: options.domain ? [options.domain] : undefined });
+    const consolidated = suppressKnownBenignFindings(consolidateFindings(raw.findings));
 
-  const review: StructuralReview = {
-    reviewCommit: raw.reviewCommit,
-    generatedAt: new Date().toISOString(),
-    domainsRequested: raw.domainsRequested,
-    domainsSupported: raw.domainsSupported,
-    domainsUnsupported: raw.domainsUnsupported,
-    providerStatus: [{ providerId: "repository-local", available: true }],
-    findings: consolidated,
-  };
+    // Section 5.3: provider unavailability never breaks or blocks local review.
+    const graphifyStatus = graphifyProvider.checkAvailability(repoRoot);
 
-  const actionable = consolidated.filter((f) => f.disposition === "actionable").length;
-  const intakeEligible = consolidated.filter((f) => f.eligibleForIntake).length;
+    const review: StructuralReview = {
+      reviewCommit: raw.reviewCommit,
+      generatedAt: new Date().toISOString(),
+      domainsRequested: raw.domainsRequested,
+      domainsSupported: raw.domainsSupported,
+      domainsUnsupported: raw.domainsUnsupported,
+      providerStatus: [{ providerId: "repository-local", available: true }, graphifyStatus],
+      findings: consolidated,
+    };
 
-  return makeResult({
-    status: "passed",
-    action: "review",
-    projectStatus: null,
-    currentMilestoneId: null,
-    currentWorkUnitId: null,
-    summary: `Structural review at ${raw.reviewCommit.slice(0, 12)}: ${consolidated.length} finding(s) (${actionable} actionable, ${intakeEligible} intake-eligible) across ${raw.domainsSupported.length} domain(s).`,
-    exitCode: ExitCode.Success,
-    data: { review },
-  });
+    const actionable = consolidated.filter((f) => f.disposition === "actionable").length;
+    const intakeEligible = consolidated.filter((f) => f.eligibleForIntake).length;
+
+    return makeResult({
+      status: "passed",
+      action: "review",
+      projectStatus: null,
+      currentMilestoneId: null,
+      currentWorkUnitId: null,
+      summary: `Structural review at ${raw.reviewCommit.slice(0, 12)}: ${consolidated.length} finding(s) (${actionable} actionable, ${intakeEligible} intake-eligible) across ${raw.domainsSupported.length} domain(s).`,
+      exitCode: ExitCode.Success,
+      data: { review },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return failure(
+      `Structural review requires a Git repository to bind findings to a commit (Section 3.4): ${message}`,
+      ExitCode.InvalidInput,
+      "REVIEW-STRUCTURAL-NOT-A-GIT-REPOSITORY",
+    );
+  }
 }

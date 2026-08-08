@@ -79,4 +79,4 @@ describe("M33-WU05: CLI contract matrix -- every actionable command exposes --js
 // the *.command.ts file count (some files export multiple registered
 // commands, e.g. workspace.command.ts covers prepare/status/release/
 // recover).
-const EXPECTED_COMMAND_COUNT = 85;
+const EXPECTED_COMMAND_COUNT = 86;

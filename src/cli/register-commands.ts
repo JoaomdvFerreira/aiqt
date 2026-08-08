@@ -156,6 +156,7 @@ import { runDefectsQueue } from "./commands/defects-queue.command.js";
 import { runDefectsTransition } from "./commands/defects-transition.command.js";
 import { runDefectsRemediate } from "./commands/defects-remediate.command.js";
 import { runDefectsRecordValidation } from "./commands/defects-record-validation.command.js";
+import { runDefectsIntakeStructural } from "./commands/defects-intake-structural.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
 import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
@@ -1321,6 +1322,17 @@ export function buildProgram(): Command {
         note: raw.note,
         preview: Boolean(raw.preview),
       });
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("intake-structural <findingKey>")
+    .description("Explicit, freshness-bound intake of one M43 structural finding into the M42 defect lifecycle (M43); reuses M42 discovery/dedup, never authorizes remediation")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--preview", "validate and report without persisting", false)
+    .action(async (findingKey: string, raw: { json?: boolean; preview?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runDefectsIntakeStructural(ctx, findingKey, { preview: Boolean(raw.preview) });
       emit(result, ctx.json);
     });
 

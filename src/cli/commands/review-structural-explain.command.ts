@@ -22,26 +22,35 @@ function failure(summary: string, exitCode: number, issueId: string): CommandRes
  * found, not fabricated.
  */
 export function runReviewStructuralExplain(ctx: CommandContext, findingKey: string): CommandResult {
-  const raw = runStructuralReview({ repoRoot: resolve(ctx.cwd) });
-  const consolidated = suppressKnownBenignFindings(consolidateFindings(raw.findings));
-  const finding = consolidated.find((f) => f.findingKey === findingKey);
+  try {
+    const raw = runStructuralReview({ repoRoot: resolve(ctx.cwd) });
+    const consolidated = suppressKnownBenignFindings(consolidateFindings(raw.findings));
+    const finding = consolidated.find((f) => f.findingKey === findingKey);
 
-  if (!finding) {
+    if (!finding) {
+      return failure(
+        `No current structural finding with key "${findingKey}" (it may have been resolved, or never existed at the current review commit ${raw.reviewCommit}).`,
+        ExitCode.InvalidInput,
+        "REVIEW-STRUCTURAL-EXPLAIN-UNKNOWN-KEY",
+      );
+    }
+
+    return makeResult({
+      status: "passed",
+      action: "review",
+      projectStatus: null,
+      currentMilestoneId: null,
+      currentWorkUnitId: null,
+      summary: `${finding.domain}/${finding.ruleId}: ${finding.title} [${finding.confidence}, ${finding.significance}, ${finding.disposition}, intake-eligible=${finding.eligibleForIntake}]`,
+      exitCode: ExitCode.Success,
+      data: { finding },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     return failure(
-      `No current structural finding with key "${findingKey}" (it may have been resolved, or never existed at the current review commit ${raw.reviewCommit}).`,
+      `Structural review requires a Git repository to bind findings to a commit (Section 3.4): ${message}`,
       ExitCode.InvalidInput,
-      "REVIEW-STRUCTURAL-EXPLAIN-UNKNOWN-KEY",
+      "REVIEW-STRUCTURAL-NOT-A-GIT-REPOSITORY",
     );
   }
-
-  return makeResult({
-    status: "passed",
-    action: "review",
-    projectStatus: null,
-    currentMilestoneId: null,
-    currentWorkUnitId: null,
-    summary: `${finding.domain}/${finding.ruleId}: ${finding.title} [${finding.confidence}, ${finding.significance}, ${finding.disposition}, intake-eligible=${finding.eligibleForIntake}]`,
-    exitCode: ExitCode.Success,
-    data: { finding },
-  });
 }

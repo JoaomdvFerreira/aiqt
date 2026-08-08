@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { StructuralFinding } from "../../schema/structural-review.schema.js";
 import { buildStructuralFinding } from "../structural-finding-builder.js";
@@ -16,6 +17,7 @@ import { classifyAllTestFiles } from "../../tooling/test-inventory-classifier.js
  */
 export function runProcessHeavyTestTimeoutRule(repoRoot: string, reviewCommit: string): StructuralFinding[] {
   const testsDir = join(repoRoot, "tests");
+  if (!existsSync(testsDir)) return [];
   const classified = classifyAllTestFiles(repoRoot, testsDir);
 
   const findings: StructuralFinding[] = [];
