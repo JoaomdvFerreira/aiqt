@@ -544,3 +544,20 @@ export interface RawDefectsDiscoverOptions {
   humanSeverity?: string;
   preview?: boolean;
 }
+
+export interface RawDefectsListOptions {
+  json?: boolean;
+  status?: string;
+}
+
+export interface RawDefectsTriageOptions {
+  json?: boolean;
+  preview?: boolean;
+}
+
+export interface RawDefectsTransitionOptions {
+  json?: boolean;
+  to?: string;
+  reason?: string;
+  preview?: boolean;
+}

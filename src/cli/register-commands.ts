@@ -71,6 +71,9 @@ import {
   type RawValidationSelectOptions,
   type RawValidationExplainOptions,
   type RawDefectsDiscoverOptions,
+  type RawDefectsListOptions,
+  type RawDefectsTriageOptions,
+  type RawDefectsTransitionOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -142,6 +145,11 @@ import { runEvidenceGateExceptionRevoke } from "./commands/evidence-gate-excepti
 import { runEvidenceGateExceptionList } from "./commands/evidence-gate-exception-list.command.js";
 import { runEvidenceGateEnforcementStatus } from "./commands/evidence-gate-enforcement-status.command.js";
 import { runDefectsDiscover } from "./commands/defects-discover.command.js";
+import { runDefectsList } from "./commands/defects-list.command.js";
+import { runDefectsInspect } from "./commands/defects-inspect.command.js";
+import { runDefectsTriage } from "./commands/defects-triage.command.js";
+import { runDefectsQueue } from "./commands/defects-queue.command.js";
+import { runDefectsTransition } from "./commands/defects-transition.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
 import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
@@ -1189,6 +1197,61 @@ export function buildProgram(): Command {
         humanSeverity: raw.humanSeverity,
         preview: Boolean(raw.preview),
       });
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("list")
+    .description("Read-only listing of defect records, optionally filtered by --status")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--status <status>", "candidate | triaged | queued | in_progress | needs_human | deferred | resolved | reopened | invalid | duplicate")
+    .action((raw: RawDefectsListOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runDefectsList(ctx, { status: raw.status });
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("inspect <defectId>")
+    .description("Read-only full record for one defect, including its triage decision when present")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((defectId: string, raw: { json?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runDefectsInspect(ctx, defectId);
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("triage <defectId>")
+    .description("Run deterministic triage on one defect and apply the resulting status transition(s)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--preview", "compute and report the triage decision without persisting", false)
+    .action(async (defectId: string, raw: RawDefectsTriageOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runDefectsTriage(ctx, defectId, { preview: Boolean(raw.preview) });
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("queue")
+    .description("Read-only, deterministically ordered view of the queue-eligible defects (queued | in_progress | needs_human)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: { json?: boolean }) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runDefectsQueue(ctx);
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("transition <defectId>")
+    .description("Explicit human-driven status override (e.g. defer/invalidate/queue) -- validated against the same transition table triage uses")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--to <status>", "target DefectStatus")
+    .option("--reason <text>", "bounded, non-empty reason")
+    .option("--preview", "validate and report without persisting", false)
+    .action(async (defectId: string, raw: RawDefectsTransitionOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runDefectsTransition(ctx, defectId, { to: raw.to, reason: raw.reason, preview: Boolean(raw.preview) });
       emit(result, ctx.json);
     });
 

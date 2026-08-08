@@ -7,7 +7,7 @@ import type { DefectStatus } from "../schema/defect.schema.js";
  */
 export const DEFECT_TRANSITIONS: Readonly<Record<DefectStatus, readonly DefectStatus[]>> = {
   candidate: ["triaged", "invalid"],
-  triaged: ["queued", "deferred", "invalid", "duplicate"],
+  triaged: ["queued", "deferred", "invalid", "duplicate", "needs_human"],
   queued: ["in_progress", "deferred", "needs_human", "invalid"],
   in_progress: ["needs_human", "resolved", "queued", "deferred"],
   needs_human: ["queued", "deferred", "invalid"],

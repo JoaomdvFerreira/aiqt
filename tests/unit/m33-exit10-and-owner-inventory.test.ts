@@ -138,6 +138,11 @@ describe("M33-WU02: missingProjectResult (bespoke pre-check pattern)", () => {
  */
 const LOCAL_FAILURE_HELPER_FILES = [
   "defects-discover.command.ts",
+  "defects-inspect.command.ts",
+  "defects-list.command.ts",
+  "defects-queue.command.ts",
+  "defects-transition.command.ts",
+  "defects-triage.command.ts",
   "evidence-gate-advisory-feedback.command.ts",
   "evidence-gate-advisory-refresh.command.ts",
   "evidence-gate-enforcement-activation-activate.command.ts",
