@@ -1800,6 +1800,102 @@ export function buildDefectStatusChangedEvent(input: {
   };
 }
 
+// ---------------------------------------------------------------------------
+// M45: maintenance schedule/occurrence events (build spec Sec 14).
+// ---------------------------------------------------------------------------
+
+export interface MaintenanceScheduleMutatedEventData {
+  scheduleId: string;
+  taskKind: string;
+  [key: string]: unknown;
+}
+
+function buildMaintenanceScheduleEvent(
+  type: "maintenance.schedule_created" | "maintenance.schedule_updated" | "maintenance.schedule_enabled" | "maintenance.schedule_disabled" | "maintenance.schedule_removed",
+  summaryVerb: string,
+  input: { id: string; timestamp: string; relatedIds: string[]; data: MaintenanceScheduleMutatedEventData },
+): RunlogEvent {
+  return {
+    id: input.id,
+    type,
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Schedule ${input.data.scheduleId} (${input.data.taskKind}) ${summaryVerb}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export function buildMaintenanceScheduleCreatedEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: MaintenanceScheduleMutatedEventData }): RunlogEvent {
+  return buildMaintenanceScheduleEvent("maintenance.schedule_created", "created", input);
+}
+export function buildMaintenanceScheduleUpdatedEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: MaintenanceScheduleMutatedEventData }): RunlogEvent {
+  return buildMaintenanceScheduleEvent("maintenance.schedule_updated", "updated", input);
+}
+export function buildMaintenanceScheduleEnabledEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: MaintenanceScheduleMutatedEventData }): RunlogEvent {
+  return buildMaintenanceScheduleEvent("maintenance.schedule_enabled", "enabled", input);
+}
+export function buildMaintenanceScheduleDisabledEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: MaintenanceScheduleMutatedEventData }): RunlogEvent {
+  return buildMaintenanceScheduleEvent("maintenance.schedule_disabled", "disabled", input);
+}
+export function buildMaintenanceScheduleRemovedEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: MaintenanceScheduleMutatedEventData }): RunlogEvent {
+  return buildMaintenanceScheduleEvent("maintenance.schedule_removed", "removed", input);
+}
+
+export interface MaintenanceRunStartedEventData {
+  occurrenceId: string;
+  scheduleId: string;
+  taskKind: string;
+  dueAt: string;
+  missedOccurrenceCount: number;
+}
+
+export function buildMaintenanceRunStartedEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: MaintenanceRunStartedEventData }): RunlogEvent {
+  return {
+    id: input.id,
+    type: "maintenance.run_started",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Started occurrence ${input.data.occurrenceId} for schedule ${input.data.scheduleId} (${input.data.taskKind})${input.data.missedOccurrenceCount > 0 ? `, ${input.data.missedOccurrenceCount} missed occurrence(s) skipped` : ""}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface MaintenanceRunFinishedEventData {
+  occurrenceId: string;
+  scheduleId: string;
+  taskKind: string;
+  resultStatus: string;
+  nextDueAt: string;
+  [key: string]: unknown;
+}
+
+function buildMaintenanceRunFinishedEvent(
+  type: "maintenance.run_completed" | "maintenance.run_failed" | "maintenance.run_cancelled",
+  input: { id: string; timestamp: string; relatedIds: string[]; data: MaintenanceRunFinishedEventData },
+): RunlogEvent {
+  return {
+    id: input.id,
+    type,
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Occurrence ${input.data.occurrenceId} for schedule ${input.data.scheduleId} (${input.data.taskKind}) finished: ${input.data.resultStatus}; next due ${input.data.nextDueAt}`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export function buildMaintenanceRunCompletedEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: MaintenanceRunFinishedEventData }): RunlogEvent {
+  return buildMaintenanceRunFinishedEvent("maintenance.run_completed", input);
+}
+export function buildMaintenanceRunFailedEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: MaintenanceRunFinishedEventData }): RunlogEvent {
+  return buildMaintenanceRunFinishedEvent("maintenance.run_failed", input);
+}
+export function buildMaintenanceRunCancelledEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: MaintenanceRunFinishedEventData }): RunlogEvent {
+  return buildMaintenanceRunFinishedEvent("maintenance.run_cancelled", input);
+}
+
 export function runlogHealthWarning(health: RunlogHealth): Issue | null {
   if (health.malformedLines === 0) return null;
   return {
