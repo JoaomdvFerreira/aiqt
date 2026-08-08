@@ -95,6 +95,8 @@ export interface TestImpactInput {
   explicitValidationCommands: string[];
   inventory: TestInventorySnapshot;
   priorFeedback: ValidationFeedbackRef[];
+  /** M41-WU04: the identity prior feedback must match to be trusted (defaults to workUnitId when omitted). A feedback ref whose changeIdentity differs is stale/mismatched, never verified evidence. */
+  currentChangeIdentity?: string;
 }
 
 export interface SelectedTestTarget {

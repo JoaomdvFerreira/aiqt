@@ -3,7 +3,7 @@ import { RISK_CLASSES_REQUIRING_APPROVAL, RISK_CLASSES_ALWAYS_BLOCKED } from "..
 import { buildContextManifest, type ContextManifestInput } from "./execution-context-manifest.js";
 import { buildContinuationCapsule, type BuildContinuationCapsuleInput } from "./execution-continuation.js";
 import { classifyValidationCommands } from "./execution-validation-classifier.js";
-import { selectTestImpact } from "./test-impact-selection.js";
+import { selectTestImpactWithFeedback } from "./test-impact-adaptive-selection.js";
 import type { TestImpactInput, TestImpactSelection } from "../schema/test-impact.schema.js";
 import {
   EXECUTION_GUIDANCE_PROTOCOL_VERSION,
@@ -317,7 +317,7 @@ export function buildValidationGuidance(input: ValidationGuidanceInput = {}): Ex
   // closure (already returned above).
   let testImpact: TestImpactSelection | null = null;
   if (input.testImpactInput) {
-    testImpact = selectTestImpact(input.testImpactInput);
+    testImpact = selectTestImpactWithFeedback(input.testImpactInput).selection;
     const requiredTiers = new Set(requiredNow.map((step) => step.tier));
     if (testImpact.escalation === "full_required" && !requiredTiers.has("full")) {
       requiredNow.push({

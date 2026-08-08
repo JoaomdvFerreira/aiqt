@@ -14,6 +14,7 @@ import type { ExecutionGuidance } from "../../schema/execution-guidance.schema.j
 import { resolveExecutionGuidanceProfileConfig } from "../../services/execution-guidance-profile-resolution-service.js";
 import { latestCheckpointForWorkUnit } from "../../services/checkpoint-amendment-service.js";
 import { buildTestInventory } from "../../workflow/test-inventory.js";
+import { loadValidationFeedbackFromCheckpoints } from "../../workflow/test-impact-feedback.js";
 import type { TestImpactInput } from "../../schema/test-impact.schema.js";
 
 /**
@@ -250,13 +251,19 @@ export function buildExecutionGuidanceForWorkUnit(workUnit: WorkUnit, repoRoot: 
   const changedFiles = [
     ...new Set([...(currentWorkUnitPriorCheckpoint?.filesChanged ?? []), ...directDependencies.flatMap((dep) => dep.checkpoint?.filesChanged ?? [])]),
   ];
+  // M41-WU04 (build spec Sec 10): real feedback from this Work Unit's own
+  // canonical checkpoints, trusted only against its LATEST checkpoint's
+  // id -- feedback from an earlier checkpoint attempt for the same Work
+  // Unit is a real "mismatched change" case and is filtered out
+  // downstream (selectTestImpactWithFeedback), not treated as current.
   const testImpactInput: TestImpactInput = {
     workUnitId: workUnit.id,
     scopedFiles: workUnit.suggestedFiles,
     changedFiles,
     explicitValidationCommands: workUnit.validationCommands,
     inventory: buildTestInventory(repoRoot, join(repoRoot, "tests")),
-    priorFeedback: [],
+    priorFeedback: loadValidationFeedbackFromCheckpoints(state.checkpoints, workUnit.id),
+    currentChangeIdentity: currentWorkUnitPriorCheckpoint?.id ?? workUnit.id,
   };
 
   return composeExecutionGuidance({
