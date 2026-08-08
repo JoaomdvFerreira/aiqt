@@ -296,7 +296,7 @@
     "releaseGovernance": {
       "primary": "src/workflow/release-readiness.ts",
       "supporting": ["src/cli/commands/release-status.command.ts", "src/cli/commands/release-prepare.command.ts", "src/cli/commands/release-validate.command.ts", "src/cli/commands/release-notes.command.ts", "src/state/release-decision-store.ts"],
-      "contractSummary": "M40's release-readiness/status/prepare/validate/notes surface: aggregates CI/version/risk/provenance state into one read-only readiness view and a governed release-decision record, without itself creating a tag, GitHub Release, or performing a merge. Full engineering history: docs/milestones/completed/m40/build-spec.md and closure-report.md.",
+      "contractSummary": "M40's release-readiness/status/prepare/validate/notes surface: aggregates CI/version/risk/provenance state into one read-only readiness view and a governed release-decision record, without itself creating a tag, GitHub Release, or performing a merge. Full engineering history: docs/archive/milestones/m40/build-spec.md and closure-report.md.",
       "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "releaseRiskAssessment": {
