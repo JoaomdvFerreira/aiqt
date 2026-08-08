@@ -299,24 +299,103 @@ describe("M44-WU02 historical evidence discovery and provenance reconstruction",
     });
   });
 
-  describe("runReleaseReconstruct CLI (M44-WU03)", () => {
-    it("fails with RELEASE-RECONSTRUCT-TAG-NOT-FOUND for an unknown tag", () => {
-      const result = runReleaseReconstruct(contextFor(repoDir), { tag: "v404.0.0", repository: "example/widget" });
+  describe("runReleaseReconstruct CLI (M44-WU03/WU04)", () => {
+    it("fails with RELEASE-RECONSTRUCT-TAG-NOT-FOUND for an unknown tag", async () => {
+      const result = await runReleaseReconstruct(contextFor(repoDir), { tag: "v404.0.0", repository: "example/widget" });
       expect(result.blockingIssues.some((i) => i.id === "RELEASE-RECONSTRUCT-TAG-NOT-FOUND")).toBe(true);
     });
 
-    it("reports blocked status with the readiness blocking findings for a clean historical target", () => {
-      const result = runReleaseReconstruct(contextFor(repoDir), { tag: "v1.1.0", repository: "example/widget" });
+    it("reports blocked status with the readiness blocking findings for a clean historical target (no GitHub token -> unverified, never fabricated)", async () => {
+      const result = await runReleaseReconstruct(contextFor(repoDir), { tag: "v1.1.0", repository: "example/widget" }, { env: {} });
       expect(result.status).toBe("blocked");
       expect(result.exitCode).toBe(2);
-      const data = result.data as { assessment: { status: string }; retrospectiveNotes: string | null };
+      const data = result.data as { assessment: { status: string }; existingRelease: { releaseStatus: string; draftStatus: string }; retrospectiveNotes: string | null };
       expect(data.assessment.status).toBe("reconstructable");
+      expect(data.existingRelease.releaseStatus).toBe("unverified");
+      expect(data.existingRelease.draftStatus).toBe("unverified");
       expect(data.retrospectiveNotes).toContain("Historical reconstruction:** YES");
+      expect(data.retrospectiveNotes).toContain("Existing GitHub Release:** unverified");
     });
 
-    it("rejects a missing --repository with RELEASE-RECONSTRUCT-MISSING-REPOSITORY", () => {
-      const result = runReleaseReconstruct(contextFor(repoDir), { tag: "v1.1.0", repository: "" });
+    it("rejects a missing --repository with RELEASE-RECONSTRUCT-MISSING-REPOSITORY", async () => {
+      const result = await runReleaseReconstruct(contextFor(repoDir), { tag: "v1.1.0", repository: "" });
       expect(result.blockingIssues.some((i) => i.id === "RELEASE-RECONSTRUCT-MISSING-REPOSITORY")).toBe(true);
+    });
+
+    it("reports existing_release and never proposes a duplicate action when a published release is found", async () => {
+      const fakeClient = {
+        getRepository: async () => ({ ok: true as const, value: { fullName: "example/widget" } }),
+        getReleaseByTag: async () => ({ ok: true as const, value: { id: 1, htmlUrl: "https://github.com/example/widget/releases/tag/v1.1.0", draft: false } }),
+        createReleaseDraft: async () => {
+          throw new Error("must never be called by reconstruction");
+        },
+      };
+      const result = await runReleaseReconstruct(
+        contextFor(repoDir),
+        { tag: "v1.1.0", repository: "example/widget" },
+        { githubClient: fakeClient, env: { GITHUB_TOKEN: "fake-token" } },
+      );
+      const data = result.data as { assessment: { status: string }; existingRelease: { releaseStatus: string; releaseUrl: string | null } };
+      expect(data.assessment.status).toBe("existing_release");
+      expect(data.existingRelease.releaseStatus).toBe("found");
+      expect(data.existingRelease.releaseUrl).toBe("https://github.com/example/widget/releases/tag/v1.1.0");
+      expect(result.summary).toContain("no duplicate publication proposed");
+    });
+
+    it("surfaces a found draft without creating another one", async () => {
+      const fakeClient = {
+        getRepository: async () => ({ ok: true as const, value: { fullName: "example/widget" } }),
+        getReleaseByTag: async () => ({ ok: true as const, value: { id: 2, htmlUrl: "https://github.com/example/widget/releases/tag/untagged-draft", draft: true } }),
+        createReleaseDraft: async () => {
+          throw new Error("must never be called by reconstruction");
+        },
+      };
+      const result = await runReleaseReconstruct(
+        contextFor(repoDir),
+        { tag: "v1.1.0", repository: "example/widget" },
+        { githubClient: fakeClient, env: { GITHUB_TOKEN: "fake-token" } },
+      );
+      const data = result.data as { existingRelease: { draftStatus: string; draftUrl: string | null } };
+      expect(data.existingRelease.draftStatus).toBe("found");
+      expect(result.summary).toContain("no duplicate draft proposed");
+    });
+
+    it("reports unverified, never a fabricated not_found, when the GitHub API call fails", async () => {
+      const fakeClient = {
+        getRepository: async () => ({ ok: true as const, value: { fullName: "example/widget" } }),
+        getReleaseByTag: async () => ({ ok: false as const, status: 500, message: "boom" }),
+        createReleaseDraft: async () => {
+          throw new Error("must never be called by reconstruction");
+        },
+      };
+      const result = await runReleaseReconstruct(
+        contextFor(repoDir),
+        { tag: "v1.1.0", repository: "example/widget" },
+        { githubClient: fakeClient, env: { GITHUB_TOKEN: "fake-token" } },
+      );
+      const data = result.data as { existingRelease: { releaseStatus: string } };
+      expect(data.existingRelease.releaseStatus).toBe("unverified");
+    });
+
+    it("reports unverified for a non-GitHub-shaped repository identity, without ever attempting a network call", async () => {
+      const fakeClient = {
+        getRepository: async () => {
+          throw new Error("must never be called for a non-owner/repo identity");
+        },
+        getReleaseByTag: async () => {
+          throw new Error("must never be called for a non-owner/repo identity");
+        },
+        createReleaseDraft: async () => {
+          throw new Error("must never be called by reconstruction");
+        },
+      };
+      const result = await runReleaseReconstruct(
+        contextFor(repoDir),
+        { tag: "v1.1.0", repository: "not-an-owner-repo-identity" },
+        { githubClient: fakeClient, env: { GITHUB_TOKEN: "fake-token" } },
+      );
+      const data = result.data as { existingRelease: { releaseStatus: string } };
+      expect(data.existingRelease.releaseStatus).toBe("unverified");
     });
   });
 });

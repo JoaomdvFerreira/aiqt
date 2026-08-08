@@ -1916,18 +1916,21 @@ export function buildProgram(): Command {
     });
 
   // ---------------------------------------------------------------------
-  // M44-WU03: aiqt release reconstruct <tag> (explicit-target, read-only
-  // historical reconstruction -- maps into the existing M40 candidate/
-  // readiness/risk/approval/notes flow; never publishes or mutates).
+  // M44-WU03/WU04: aiqt release reconstruct <tag> (explicit-target, read-
+  // only historical reconstruction -- maps into the existing M40 candidate/
+  // readiness/risk/approval/notes flow, plus a bounded external existing-
+  // release/draft lookup reusing M40's exact GitHub read adapter; never
+  // publishes, drafts, or mutates).
   // ---------------------------------------------------------------------
   releaseCommand
     .command("reconstruct <tag>")
     .description("Explicit-target, read-only historical release reconstruction against the existing M40 release-governance flow (M44) -- never publishes")
     .option("--json", "emit machine-readable JSON output", false)
     .requiredOption("--repository <identity>", "repository identity to attribute the reconstructed candidate to")
-    .action((tag: string, raw: RawReleaseReconstructOptions) => {
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token for the bounded existing-release lookup (defaults to GITHUB_TOKEN)")
+    .action(async (tag: string, raw: RawReleaseReconstructOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
-      const result = runReleaseReconstruct(ctx, { tag, repository: raw.repository });
+      const result = await runReleaseReconstruct(ctx, { tag, repository: raw.repository, tokenEnv: raw.tokenEnv });
       emit(result, ctx.json);
     });
 

@@ -14,8 +14,11 @@ import {
   renderRetrospectiveReleaseNotes,
 } from "../workflow/reconstruction-engine.js";
 import { assessReleaseDecision } from "./release-governance-service.js";
+import { parseOwnerRepo } from "../workflow/release-draft-policy.js";
+import { realGithubReleaseClient, type GithubReleaseClient } from "./github-release-client.js";
 import type { ReleaseBlockingFinding, ReleaseDecision } from "../schema/release-governance.schema.js";
 import type {
+  ExistingReleaseState,
   HistoricalEvidenceConflict,
   HistoricalEvidenceItem,
   HistoricalReleaseTarget,
@@ -231,4 +234,107 @@ export function reconstructHistoricalRelease(
   }
 
   return { ok: true, result: { assessment, decision, m40BlockingFindings, retrospectiveNotes } };
+}
+
+// ---------------------------------------------------------------------------
+// External existing-release verification (M44-WU04, build spec Sec 11, 12) --
+// reuses M40's exact bounded GitHub read adapter (github-release-client.ts's
+// getReleaseByTag). No new HTTP client, no credential discovery, and never
+// calls createReleaseDraft: this is read-only existence verification, not a
+// publication path.
+// ---------------------------------------------------------------------------
+
+const UNVERIFIED_EXISTING_RELEASE_STATE: ExistingReleaseState = {
+  releaseStatus: "unverified",
+  releaseUrl: null,
+  draftStatus: "unverified",
+  draftUrl: null,
+};
+
+export interface ExternalVerificationDeps {
+  githubClient?: GithubReleaseClient;
+  env?: NodeJS.ProcessEnv;
+  tokenEnvName?: string;
+}
+
+/**
+ * Distinguishes "not found after an authoritative lookup" from "existence
+ * could not be verified" (build spec Sec 11) -- a non-GitHub-shaped
+ * repositoryIdentity, a missing credential, or a network/API failure all
+ * report `unverified`, never a fabricated `not_found`. GitHub's single
+ * per-tag release lookup returns the same object whether it is a draft or
+ * published, distinguished only by its `draft` flag -- mapped here to the
+ * two separate release/draft statuses this contract exposes.
+ */
+export async function verifyExistingGithubRelease(
+  repositoryIdentity: string,
+  requestedTag: string,
+  deps: ExternalVerificationDeps = {},
+): Promise<ExistingReleaseState> {
+  const ownerRepo = parseOwnerRepo(repositoryIdentity);
+  if (!ownerRepo) return UNVERIFIED_EXISTING_RELEASE_STATE;
+
+  const tokenEnvName = deps.tokenEnvName ?? "GITHUB_TOKEN";
+  const env = deps.env ?? process.env;
+  const token = env[tokenEnvName];
+  if (!token) return UNVERIFIED_EXISTING_RELEASE_STATE;
+
+  const client = deps.githubClient ?? realGithubReleaseClient;
+  const lookup = await client.getReleaseByTag(ownerRepo.owner, ownerRepo.repo, requestedTag, token);
+  if (!lookup.ok) return UNVERIFIED_EXISTING_RELEASE_STATE;
+
+  if (lookup.value === null) {
+    return { releaseStatus: "not_found", releaseUrl: null, draftStatus: "not_found", draftUrl: null };
+  }
+  if (lookup.value.draft) {
+    return { releaseStatus: "not_found", releaseUrl: null, draftStatus: "found", draftUrl: lookup.value.htmlUrl };
+  }
+  return { releaseStatus: "found", releaseUrl: lookup.value.htmlUrl, draftStatus: "not_found", draftUrl: null };
+}
+
+export interface ReconstructedHistoricalReleaseWithExternalEvidence extends ReconstructedHistoricalRelease {
+  existingRelease: ExistingReleaseState;
+}
+
+export type ReconstructHistoricalReleaseWithExternalEvidenceOutcome =
+  | { ok: true; result: ReconstructedHistoricalReleaseWithExternalEvidence }
+  | { ok: false; reason: "tag_not_found" };
+
+/**
+ * Layers the bounded external existing-release lookup on top of the local
+ * reconstruction (build spec Sec 11): a published release found for the
+ * exact tag upgrades the reconstruction-quality outcome to
+ * `existing_release` (never fabricated locally -- WU44-03's engine never
+ * produces this status on its own). The evidence digest is untouched by
+ * this override -- it is defined only over target/evidence/conflicts, not
+ * over the transient outcome of whether GitHub was reachable this run
+ * (build spec Sec 6.5).
+ */
+export async function reconstructHistoricalReleaseWithExternalEvidence(
+  cwd: string,
+  repositoryIdentity: string,
+  requestedTag: string,
+  deps: ExternalVerificationDeps = {},
+): Promise<ReconstructHistoricalReleaseWithExternalEvidenceOutcome> {
+  const local = reconstructHistoricalRelease(cwd, repositoryIdentity, requestedTag);
+  if (!local.ok) return local;
+
+  const existingRelease = await verifyExistingGithubRelease(repositoryIdentity, requestedTag, deps);
+  const assessment: ReconstructionAssessment =
+    existingRelease.releaseStatus === "found" ? { ...local.result.assessment, status: "existing_release" } : local.result.assessment;
+
+  let retrospectiveNotes = local.result.retrospectiveNotes;
+  if (local.result.decision && local.result.decision.risk !== null && local.result.decision.approval !== null) {
+    const existingLabel = existingRelease.releaseStatus === "found" ? "yes" : existingRelease.releaseStatus === "not_found" ? "no" : "unverified";
+    retrospectiveNotes = renderRetrospectiveReleaseNotes(
+      assessment,
+      { ...local.result.decision, risk: local.result.decision.risk, approval: local.result.decision.approval },
+      existingLabel,
+    );
+  }
+
+  return {
+    ok: true,
+    result: { ...local.result, assessment, existingRelease, retrospectiveNotes },
+  };
 }

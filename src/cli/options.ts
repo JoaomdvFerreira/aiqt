@@ -524,6 +524,7 @@ export interface RawReleaseHistoryOptions {
 export interface RawReleaseReconstructOptions {
   json?: boolean;
   repository: string;
+  tokenEnv?: string;
 }
 
 // ---------------------------------------------------------------------------
