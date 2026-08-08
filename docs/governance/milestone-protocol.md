@@ -131,3 +131,17 @@ architecture decisions, threat models, or durable operational policy. Work
 Unit prompts, raw logs, routine implementation reports, and reproducible
 CI/test evidence should not normally be retained as permanent
 documentation.
+
+## 10. Milestone documentation archive lifecycle
+
+`docs/milestones/active/` holds only the currently active milestone(s).
+`docs/milestones/completed/` is a rolling window of the **two most
+recently completed** milestones, kept there for convenient near-term
+reference. When a new milestone starts, any milestone under
+`docs/milestones/completed/` older than the two most recent is moved
+(`git mv`, preserving history and all durable files) to
+`docs/archive/milestones/mXX/`, and any direct path reference to it
+(owner map, cross-referencing governance docs) is updated in the same
+commit. Archiving is housekeeping, not a Work Unit, and does not get its
+own milestone tag. Pre-standard historical material already under
+`docs/archive/legacy-milestones/` is untouched by this rule.

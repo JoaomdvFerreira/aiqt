@@ -68,6 +68,8 @@ import {
   type RawReleasePrepareOptions,
   type RawReleaseStatusOptions,
   type RawReleaseDraftOptions,
+  type RawValidationSelectOptions,
+  type RawValidationExplainOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -157,6 +159,8 @@ import { runReleaseNotes } from "./commands/release-notes.command.js";
 import { runReleasePrepare } from "./commands/release-prepare.command.js";
 import { runReleaseStatus } from "./commands/release-status.command.js";
 import { runReleaseDraft } from "./commands/release-draft.command.js";
+import { runValidationSelect } from "./commands/validation-select.command.js";
+import { runValidationExplain } from "./commands/validation-explain.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman, renderResultFooter } from "../core/output/human-output.js";
@@ -1717,6 +1721,47 @@ export function buildProgram(): Command {
     .action(async (raw: RawReleaseDraftOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = await runReleaseDraft(ctx, { fromFile: raw.fromFile, stdin: Boolean(raw.stdin), tokenEnv: raw.tokenEnv });
+      emit(result, ctx.json);
+    });
+
+  // ---------------------------------------------------------------------
+  // M41-WU03: aiqt validation ... (read-only test-impact selection
+  // inspection). Reuses the exact same buildExecutionGuidanceForWorkUnit
+  // `next`/`next --preview` already call -- never mutates workflow state.
+  // ---------------------------------------------------------------------
+  const validationCommand = program
+    .command("validation")
+    .description("Read-only test-impact validation selection for a Work Unit (M41) -- never mutates workflow state");
+
+  validationCommand
+    .command("select")
+    .description("Compact recommended focused/impacted validation selection for a Work Unit")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--work-unit <workUnitId>", "the Work Unit id to compute the selection for")
+    .action((raw: RawValidationSelectOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runValidationSelect(ctx, { workUnit: raw.workUnit });
+      emit(result, ctx.json);
+    });
+
+  validationCommand
+    .command("explain")
+    .description("Richer per-target reasons and evidence gaps for a Work Unit's validation selection")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--work-unit <workUnitId>", "the Work Unit id to explain the selection for")
+    .action((raw: RawValidationExplainOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runValidationExplain(ctx, { workUnit: raw.workUnit });
+
+      if (!ctx.json) {
+        const data = result.data as { explain?: string } | undefined;
+        if (typeof data?.explain === "string") {
+          process.stdout.write(data.explain + renderResultFooter(result) + "\n");
+          process.exitCode = result.exitCode;
+          return;
+        }
+      }
+
       emit(result, ctx.json);
     });
 

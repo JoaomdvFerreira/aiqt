@@ -129,6 +129,9 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   // above and the dogfood suite already matches /dogfood/ below; this
   // covers the remaining release-*.test.ts unit/integration coverage.
   { pattern: /^release-/, domain: "release-governance", criticality: "Critical" },
+  // M41: test-impact inventory/selection/escalation and its read-only
+  // validation select/explain CLI surface.
+  { pattern: /test-impact|-impact\.test\.ts$|^validation-select-explain/, domain: "test-impact-selection", criticality: "Critical" },
   { pattern: /dogfood/, domain: "self-consistency", criticality: "Normal" },
 ];
 

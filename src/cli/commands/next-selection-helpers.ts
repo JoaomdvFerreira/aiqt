@@ -8,10 +8,14 @@ import type {
   ReadyCandidate,
   SelectionBlockingReason,
 } from "../../workflow/next-work-unit-selector.js";
+import { join } from "node:path";
 import { composeExecutionGuidance } from "../../workflow/execution-guidance.js";
 import type { ExecutionGuidance } from "../../schema/execution-guidance.schema.js";
 import { resolveExecutionGuidanceProfileConfig } from "../../services/execution-guidance-profile-resolution-service.js";
 import { latestCheckpointForWorkUnit } from "../../services/checkpoint-amendment-service.js";
+import { buildTestInventory } from "../../workflow/test-inventory.js";
+import { loadValidationFeedbackFromCheckpoints } from "../../workflow/test-impact-feedback.js";
+import type { TestImpactInput } from "../../schema/test-impact.schema.js";
 
 /**
  * M20 §6/§11: shared CLI-layer plumbing for `aiqt next`'s three selection
@@ -236,6 +240,32 @@ export function buildExecutionGuidanceForWorkUnit(workUnit: WorkUnit, repoRoot: 
     checkpoint: latestCheckpointForWorkUnit(state, depWorkUnitId) ?? null,
   }));
 
+  // M41-WU03 (build spec Sec 8): feed the same real Work Unit/checkpoint
+  // evidence already gathered above (context/continuation) into the
+  // shared test-impact selector, rather than a second signal-gathering
+  // path. `changedFiles` combines this Work Unit's own prior checkpoint
+  // (a WU already in progress) with its direct dependencies' latest
+  // checkpoints -- both already-canonical `state.checkpoints`, no new
+  // lookup/store.
+  const currentWorkUnitPriorCheckpoint = latestCheckpointForWorkUnit(state, workUnit.id) ?? null;
+  const changedFiles = [
+    ...new Set([...(currentWorkUnitPriorCheckpoint?.filesChanged ?? []), ...directDependencies.flatMap((dep) => dep.checkpoint?.filesChanged ?? [])]),
+  ];
+  // M41-WU04 (build spec Sec 10): real feedback from this Work Unit's own
+  // canonical checkpoints, trusted only against its LATEST checkpoint's
+  // id -- feedback from an earlier checkpoint attempt for the same Work
+  // Unit is a real "mismatched change" case and is filtered out
+  // downstream (selectTestImpactWithFeedback), not treated as current.
+  const testImpactInput: TestImpactInput = {
+    workUnitId: workUnit.id,
+    scopedFiles: workUnit.suggestedFiles,
+    changedFiles,
+    explicitValidationCommands: workUnit.validationCommands,
+    inventory: buildTestInventory(repoRoot, join(repoRoot, "tests")),
+    priorFeedback: loadValidationFeedbackFromCheckpoints(state.checkpoints, workUnit.id),
+    currentChangeIdentity: currentWorkUnitPriorCheckpoint?.id ?? workUnit.id,
+  };
+
   return composeExecutionGuidance({
     workUnitId: workUnit.id,
     workUnit: {
@@ -260,5 +290,6 @@ export function buildExecutionGuidanceForWorkUnit(workUnit: WorkUnit, repoRoot: 
       currentWorkUnitPriorCheckpoint: latestCheckpointForWorkUnit(state, workUnit.id) ?? null,
     },
     explicitValidationCommands: workUnit.validationCommands,
+    testImpactInput,
   });
 }

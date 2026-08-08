@@ -36,6 +36,13 @@ function formatDeferred(guidance: ExecutionGuidance): string {
   return `${tiers} -> ${guidance.validation.fullSuiteRequiredAt}`;
 }
 
+/** M41-WU03: one compact line, or omitted entirely when no test-impact input was supplied -- never a per-target dump (that belongs to `aiqt validation explain`). */
+function formatTestImpact(guidance: ExecutionGuidance): string | null {
+  const impact = guidance.validation.testImpact;
+  if (!impact) return null;
+  return `Test impact: ${impact.confidence} confidence, ${impact.summary.selectedCount} selected (${impact.summary.mandatoryCount} mandatory) -> ${impact.escalation}`;
+}
+
 /**
  * Renders the exact compact block shape from the build spec's Sec 9
  * "aiqt next" example. Never embeds context item paths/reasons or
@@ -56,6 +63,42 @@ export function renderExecutionGuidanceHuman(guidance: ExecutionGuidance): strin
     `Subagents: ${guidance.subagents.mode}`,
     `Output: ${guidance.output.passingCommandDetail === "summary" ? "summarize success" : guidance.output.passingCommandDetail}; retain detailed failures`,
   ];
+  const testImpactLine = formatTestImpact(guidance);
+  if (testImpactLine) lines.push(testImpactLine);
+  return lines.join("\n");
+}
+
+/**
+ * M41-WU03 (build spec Sec 9, "aiqt validation explain"): the richer,
+ * still-bounded human view -- per-target reason text and evidence gaps,
+ * which the compact `renderExecutionGuidanceHuman`/`select` line
+ * deliberately omits. Returns a short explanatory line when no
+ * test-impact input was supplied at all, never a fabricated selection.
+ */
+export function renderTestImpactExplain(guidance: ExecutionGuidance): string {
+  const impact = guidance.validation.testImpact;
+  if (!impact) {
+    return "No test-impact selection is available for this Work Unit (no test-impact input was supplied).";
+  }
+
+  const lines: string[] = [
+    `Test Impact Selection (${impact.selectionVersion})`,
+    `Confidence: ${impact.confidence}  Escalation: ${impact.escalation}  Recommended tier: ${impact.recommendedTier}`,
+    `Selected: ${impact.summary.selectedCount} of ${impact.summary.candidateCount} candidate(s), ${impact.summary.mandatoryCount} mandatory`,
+    "",
+    "Selected targets:",
+  ];
+  if (impact.selectedTargets.length === 0) {
+    lines.push("  (none)");
+  }
+  for (const t of impact.selectedTargets) {
+    lines.push(`  - [${t.mandatory ? "mandatory" : "advisory"}] ${t.target.locator} (${t.reasonCodes.join(", ")})`);
+    for (const reason of t.reasons) lines.push(`      ${reason}`);
+  }
+  if (impact.evidenceGaps.length > 0) {
+    lines.push("", "Evidence gaps:");
+    for (const gap of impact.evidenceGaps) lines.push(`  - [${gap.code}] ${gap.message}`);
+  }
   return lines.join("\n");
 }
 
