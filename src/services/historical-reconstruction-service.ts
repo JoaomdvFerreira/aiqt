@@ -8,10 +8,18 @@ import {
   resolveRefSafely,
   selectBaseRelease,
 } from "../workflow/historical-evidence.js";
+import {
+  buildReconstructionAssessment,
+  mapToReleaseIntentRequest,
+  renderRetrospectiveReleaseNotes,
+} from "../workflow/reconstruction-engine.js";
+import { assessReleaseDecision } from "./release-governance-service.js";
+import type { ReleaseBlockingFinding, ReleaseDecision } from "../schema/release-governance.schema.js";
 import type {
   HistoricalEvidenceConflict,
   HistoricalEvidenceItem,
   HistoricalReleaseTarget,
+  ReconstructionAssessment,
 } from "../schema/historical-reconstruction.schema.js";
 
 /**
@@ -167,4 +175,60 @@ export function buildHistoricalReleaseTarget(
   };
 
   return { ok: true, target, evidence, conflicts };
+}
+
+// ---------------------------------------------------------------------------
+// `release reconstruct <tag>` full assessment (build spec Sec 9, WU44-03) --
+// maps a sufficiently evidenced target into the existing M40 candidate/
+// provenance/readiness/risk/approval/notes flow. Never a second decision
+// owner: `assessReleaseDecision` here is the exact same M40-WU01 function
+// `aiqt release assess`/`validate`/`notes` call.
+// ---------------------------------------------------------------------------
+
+export interface ReconstructedHistoricalRelease {
+  assessment: ReconstructionAssessment;
+  /** Populated only when the target had a package version, at least one evidenced milestone, and passed M40's own candidate-identity checks. */
+  decision: ReleaseDecision | null;
+  /** M40's own blocking findings when a sufficiently evidenced target still fails M40's candidate-identity requirements (e.g. zero evidenced milestones) -- never silently dropped. */
+  m40BlockingFindings: ReleaseBlockingFinding[];
+  retrospectiveNotes: string | null;
+}
+
+export type ReconstructHistoricalReleaseOutcome =
+  | { ok: true; result: ReconstructedHistoricalRelease }
+  | { ok: false; reason: "tag_not_found" };
+
+export function reconstructHistoricalRelease(
+  cwd: string,
+  repositoryIdentity: string,
+  requestedTag: string,
+): ReconstructHistoricalReleaseOutcome {
+  const built = buildHistoricalReleaseTarget(cwd, repositoryIdentity, requestedTag);
+  if (!built.ok) return { ok: false, reason: built.reason };
+
+  const { target, evidence, conflicts } = built;
+  const assessment = buildReconstructionAssessment(target, evidence, conflicts);
+
+  let decision: ReleaseDecision | null = null;
+  let m40BlockingFindings: ReleaseBlockingFinding[] = [];
+  let retrospectiveNotes: string | null = null;
+
+  if (assessment.status !== "insufficient_evidence") {
+    const request = mapToReleaseIntentRequest(cwd, target);
+    const outcome = assessReleaseDecision(request);
+    if (outcome.ok) {
+      decision = outcome.decision;
+      if (decision.risk !== null && decision.approval !== null) {
+        retrospectiveNotes = renderRetrospectiveReleaseNotes(assessment, {
+          ...decision,
+          risk: decision.risk,
+          approval: decision.approval,
+        });
+      }
+    } else {
+      m40BlockingFindings = outcome.blockingFindings;
+    }
+  }
+
+  return { ok: true, result: { assessment, decision, m40BlockingFindings, retrospectiveNotes } };
 }

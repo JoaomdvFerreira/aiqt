@@ -69,6 +69,7 @@ import {
   type RawReleaseStatusOptions,
   type RawReleaseDraftOptions,
   type RawReleaseHistoryOptions,
+  type RawReleaseReconstructOptions,
   type RawValidationSelectOptions,
   type RawValidationExplainOptions,
   type RawDefectsDiscoverOptions,
@@ -178,6 +179,7 @@ import { runReleasePrepare } from "./commands/release-prepare.command.js";
 import { runReleaseStatus } from "./commands/release-status.command.js";
 import { runReleaseDraft } from "./commands/release-draft.command.js";
 import { runReleaseHistory } from "./commands/release-history.command.js";
+import { runReleaseReconstruct } from "./commands/release-reconstruct.command.js";
 import { runValidationSelect } from "./commands/validation-select.command.js";
 import { runValidationExplain } from "./commands/validation-explain.command.js";
 import { errorToResult } from "../core/output/result.js";
@@ -1910,6 +1912,22 @@ export function buildProgram(): Command {
     .action((raw: RawReleaseHistoryOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runReleaseHistory(ctx);
+      emit(result, ctx.json);
+    });
+
+  // ---------------------------------------------------------------------
+  // M44-WU03: aiqt release reconstruct <tag> (explicit-target, read-only
+  // historical reconstruction -- maps into the existing M40 candidate/
+  // readiness/risk/approval/notes flow; never publishes or mutates).
+  // ---------------------------------------------------------------------
+  releaseCommand
+    .command("reconstruct <tag>")
+    .description("Explicit-target, read-only historical release reconstruction against the existing M40 release-governance flow (M44) -- never publishes")
+    .option("--json", "emit machine-readable JSON output", false)
+    .requiredOption("--repository <identity>", "repository identity to attribute the reconstructed candidate to")
+    .action((tag: string, raw: RawReleaseReconstructOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runReleaseReconstruct(ctx, { tag, repository: raw.repository });
       emit(result, ctx.json);
     });
 

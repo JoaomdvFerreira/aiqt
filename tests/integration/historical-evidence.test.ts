@@ -17,7 +17,10 @@ import {
 import {
   listHistoricalReleaseTargets,
   buildHistoricalReleaseTarget,
+  reconstructHistoricalRelease,
 } from "../../src/services/historical-reconstruction-service.js";
+import { contextFor } from "../helpers.js";
+import { runReleaseReconstruct } from "../../src/cli/commands/release-reconstruct.command.js";
 
 // M34-WU02 policy: real `git` subprocess fixture, see git-command-runner.test.ts.
 vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
@@ -91,6 +94,8 @@ describe("M44-WU02 historical evidence discovery and provenance reconstruction",
 
     execFileSync("git", ["checkout", "--quiet", "-b", "merged", "feature1"], { cwd: repoDir });
     execFileSync("git", ["merge", "--quiet", "--no-ff", "-X", "ours", "-m", "merge divergent release lines", "feature2"], { cwd: repoDir });
+    writePackageJson(repoDir, "9.9.9"); // matches the tag below, isolating the ambiguous-base scenario from a tag/package conflict
+    commit(repoDir, "9.9.9");
     commitE = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoDir, encoding: "utf8" }).trim();
     tag(repoDir, "v9.9.9");
 
@@ -228,6 +233,90 @@ describe("M44-WU02 historical evidence discovery and provenance reconstruction",
       const first = buildHistoricalReleaseTarget(repoDir, "example/widget", "v1.1.0");
       const second = buildHistoricalReleaseTarget(repoDir, "example/widget", "v1.1.0");
       expect(first).toEqual(second);
+    });
+  });
+
+  // M44-WU03: mapping a sufficiently evidenced target into the existing M40
+  // candidate/readiness/risk/approval flow -- never a second decision owner.
+  describe("reconstructHistoricalRelease (M40 integration)", () => {
+    it("maps a clean historical target into an M40 decision with risk and approval always populated", () => {
+      const outcome = reconstructHistoricalRelease(repoDir, "example/widget", "v1.1.0");
+      expect(outcome.ok).toBe(true);
+      if (!outcome.ok) return;
+      expect(outcome.result.assessment.status).toBe("reconstructable");
+      expect(outcome.result.m40BlockingFindings).toHaveLength(0);
+      expect(outcome.result.decision).not.toBeNull();
+      expect(outcome.result.decision?.risk).not.toBeNull();
+      expect(outcome.result.decision?.approval).not.toBeNull();
+      // The historical tag is a real local Git tag, so M40's own
+      // forward-looking "tag already exists" readiness check correctly
+      // fires -- this is honest, not a bug: reconstruction never implies
+      // the tag is available for a *new* publication.
+      expect(outcome.result.decision?.readiness.blockingFindings.some((f) => f.id === "RELEASE-READINESS-TAG-CONFLICT")).toBe(true);
+      expect(outcome.result.retrospectiveNotes).toContain("Historical reconstruction:** YES");
+      expect(outcome.result.retrospectiveNotes).toContain("Reconstruction quality:** reconstructable");
+    });
+
+    it("still builds an M40 decision for a conflicting target, surfacing the conflict alongside it", () => {
+      const outcome = reconstructHistoricalRelease(repoDir, "example/widget", "v2.5.0");
+      expect(outcome.ok).toBe(true);
+      if (!outcome.ok) return;
+      expect(outcome.result.assessment.status).toBe("conflicting");
+      expect(outcome.result.assessment.conflicts).toHaveLength(1);
+      expect(outcome.result.decision).not.toBeNull();
+      expect(outcome.result.retrospectiveNotes).toContain("Reconstruction quality:** conflicting");
+    });
+
+    it("reports partial for the ambiguous-base target, and still attempts M40 mapping", () => {
+      const outcome = reconstructHistoricalRelease(repoDir, "example/widget", "v9.9.9");
+      expect(outcome.ok).toBe(true);
+      if (!outcome.ok) return;
+      expect(outcome.result.assessment.status).toBe("partial");
+    });
+
+    it("surfaces M40's own RELEASE-CANDIDATE-NO-MILESTONES finding, without fabricating a decision, when zero milestones are evidenced", () => {
+      const outcome = reconstructHistoricalRelease(repoDir, "example/widget", "v1.0.0");
+      expect(outcome.ok).toBe(true);
+      if (!outcome.ok) return;
+      expect(outcome.result.assessment.status).toBe("reconstructable");
+      expect(outcome.result.decision).toBeNull();
+      expect(outcome.result.m40BlockingFindings.some((f) => f.id === "RELEASE-CANDIDATE-NO-MILESTONES")).toBe(true);
+      expect(outcome.result.retrospectiveNotes).toBeNull();
+    });
+
+    it("returns tag_not_found for a nonexistent tag", () => {
+      const outcome = reconstructHistoricalRelease(repoDir, "example/widget", "v404.0.0");
+      expect(outcome.ok).toBe(false);
+    });
+
+    it("is deterministic: identical target reconstructed twice produces an identical assessment digest", () => {
+      const first = reconstructHistoricalRelease(repoDir, "example/widget", "v1.1.0");
+      const second = reconstructHistoricalRelease(repoDir, "example/widget", "v1.1.0");
+      expect(first.ok && second.ok).toBe(true);
+      if (!first.ok || !second.ok) return;
+      expect(first.result.assessment.digest).toBe(second.result.assessment.digest);
+      expect(first.result.assessment.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+    });
+  });
+
+  describe("runReleaseReconstruct CLI (M44-WU03)", () => {
+    it("fails with RELEASE-RECONSTRUCT-TAG-NOT-FOUND for an unknown tag", () => {
+      const result = runReleaseReconstruct(contextFor(repoDir), { tag: "v404.0.0", repository: "example/widget" });
+      expect(result.blockingIssues.some((i) => i.id === "RELEASE-RECONSTRUCT-TAG-NOT-FOUND")).toBe(true);
+    });
+
+    it("reports blocked status with the readiness blocking findings for a clean historical target", () => {
+      const result = runReleaseReconstruct(contextFor(repoDir), { tag: "v1.1.0", repository: "example/widget" });
+      expect(result.status).toBe("blocked");
+      expect(result.exitCode).toBe(2);
+      const data = result.data as { assessment: { status: string }; retrospectiveNotes: string | null };
+      expect(data.assessment.status).toBe("reconstructable");
+      expect(data.retrospectiveNotes).toContain("Historical reconstruction:** YES");
+    });
+
+    it("rejects a missing --repository with RELEASE-RECONSTRUCT-MISSING-REPOSITORY", () => {
+      const result = runReleaseReconstruct(contextFor(repoDir), { tag: "v1.1.0", repository: "" });
+      expect(result.blockingIssues.some((i) => i.id === "RELEASE-RECONSTRUCT-MISSING-REPOSITORY")).toBe(true);
     });
   });
 });
