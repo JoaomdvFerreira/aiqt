@@ -1,4 +1,4 @@
-# AIQT Lean Milestone Protocol v0.2
+# AIQT Lean Milestone Protocol v0.3
 
 Shared governance for future AIQT milestones. This document defines how a
 milestone is classified, scoped, validated, and reported. It is referenced
@@ -23,7 +23,7 @@ validation:
 ### medium
 
 ```yaml
-work_units: 3-5
+work_units: 4-5
 typical_spec_words: 2500-4000
 examples:
   - new canonical state
@@ -39,11 +39,9 @@ validation:
 ```yaml
 work_units: 6-9
 examples:
-  - Git/filesystem mutation
-  - network/provider runtime
-  - migrations
+  - new or materially widened filesystem/Git/network/destructive authority
   - authentication
-  - destructive operations
+  - migrations
   - required enforcement
 full_ceremony: true
 validation:
@@ -55,6 +53,23 @@ validation:
 
 A milestone is classified by its riskiest Work Unit, not its average. A
 milestone with one high-risk Work Unit and four small ones is `high_risk`.
+
+### Milestone class vs implementation risk
+
+Milestone class (`small`/`medium`/`high_risk`) is a **planning-time**
+classification of scope and expected ceremony. Per-Work-Unit
+**implementation risk** is a separate, `0`-`100` four-band score (see
+`docs/governance/versioning.md`'s risk scale: `0`-`24` green, `25`-`49`
+yellow, `50`-`74` orange, `75`-`100` red; human boundary at `50`),
+assessed from the actual diff after implementation. A `medium` milestone
+can and often does contain only green/yellow Work Units. Reaching an
+implementation risk of `50` or more on any Work Unit always stops for
+human review, regardless of the milestone's planning-time class -- a
+`medium` classification never overrides that boundary. Reusing an
+existing, already-bounded controlled-mutation authority (e.g. the M36-M38
+autonomous/sandbox execution surface) is not automatically high-risk;
+what raises class/risk is *new or materially widened* authority, not the
+mere presence of a mutation.
 
 ## 2. Delta-only specifications
 
@@ -87,12 +102,19 @@ the specification says so explicitly and updates the owner map entry.
 
 ## 5. Clean-environment authority
 
-Real CI (GitHub Actions, `validate` on Node 22 and 24) is the primary
-authority for clean-environment correctness. A manual local clean-clone
-is run only when the change plausibly affects packaging, installation,
-migrations, CI-workflow behavior itself, or when debugging a real CI
-failure requires local reproduction. It is not a routine step for every
-milestone.
+Real CI (GitHub Actions, `validate` on Node 24) is the primary authority
+for clean-environment correctness. A manual local clean-clone is run only
+when the change plausibly affects packaging, installation, migrations,
+CI-workflow behavior itself, or when debugging a real CI failure requires
+local reproduction. It is not a routine step for every milestone.
+
+An unexplained local full-suite failure or timeout under load (e.g. a
+Windows development machine's parallel-worker contention) is isolated and
+classified -- re-run the specific file(s) individually, confirm they pass
+well within their own timeout, and record the finding -- rather than
+repeatedly re-running the full suite until it happens to go green. Real
+CI on the PR/push is the authoritative confidence gate; a reconciled local
+discrepancy does not block closure.
 
 ## 6. Reporting limits
 
@@ -145,3 +167,26 @@ reference. When a new milestone starts, any milestone under
 commit. Archiving is housekeeping, not a Work Unit, and does not get its
 own milestone tag. Pre-standard historical material already under
 `docs/archive/legacy-milestones/` is untouched by this rule.
+
+## 11. Execution discipline
+
+Established across M36-M42 and now a standing expectation for every
+future milestone, not a per-milestone decision to re-derive:
+
+- **One continuous run.** Execute a milestone's Work Units automatically,
+  in order, without pausing for routine approval between them.
+- **Continue by default, stop on exception.** Stop only for a material
+  scope/architecture/safety exception, a Gate failure, an unexplained
+  real CI failure, or a Work Unit implementation risk of `50` or higher
+  (§ "Milestone class vs implementation risk" above) -- not for routine
+  checkpoints.
+- **Targeted context.** Read only the owners and files a Work Unit
+  actually needs, per `repository-owner-map.json`; do not re-investigate
+  the whole repository at each Work Unit boundary.
+- **One pre-PR closure audit.** Perform the Definition-of-Done/version/
+  tag/documentation reconciliation once, in one pass, immediately before
+  opening the Pull Request -- not repeatedly across the milestone.
+- **Compact success, detailed failure.** A Work Unit or closure report
+  that passed stays within §6's reporting limits; a failure, exception, or
+  deviation gets the detail needed to be independently reviewable,
+  regardless of the word-count guidance.

@@ -1,8 +1,21 @@
-# AIQT Milestone 35 — Test Rationalization Policy
+# AIQT Test Rationalization Policy
+
+**Origin:** established by Milestone 35 (WU35-02 through WU35-04); a durable
+governance contract, not a milestone-scoped record. The specific
+inventory numbers this policy was originally calibrated against (file
+counts, criticality tiers, runtime baseline) are a point-in-time snapshot
+of that milestone, preserved at
+[`docs/archive/milestones/m35/m35-test-suite-inventory.md`](../archive/milestones/m35/m35-test-suite-inventory.md)
+-- re-read that document directly for current numbers rather than trusting
+a count restated here.
 
 ## Purpose
 
-The governing policy for every future test removal, merge, rewrite, or layer move under M35 (WU35-02 through WU35-04) and beyond. This document defines the evidence a change must carry, the review gate for high-stakes tests, and the quality gates that must hold before and after any reduction. It is a policy contract, not itself a record of any specific deletion — no test has been removed by this Work Unit or by this document.
+The governing policy for every test removal, merge, rewrite, or layer
+move in this repository, present and future. This document defines the
+evidence a change must carry, the review gate for high-stakes tests, and
+the quality gates that must hold before and after any reduction. It is a
+policy contract, not itself a record of any specific deletion.
 
 ## 1. Governing principle
 
@@ -68,7 +81,7 @@ Per the build spec (Sec 5): **Critical and High-value tests require explicit own
 
 In this repository's Lean Milestone Protocol, "owner review" means: the Work Unit's own commit message must show the specific reasoning above (Sec 2's seven fields) in enough detail that a reader who did not perform the change could verify it independently, **and** the change must not be bundled into a commit whose primary stated purpose is something else — a Critical/High-value test reduction gets its own clearly-labeled reasoning, not a passing mention inside an unrelated commit body.
 
-87 of this repository's 232 test files are currently classified High-value and 60 Critical (`docs/archive/milestones/m35/m35-test-suite-inventory.md` Sec 3.2) — a combined 63% of the suite. This gate is therefore the default path for most files a future Work Unit might touch, not an edge case.
+At the M35 baseline, a majority of the suite (87 of 232 files High-value, 60 Critical — see `docs/archive/milestones/m35/m35-test-suite-inventory.md` Sec 3.2 for the exact snapshot) was already classified High-value or Critical, and the suite has only grown since. This gate is therefore the default path for most files a future Work Unit might touch, not an edge case.
 
 ## 5. Handling each candidate category
 
@@ -78,7 +91,7 @@ In this repository's Lean Milestone Protocol, "owner review" means: the Work Uni
 | Obsolete (confirmed per Sec 3) | Delete, recording Sec 2's contract with the "no equivalent coverage" branch justified | Only if Critical/High-value | Legacy-compatibility tests are presumptively **not** obsolete (Sec 3) — they exist specifically to prove old behavior still works |
 | Low-signal | Rewrite (strengthen assertions) preferred over decommission | Only if reclassified High-value+ on closer reading | A file classified Low-signal by the WU35-01 heuristic (prompt-generation domain, Sec 5.3 of the inventory) must still be individually read before any action — the heuristic is a triage signal, not a verdict |
 | Misplaced | Move layer (e.g. `tests/integration/` → `tests/unit/`, or vice versa) | No (layer move alone, with identical assertions, is not a semantic reduction) | None found in the current inventory (Sec 5.6) |
-| Flaky | Investigate root cause before any timeout/concurrency change | No | Per M34's own established principle (`docs/m34-validation-workload-policy.md`), reactive per-file timeout escalation is not an acceptable primary fix — root-cause first |
+| Flaky | Investigate root cause before any timeout/concurrency change | No | Per M34's own established principle (`docs/archive/legacy-milestones/m34-validation-workload-policy.md`), reactive per-file timeout escalation is not an acceptable primary fix — root-cause first |
 | Performance-heavy | Optimize (layer move, shared helper, batched scenario — build spec Sec 7 WU35-03 examples) preferred over reduction | Only if the optimization changes what is actually asserted | Runtime alone is never sufficient justification to delete a Critical/High-value test — see Sec 1's governing principle |
 
 ## 6. Quality gates (every WU35-02/03/04 change must hold all of)
@@ -86,12 +99,32 @@ In this repository's Lean Milestone Protocol, "owner review" means: the Work Uni
 Per the build spec's cross-Work-Unit invariants (Sec 8) and Success Metrics (Sec 4):
 
 - Zero known critical regression gaps (the Sec 3.2/critical-coverage-checklist categories in the inventory must remain fully covered after any change).
-- Zero skipped tests introduced for speed (`it.skip`/`describe.skip`/`it.todo`/`skipIf` count must not increase from this Work Unit's baseline of **0**).
+- Zero unexplained or unauthorized skips. `it.skip`/`describe.skip`/`it.todo`/`skipIf` introduced purely for speed remain disallowed. A capability-dependent skip (e.g. a Docker daemon requirement, as introduced by M38's sandbox suites) is permitted only when it is a deterministic capability check, carries an explicit logged reason, and is recorded as a reviewed exception in the test inventory — never a silent or convenience skip. This baseline was **0** at M35; M38 added the first reviewed exceptions (see `repository-owner-map.json`'s `sandboxBackendContract` entry) — the invariant is "every skip is explained and reviewed," not "the count never changes from zero."
 - Zero hidden assertion regressions (every removal/merge/rewrite must show the remaining suite still fails on a deliberately-reintroduced version of the bug the removed test would have caught, where practical to construct).
 - The Critical-tier test set (60 files, Sec 3.2 of the inventory) is preserved in full, or each individual reduction within it carries its own Sec 2 evidence and Sec 4 review.
 - Built-binary smoke (`tests/integration/built-binary-smoke.test.ts`) remains present and green.
 - Node 24 CI remains green.
 - No per-file timeout proliferation (no new `vi.setConfig`/inline timeout override introduced as a workaround for a runtime-optimization change — if a file genuinely needs a different timeout tier after a layer move, it must use the existing shared constants in `tests/workload-timeout-policy.ts`, per M34's established policy, not a new local literal).
+
+## 6a. Interaction with later milestones (M41, M42)
+
+- **M41 (adaptive test selection) never supplies deletion evidence.**
+  `aiqt validation select`/`explain` and execution-guidance's test-impact
+  integration decide which subset of the suite runs *for a given change,
+  right now* — a scoping/scheduling decision, not a statement that the
+  unselected tests are redundant, obsolete, or safe to remove. A file
+  never selected in some sample of runs is not thereby a rationalization
+  candidate; only this policy's Sec 2/3 evidence contract can justify
+  removal.
+- **M42 (defect remediation) never resolves a discovered defect by
+  weakening the test that caught it.** If a validated defect's
+  remediation would touch the test that discovered it (e.g. loosening an
+  assertion, adding a skip, deleting the test), that change must
+  independently satisfy this policy's Sec 2 (deletion-evidence contract)
+  and, if the test is Critical/High-value, Sec 4 (owner-review gate) —
+  the defect's existence and severity are not themselves sufficient
+  justification. A defect is resolved by fixing the behavior the test
+  correctly caught, not by removing the detector.
 
 ## 7. Runtime target
 
@@ -115,4 +148,4 @@ Every Work Unit from WU35-02 onward must record, in its commit body and (for WU3
 - built-binary coverage;
 - critical coverage map (confirming the Sec 3.2 checklist above still holds).
 
-This mirrors the reporting discipline already established in `docs/m34-validation-workload-policy.md` and `docs/m34-closure-report.md` — this policy does not invent a new reporting standard, it applies the one already proven in this repository to test-suite changes specifically.
+This mirrors the reporting discipline already established in `docs/archive/legacy-milestones/m34-validation-workload-policy.md` and `docs/archive/legacy-milestones/m34-closure-report.md` — this policy does not invent a new reporting standard, it applies the one already proven in this repository to test-suite changes specifically.

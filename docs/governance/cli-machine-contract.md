@@ -1,10 +1,18 @@
 # AIQT CLI Machine-Facing Contract
 
+**Last verified against:** `main` at `be126ce` (post-M42, 2026-08-08).
+
 The authoritative, user/agent-facing description of what `aiqt <command>
 --json` guarantees. Established by Milestone 33 (Unified CLI Result, Error,
-and Rendering Contract); see [`m33-wu01-command-result-contract.md`](m33-wu01-command-result-contract.md)
+and Rendering Contract); see [`../archive/legacy-milestones/m33-wu01-command-result-contract.md`](../archive/legacy-milestones/m33-wu01-command-result-contract.md)
 for the full engineering inventory, characterized defects, and per-Work-Unit
-implementation record this contract was built from.
+implementation record this contract was built from. This contract applies
+uniformly to every command family added since M33 (evidence-gate,
+workspace, execution, autonomous, sandbox, release, validation, defects,
+and any future family) without per-family restatement here — a new
+command family conforming to `CommandResult`/exit codes/stream policy/
+human-JSON parity needs no update to this document; only a genuine
+contract change does.
 
 ## `CommandResult`
 
@@ -134,11 +142,13 @@ Owner: `missingProjectResult()` in `src/core/output/result.ts`, and
 
 ## Example-mode policy
 
-Every command supporting `--example` (`plan`, `checkpoint`, `execution
-import`, `execution external example`, `execution adapter claude-code
-example`) rejects `--example --json` together with exit code `3` and a
-dedicated `*-EXAMPLE-JSON-CONFLICT` issue id. `--example` alone (no
-`--json`) still prints the raw sample payload and exits `0`.
+Two equivalent shapes exist for printing a sample payload and exiting:
+a `--example` flag on the command itself (`plan`, `checkpoint`,
+`execution import`), and a dedicated `example` subcommand (`execution
+external example`, `execution adapter claude-code example`). Either
+combined with `--json` rejects with exit code `3` and a dedicated
+`*-EXAMPLE-JSON-CONFLICT` issue id. Used alone (no `--json`), both shapes
+print the raw sample payload and exit `0`.
 
 ## What this contract does not (yet) guarantee
 

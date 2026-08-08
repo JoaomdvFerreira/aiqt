@@ -138,32 +138,36 @@ changed path requires a bump only if it matches:
 | `docs/governance/versioning.md` | exact file | the contributor-facing release/version policy itself |
 | `README.md` | exact file | the universal public entry point (install/usage/compatibility) — listed even though this repository does not have one yet, so the policy is already correct the moment it's added |
 
-As of this policy revision (M21), `git ls-files docs/` confirms this
-repository has three tracked files under `docs/`: `docs/governance/versioning.md`
-(this policy — on the relevant-paths allowlist above), plus two files
-added in M21 (`docs/coverage-baseline.md`, `docs/maintainer-recovery.md`)
-that are **deliberately not** on the allowlist. Both are operational/
-governance documentation (install steps, coverage snapshots, release and
-recovery procedure) — neither one defines a public command, flag, exit
-code, or JSON contract the way this file or `README.md` would, so a
-change to either one does not by itself require a version bump. Everything
-else in `docs/` remains local-only PDFs and spec drafts, gitignored. There
-is no `docs/cli/`, `docs/commands/`, `docs/reference/`, `docs/workflow/`,
-`docs/architecture/`, or `docs/specifications/` in the actual repository
-structure. **If any such public-documentation directory or file is
-created in the future, it must be added to this table and to
+`docs/` is fully tracked (not gitignored) and now holds many files beyond
+this policy — product/architecture specs, per-milestone governance docs,
+milestone build specs and closure reports, and the archive tree. None of
+those are on the relevant-paths allowlist except this file: they are
+operational/governance/planning documentation, not the definition of a
+public command, flag, exit code, or JSON contract, so a change to any of
+them does not by itself require a version bump. `docs/governance/maintainer-recovery.md`
+and `docs/governance/test-rationalization-policy.md` in particular are
+**deliberately not** on the allowlist for that reason (nor is the
+archived `docs/archive/legacy-milestones/m21-coverage-baseline.md`
+snapshot, which is historical record rather than live governance). There is no
+`docs/cli/`, `docs/commands/`, `docs/reference/`, `docs/workflow/`,
+`docs/architecture/`, or `docs/specifications/` tree in the actual
+repository structure. **If any such public-documentation directory or
+file is created in the future, it must be added to this table and to
 `RELEVANT_DIRECTORY_PREFIXES`/`RELEVANT_EXACT_FILES` in
 `src/tooling/relevant-paths.ts` explicitly** — classification is never
 inferred from a directory merely existing under `docs/`, and it is never
-inferred from scanning file content for keywords.
+inferred from scanning file content for keywords. `src/tooling/relevant-paths.ts`
+itself, not this paragraph's prose, is the live source of truth for the
+exact current allowlist — read it directly rather than trusting a
+point-in-time file count here.
 
 **Everything else is exempt**, including but not limited to: `tests/**`
 (pure test-only changes never require a bump on their own), `coverage/`
 and other generated report output, editor configuration, and any file
 under `docs/` other than `docs/governance/versioning.md` (internal implementation
-notes, archived planning drafts, historical milestone specs — all
-gitignored, and even if one were force-added, it is still not on the
-allowlist). This is a strict allowlist, not a heuristic — a path not
+notes, archived planning drafts, historical milestone specs, per-milestone
+build specs/closure reports — all not on the allowlist, even if one were
+force-added). This is a strict allowlist, not a heuristic — a path not
 listed above is never classified as relevant, and a new relevant surface
 must be added here explicitly rather than inferred from its content or
 its location under a broad directory.
@@ -309,7 +313,7 @@ milestone closure validation (full suite, typecheck, lint, build)
     |
 closure report
     |
-release risk assessment
+milestone tag (m<N>[-suffix]-<slug>), created on the milestone branch
     |
 pre-PR audit: if package.json's version changed during the milestone,
 run tests/unit/package-version.test.ts, `pnpm version:check` (local
@@ -319,15 +323,20 @@ literal or an invalid/missing bump before CI does.
     |
 Pull Request to main
     |
-merge                                    (prefer a merge commit for the
-    |                                     milestone PR if needed to preserve
-    |                                     existing WU commit/tag provenance;
-    |                                     never rewrite existing history)
+human review + approved-for-merge
+    |
+merge                                    (milestone PRs always use a merge
+    |                                     commit, never squash or rebase --
+    |                                     this preserves every existing WU
+    |                                     commit/tag's provenance verbatim)
 post-merge main CI green
     |
-release tag (v<version>) + milestone tag
+[optional, separate] explicit release decision -- see "GitHub Release
+governance" below. A milestone merging to main does not by itself create
+a release; M40 shipped a package bump with no release, M41 shipped one
+with an explicit release both in the same PR-driven flow.
     |
-GitHub Release
+[if released] release tag (v<version>) on the merge commit + GitHub Release
 ```
 
 A milestone branch is created only when starting that milestone's Work Units
@@ -421,14 +430,25 @@ document, not silently or by assumption.
 
 ## Tag conventions
 
-- **Milestone tag** — `m<N>[-suffix]-<slug>`, e.g. `m19-version-governance`.
-- **Work Unit tag** — created after each WU's commit, per
-  [`milestone-protocol.md`](milestone-protocol.md)'s per-WU discipline.
-- **Semantic-version tag** — `v<version>`, e.g. `v0.6.0`.
+- **Work Unit tag** — created after each WU's commit, on the milestone
+  branch, per [`milestone-protocol.md`](milestone-protocol.md)'s per-WU
+  discipline.
+- **Milestone tag** — `m<N>[-suffix]-<slug>`, e.g. `m19-version-governance`,
+  created on the milestone branch at closure, before the PR is opened.
+- **Semantic-version tag** — `v<version>`, e.g. `v0.6.0`, created on `main`'s
+  merge commit only if and when a release decision is made (see "GitHub
+  Release governance" below) -- not automatically at milestone merge.
 
-All are created manually by whoever merges the milestone, after full
-validation passes locally; CI never creates tags automatically. See
-`AGENTS.md` for the per-WU commit/tag discipline agents must follow.
+WU tags, the milestone tag, the package version, a semantic-version tag,
+and a GitHub Release are independent provenance/version domains. A
+milestone tag and a semantic-version tag frequently point at **different
+commits** -- the milestone tag sits on the milestone branch (before merge),
+the semantic-version tag (when one is created at all) sits on `main`'s
+merge commit -- and this is expected, not an inconsistency to reconcile.
+Do not assume or require that a milestone tag and a release tag resolve
+to the same commit. All tags are created manually; CI never creates tags
+automatically. See `AGENTS.md` for the per-WU commit/tag discipline
+agents must follow.
 
 ## GitHub Release governance
 
@@ -484,21 +504,28 @@ For every completed milestone/change:
 
 1. implement the change;
 2. select the appropriate version increment (patch/minor/major, per the
-   policy above);
-3. update `package.json.version`;
+   policy above), if the change is relevant per the allowlist above;
+3. update `package.json.version`, if a bump is required;
 4. update lockfile version metadata, where applicable;
-5. run full validation (`pnpm typecheck && pnpm lint && pnpm test && pnpm
-   build`);
-6. run `pnpm version:check` (local mode);
-7. run `pnpm version:check -- --base <target-branch>` (comparison mode)
+5. run full validation (`pnpm validate`, i.e. `pnpm typecheck && pnpm lint
+   && pnpm build && pnpm test && pnpm version:check`, in that order);
+6. run `pnpm version:check -- --base <target-branch>` (comparison mode)
    against the branch you intend to merge into;
-8. open a Pull Request to the target branch and merge only after CI is
-   green;
-9. create the milestone tag;
-10. create the semantic-version tag;
-11. push the feature branch, the target branch, and both tags explicitly;
-12. publish the GitHub Release per the governance above, once post-merge
-    CI is green.
+7. for a milestone: create the milestone tag on the milestone branch, then
+   push the branch and the tag explicitly (never `git push --tags`);
+8. open a Pull Request to the target branch and merge (with a merge
+   commit, never squash/rebase, for milestone PRs) only after CI is green
+   and `approved-for-merge` is applied;
+9. verify post-merge CI is green on the target branch.
+
+Steps 10-11 below are a **separate, explicit decision**, not an automatic
+continuation of merging -- a merged milestone/change does not by itself
+require or authorize a release:
+
+10. [only if a release is decided] create the semantic-version tag on the
+    merge commit and push it explicitly;
+11. [only if a release is decided] publish the GitHub Release per "GitHub
+    Release governance" below, once post-merge CI is green.
 
 CI enforces that a required version bump is present before merge. CI
 never creates the bump itself — that decision and commit always belong to

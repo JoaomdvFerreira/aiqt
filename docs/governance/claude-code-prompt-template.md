@@ -1,4 +1,4 @@
-# Claude Code Milestone Prompt Template v0.2
+# Claude Code Milestone Prompt Template v0.3
 
 Reusable prompt skeleton for future AIQT milestones under
 [milestone-protocol.md](milestone-protocol.md). Fill the bracketed fields;
@@ -13,18 +13,26 @@ here or in Work Unit / closure reports.
 
 Baseline claims to verify (stop and report any material discrepancy):
   branch: <branch>
-  product_version: <version>
-  baseline_commit: <commit>
-  release_tag: <tag>
-  milestone_tag: <tag>
-  tests: <passing>/<total>
+  product_spec_version: <version>
+  architecture_spec_version: <version>
+  package_version: <version>
   schema_version: <version>
-  Gate_I: <open|closed>
+  baseline_commit: <commit>
+  latest_release: <tag or "none">
+  milestone_tag: <tag, if this milestone continues prior work>
+  tests: <passing>/<total>
+
+product_spec_version, architecture_spec_version, package_version, and
+schema_version are independent domains -- verify each against its own
+live source (docs/product/, package.json, src/core/constants/schema-
+version.ts), never assume one implies another.
 
 Classification: <small|medium|high_risk> per milestone-protocol.md §1.
-Run the Gate audit this class requires (owner confirmation for small/
-medium; full Gate + entry-risk ceiling for high_risk) before writing
-code. Owners are read from repository-owner-map.json and verified
+Verify the entry gates this milestone's build spec states (prior
+milestone merged, post-merge CI green, active baselines, clean working
+tree, no stray `.aiqt/` state) directly against live Git/GitHub state
+before writing code -- per milestone-protocol.md, not a bespoke "Gate"
+contract. Owners are read from repository-owner-map.json and verified
 against current source, not assumed from the map.
 
 Execute the milestone's defined Work Units automatically, in order,
@@ -36,32 +44,44 @@ in the commit body, a Work Unit report under 250 words.
 At closure: run full suite, typecheck, lint, build. Use real CI as the
 primary clean-environment authority; run a manual clean-clone only if
 packaging, installation, migration, or CI-workflow behavior is in scope,
-or a real CI failure needs local reproduction. Run
-`pnpm version:check` and treat its result as authoritative for whether
-package/schema version changes are required.
+or a real CI failure needs local reproduction. An unexplained local
+full-suite timeout/failure under load is isolated and classified (re-run
+the specific file(s) individually), not repeatedly re-run until green.
+Run `pnpm version:check` (local and `--base <target>`) as the authority
+for whether `package.json`'s version needs to change. It is NOT the
+authority for whether `AIQT_SCHEMA_VERSION` needs to change -- schema
+evolution is a canonical-compatibility decision owned by whichever Work
+Unit changes canonical shape, made explicitly in that Work Unit, never
+inferred from version-check output.
 
 Do not use AIQT or create .aiqt/ state to develop AIQT. Preserve commit/
 tag/risk governance: one commit and one tag per Work Unit, no history
-rewrite, no force-push, no empty commits.
+rewrite, no force-push, no empty commits. A Work Unit whose implementation
+risk reaches 50/100 or higher always stops for human review, regardless
+of this milestone's small/medium/high_risk classification.
 
 Do not use routine subagents. Use one only if ownership of a concern is
 ambiguous and needs independent verification, or independent review of
 a finished change is explicitly required.
 
-Stop only for: baseline mismatch; Gate failure; missing/ambiguous
-owner; entry risk above the class ceiling (high_risk only); inability
-to preserve an existing contract (schema, exit codes, canonicalization,
-compatibility); an unexplained real CI failure; a High/Critical
-dependency alert without an approved disposition; anything that would
-require starting a milestone not explicitly in scope. Do not silently
-weaken or waive a stop condition.
+Stop only for: baseline mismatch; an entry gate that does not verify
+against live state; missing/ambiguous owner; a Work Unit implementation
+risk of 50/100 or higher; inability to preserve an existing contract
+(schema, exit codes, canonicalization, compatibility); an unexplained
+real CI failure; a High/Critical dependency alert without an approved
+disposition; anything that would require starting a milestone not
+explicitly in scope. Do not silently weaken or waive a stop condition.
 
 Deliver a final closure report under 1,500 words (more only if a
-blocker, waiver, or deviation requires it) containing: Gate result;
-Work Unit/commit/tag/risk table; validation performed; version/tag
-outcome; hazard detail only for exceptions, accepted risks, failed
-controls, or residuals above target; confirmation that no
-out-of-scope milestone was started.
+blocker, waiver, or deviation requires it) containing: entry-gate
+verification result; Work Unit/commit/tag/risk table; validation
+performed; version/tag outcome; hazard detail only for exceptions,
+accepted risks, failed controls, or residuals above target; confirmation
+that no out-of-scope milestone was started. State explicitly that
+milestone/package completion does not by itself authorize a GitHub
+Release -- a release is a separate, explicit decision made only after
+merge and post-merge CI is green. Do not create or publish a Release
+unless separately, explicitly requested.
 
 Stop after formal closure.
 ```
