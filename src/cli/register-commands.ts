@@ -74,6 +74,8 @@ import {
   type RawDefectsListOptions,
   type RawDefectsTriageOptions,
   type RawDefectsTransitionOptions,
+  type RawDefectsRemediateOptions,
+  type RawDefectsRecordValidationOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -150,6 +152,8 @@ import { runDefectsInspect } from "./commands/defects-inspect.command.js";
 import { runDefectsTriage } from "./commands/defects-triage.command.js";
 import { runDefectsQueue } from "./commands/defects-queue.command.js";
 import { runDefectsTransition } from "./commands/defects-transition.command.js";
+import { runDefectsRemediate } from "./commands/defects-remediate.command.js";
+import { runDefectsRecordValidation } from "./commands/defects-record-validation.command.js";
 import { runExecutionExternalRequest } from "./commands/execution-external-request.command.js";
 import { runExecutionExternalImport } from "./commands/execution-external-import.command.js";
 import { runExecutionExternalStatus } from "./commands/execution-external-status.command.js";
@@ -1252,6 +1256,48 @@ export function buildProgram(): Command {
     .action(async (defectId: string, raw: RawDefectsTransitionOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = await runDefectsTransition(ctx, defectId, { to: raw.to, reason: raw.reason, preview: Boolean(raw.preview) });
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("remediate <defectId>")
+    .description("Build a bounded remediation request and, when eligible, start remediation (queued -> in_progress); risk >=50 requires --approved-by")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--objective <text>", "bounded remediation objective")
+    .option("--scope <paths>", "comma-separated in-scope file/area paths")
+    .option("--out-of-scope <paths>", "comma-separated explicitly out-of-scope paths")
+    .option("--acceptance <text>", "acceptance/reproduction contract this remediation must satisfy")
+    .option("--approved-by <human-id>", "explicit human identity; required when remediation risk is 50 or higher")
+    .option("--preview", "compute and report without persisting", false)
+    .action(async (defectId: string, raw: RawDefectsRemediateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runDefectsRemediate(ctx, defectId, {
+        objective: raw.objective,
+        scope: raw.scope,
+        outOfScope: raw.outOfScope,
+        acceptance: raw.acceptance,
+        approvedBy: raw.approvedBy,
+        preview: Boolean(raw.preview),
+      });
+      emit(result, ctx.json);
+    });
+
+  defectsCommand
+    .command("record-validation <defectId>")
+    .description("Record remediation validation evidence; \"passed\" resolves the defect, \"failed\" returns it to the queue with evidence preserved")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--outcome <outcome>", "passed | failed")
+    .option("--evidence <locator>", "bounded evidence locator for the validation result")
+    .option("--note <text>", "optional bounded note")
+    .option("--preview", "validate and report without persisting", false)
+    .action(async (defectId: string, raw: RawDefectsRecordValidationOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runDefectsRecordValidation(ctx, defectId, {
+        outcome: raw.outcome,
+        evidence: raw.evidence,
+        note: raw.note,
+        preview: Boolean(raw.preview),
+      });
       emit(result, ctx.json);
     });
 

@@ -141,6 +141,8 @@ const LOCAL_FAILURE_HELPER_FILES = [
   "defects-inspect.command.ts",
   "defects-list.command.ts",
   "defects-queue.command.ts",
+  "defects-record-validation.command.ts",
+  "defects-remediate.command.ts",
   "defects-transition.command.ts",
   "defects-triage.command.ts",
   "evidence-gate-advisory-feedback.command.ts",

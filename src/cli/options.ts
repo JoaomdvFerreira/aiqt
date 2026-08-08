@@ -561,3 +561,21 @@ export interface RawDefectsTransitionOptions {
   reason?: string;
   preview?: boolean;
 }
+
+export interface RawDefectsRemediateOptions {
+  json?: boolean;
+  objective?: string;
+  scope?: string;
+  outOfScope?: string;
+  acceptance?: string;
+  approvedBy?: string;
+  preview?: boolean;
+}
+
+export interface RawDefectsRecordValidationOptions {
+  json?: boolean;
+  outcome?: string;
+  evidence?: string;
+  note?: string;
+  preview?: boolean;
+}
