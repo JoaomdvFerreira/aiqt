@@ -589,3 +589,36 @@ export interface RawDefectsRecordValidationOptions {
   note?: string;
   preview?: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// M45-WU02: aiqt maintenance ... (background maintenance scheduling CLI surface).
+// ---------------------------------------------------------------------------
+
+export interface RawMaintenanceScheduleAddOptions {
+  json?: boolean;
+  taskKind: string;
+  cadence: string;
+  anchorAt?: string;
+  maxAutomaticRisk?: string;
+  disabled?: boolean;
+}
+
+export interface RawMaintenanceScheduleListOptions {
+  json?: boolean;
+}
+
+export interface RawMaintenanceScheduleUpdateOptions {
+  json?: boolean;
+  cadence?: string;
+  maxAutomaticRisk?: string;
+}
+
+export interface RawMaintenanceStatusOptions {
+  json?: boolean;
+}
+
+export interface RawMaintenanceHistoryOptions {
+  json?: boolean;
+  scheduleId?: string;
+  limit?: string;
+}
