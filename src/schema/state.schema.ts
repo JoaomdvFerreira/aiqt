@@ -17,6 +17,7 @@ import { RequiredRuleRecoveryProofSchema, MAX_RECOVERY_PROOFS } from "./required
 import { RequiredModeActivationPlanSchema, MAX_ACTIVATION_PLANS } from "./required-mode-activation-plan.schema.js";
 import { RequiredModeActivationSchema } from "./required-mode-activation.schema.js";
 import { RequiredEvidenceExceptionSchema, MAX_EXCEPTIONS } from "./required-evidence-exception.schema.js";
+import { DefectRecordSchema, MAX_DEFECTS } from "./defect.schema.js";
 
 export const ProjectStatusSchema = z.enum([
   "draft",
@@ -77,5 +78,12 @@ export const StateModelSchema = z.object({
   requiredModeActivations: z.array(RequiredModeActivationSchema).optional(),
   /** M30 §4.8: optional, additive. Bounded scoped exceptions. */
   requiredEvidenceExceptions: z.array(RequiredEvidenceExceptionSchema).max(MAX_EXCEPTIONS).optional(),
+  /**
+   * M42 §4/§13: optional, additive. Missing entirely on pre-M42 state
+   * files. The remediation queue IS this list (queue-eligible statuses
+   * are a subset of DefectStatus, see defect-transitions.ts) -- no
+   * separate `RemediationQueueEntry` list, file, or database exists.
+   */
+  defects: z.array(DefectRecordSchema).max(MAX_DEFECTS).optional(),
 });
 export type StateModel = z.infer<typeof StateModelSchema>;
