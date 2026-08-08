@@ -1,112 +1,133 @@
 {
-  "protocolVersion": "aiqt-repository-owner-map@1",
-  "generatedFromCommit": "1cd20db362569f038ec58e1449bbb8fd73e84a65",
-  "statement": "This map is an index into the repository, not an authority over it. Future Gate audits must verify each relevant entry against the current source before relying on it -- a stale entry is a documentation bug, not a contract change.",
+  "protocolVersion": "aiqt-repository-owner-map@2",
+  "generatedFromCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7",
+  "statement": "This map is an index into the repository, not an authority over it. Future Gate audits must verify each relevant entry against the current source before relying on it -- a stale entry is a documentation bug, not a contract change. @2 (post-M42 Governance Baseline Reconciliation) replaces the long per-entry engineering-history notes @1 accumulated with a short contractSummary; full Work-Unit-by-Work-Unit history for a domain lives in that milestone's own closure report under docs/archive/milestones/, not here. lastVerifiedCommit records the commit at which this entry's primary/supporting paths were last confirmed to exist and its contractSummary confirmed accurate -- it is not a claim that every historical behavioral detail was re-derived.",
   "entries": {
     "canonicalState": {
       "primary": "src/schema/state.schema.ts",
       "supporting": ["src/state/workflow-state-store.ts", "src/core/constants/schema-version.ts"],
-      "notes": "Defines StateModelSchema/StateModel, the canonical overall on-disk state shape and its schema version."
+      "contractSummary": "Defines StateModelSchema/StateModel, the canonical overall on-disk state shape and its schema version. New canonical sections are added as optional, additive fields (see e.g. M42's `defects`).",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "projectConfigSchema": {
       "primary": "src/schema/project.schema.ts",
       "supporting": ["src/state/project-store.ts"],
-      "notes": "Defines ProjectSchema/ProjectContextSchema/ProjectModelSchema for project.json."
+      "contractSummary": "Defines ProjectSchema/ProjectContextSchema/ProjectModelSchema for project.json.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "candidateStateValidation": {
       "primary": "src/state/workflow-state-store.ts",
       "supporting": ["src/schema/state.schema.ts", "src/state/versioning.ts"],
-      "notes": "readStateModel() runs assertCompatibleVersion before StateModelSchema.safeParse; writeStateModel() also gates the candidate model version before persistence. Project/store behavior mirrors this in src/state/project-store.ts."
+      "contractSummary": "readStateModel() runs assertCompatibleVersion before StateModelSchema.safeParse; writeStateModel() also gates the candidate model version before persistence. Project/store behavior mirrors this in src/state/project-store.ts.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "atomicStateWrite": {
       "primary": "src/core/filesystem/atomic-write.ts",
       "supporting": ["src/core/filesystem/safe-writer.ts", "src/state/workflow-state-store.ts"],
-      "notes": "atomicWriteFileSync() is the sole atomic-write primitive; writeStateModel() and safe-writer helpers build on it."
+      "contractSummary": "atomicWriteFileSync() is the sole atomic-write primitive; writeStateModel() and safe-writer helpers build on it.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "runlogStore": {
       "primary": "src/state/runlog-store.ts",
       "supporting": ["src/schema/runlog-event.schema.ts", "src/core/filesystem/safe-writer.ts"],
-      "notes": "appendRunlogEvent/readRunlogEventIds/inspectRunlogHealth plus all build*Event() builder functions (~40, including M28's buildEvidenceGatePolicyImportedEvent/buildEvidenceGatePolicyActivatedEvent)."
+      "contractSummary": "appendRunlogEvent/readRunlogEventIds/inspectRunlogHealth plus all build*Event() builder functions (~45+, including M42's buildDefectCandidateDiscoveredEvent/buildDefectStatusChangedEvent). RunlogEvent.type is a free string field -- new event types never require a schema change.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "canonicalJson": {
       "primary": "src/schema/external-evidence/canonical-json.ts",
-      "supporting": ["src/workflow/evidence-gate-digest.ts", "src/workflow/execution-adapter-request-identity.ts"],
-      "notes": "canonicalizeJsonValue/canonicalJsonStringify/computeCanonicalPayloadDigest -- the single canonicalization implementation, introduced in M23 and reused directly by M28."
+      "supporting": ["src/workflow/evidence-gate-digest.ts", "src/workflow/execution-adapter-request-identity.ts", "src/workflow/defect-fingerprint.ts"],
+      "contractSummary": "canonicalizeJsonValue/canonicalJsonStringify/computeCanonicalPayloadDigest -- the single canonicalization implementation, introduced in M23 and reused directly by M28 and M42 (defect fingerprinting).",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "sha256Digest": {
       "primary": "src/core/util/hash.ts",
       "supporting": ["src/schema/external-evidence/canonical-json.ts"],
-      "notes": "sha256Hex() is the sole hashing primitive; computeCanonicalPayloadDigest builds on it."
+      "contractSummary": "sha256Hex() is the sole hashing primitive; computeCanonicalPayloadDigest builds on it.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "exitCodeOwner": {
       "primary": "src/core/output/exit-codes.ts",
       "supporting": ["src/core/output/aiqt-error.ts", "src/cli/register-commands.ts"],
-      "notes": "ExitCode const map and ExitCodeValue type; AiqtError carries an ExitCode, register-commands.ts maps thrown errors to the process exit code."
+      "contractSummary": "ExitCode const map and ExitCodeValue type; AiqtError carries an ExitCode, register-commands.ts maps thrown errors to the process exit code.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "boundedInput": {
       "primary": "src/core/filesystem/bounded-file-input.ts",
       "supporting": ["src/core/filesystem/stdin.ts", "src/cli/commands/evidence-gate-policy-import.command.ts"],
-      "notes": "readBoundedTextFile() plus readStdinText() are the size-bounded input readers used by every file/stdin import command."
+      "contractSummary": "readBoundedTextFile() plus readStdinText() are the size-bounded input readers used by every file/stdin import command.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "jsonOutput": {
       "primary": "src/core/output/json-output.ts",
       "supporting": ["src/cli/register-commands.ts", "src/core/output/result.ts"],
-      "notes": "renderJson() plus the CommandResult shape; register-commands.ts is the central --json dispatch point."
+      "contractSummary": "renderJson() plus the CommandResult shape; register-commands.ts is the central --json dispatch point. See commandResultContract below and docs/governance/cli-machine-contract.md for the full external contract.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "previewBehavior": {
       "primary": "src/cli/commands/next-preview.command.ts",
       "supporting": ["src/cli/commands/graph-repair.command.ts", "src/cli/options.ts"],
-      "notes": "Canonical --preview implementation (M9/M20). This is a repeated per-command pattern (see graph repair's --dry-run/--apply), not a single shared preview module -- new preview-style commands should follow this file's pattern, not assume a shared helper exists."
+      "contractSummary": "Canonical --preview implementation (M9/M20). A repeated per-command pattern (see graph repair's --dry-run/--apply and M42's `aiqt defects` --preview flags), not a single shared preview module.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "evidenceSchema": {
       "primary": "src/schema/evidence.schema.ts",
       "supporting": ["src/services/evidence-service.ts", "src/schema/external-evidence/normalized-evidence-candidate.ts"],
-      "notes": "EvidenceRecordSchema and ArtifactReference/ArtifactKind (M22); the sole evidence-taxonomy owner, reused directly by M28's evidenceSelector.artifactKinds."
+      "contractSummary": "EvidenceRecordSchema and ArtifactReference/ArtifactKind (M22); the sole evidence-taxonomy owner, reused directly by M28's evidenceSelector.artifactKinds and referenced by M42's DefectEvidenceRef.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "evidenceTrust": {
       "primary": "src/schema/evidence.schema.ts",
       "supporting": ["src/workflow/evidence-gate-simulation-engine.ts", "src/workflow/evidence-gate-snapshot.ts"],
-      "notes": "TRUST_LEVEL_ORDER and meetsTrustLevel(), co-located with the evidence schema (M22): unverified < self_reported < repository_local < platform_verified."
+      "contractSummary": "TRUST_LEVEL_ORDER and meetsTrustLevel(), co-located with the evidence schema (M22): unverified < self_reported < repository_local < platform_verified.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "checkpoint": {
       "primary": "src/schema/checkpoint.schema.ts",
       "supporting": ["src/services/checkpoint-service.ts", "src/cli/commands/checkpoint.command.ts", "src/schema/checkpoint-amendment.schema.ts"],
-      "notes": "CheckpointSchema/CheckpointIssueSchema/ValidationResultSchema/AcceptanceCriterionResultSchema."
+      "contractSummary": "CheckpointSchema/CheckpointIssueSchema/ValidationResultSchema/AcceptanceCriterionResultSchema. M42's discovery engine reads validationCommands/issues directly, adding no second checkpoint owner.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "packetLifecycle": {
       "primary": "src/services/agent-packet-service.ts",
       "supporting": ["src/cli/commands/next-cancel.command.ts", "src/workflow/work-unit-cancel-transition.ts", "src/schema/agent-packet.schema.ts"],
-      "notes": "Creation via buildPacketContext/computePacketAuditMetadata (invoked from next.command.ts); cancellation via next-cancel.command.ts orchestrating buildPacketCancelledEvent and applyWorkUnitCancelTransition."
+      "contractSummary": "Creation via buildPacketContext/computePacketAuditMetadata (invoked from next.command.ts); cancellation via next-cancel.command.ts orchestrating buildPacketCancelledEvent and applyWorkUnitCancelTransition.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "workspaceLifecycle": {
       "primary": "src/workspaces/workspace-service.ts",
       "supporting": ["src/workspaces/workspace-recovery.ts", "src/cli/commands/workspace.command.ts", "src/schema/managed-workspace.schema.ts"],
-      "notes": "prepareIsolatedWorkspace()/releaseIsolatedWorkspace(); recovery handled by recoverWorkspaceOperations()."
+      "contractSummary": "prepareIsolatedWorkspace()/releaseIsolatedWorkspace(); recovery handled by recoverWorkspaceOperations().",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "executionSessions": {
       "primary": "src/schema/execution-session.schema.ts",
       "supporting": ["src/services/execution-session-service.ts", "src/workflow/execution-session-transitions.ts"],
-      "notes": "Execution session schema and protocol constants (M26); service functions getExecutionSessions/findSessionsForWorkUnit/findAnySessionForPacket (M27)."
+      "contractSummary": "Execution session schema and protocol constants (M26); service functions getExecutionSessions/findSessionsForWorkUnit/findAnySessionForPacket (M27).",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "externalExecutionAdapters": {
       "primary": "src/workflow/claude-code-result-normalizer.ts",
       "supporting": ["src/schema/claude-code-request-package.schema.ts", "src/schema/claude-code-stream-json.schema.ts", "src/workflow/claude-code-stream-json-parser.ts"],
-      "notes": "Normalizes Claude Code adapter results into the generic execution-result shape (M27); generic external-adapter CLI path lives in execution-external-request.command.ts."
+      "contractSummary": "Normalizes Claude Code adapter results into the generic execution-result shape (M27); generic external-adapter CLI path lives in execution-external-request.command.ts.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "evidenceGatePolicy": {
       "primary": "src/schema/evidence-gate-policy.schema.ts",
       "supporting": ["src/services/evidence-gate-policy-service.ts", "src/cli/commands/evidence-gate-policy-import.command.ts", "src/cli/commands/evidence-gate-policy-activate.command.ts"],
-      "notes": "Policy/rule schema and bounds (MAX_POLICIES, MAX_RULES_PER_POLICY, etc.), introduced in M28."
+      "contractSummary": "Policy/rule schema and bounds (MAX_POLICIES, MAX_RULES_PER_POLICY, etc.), introduced in M28.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "evidenceGateSimulation": {
       "primary": "src/workflow/evidence-gate-simulation-engine.ts",
       "supporting": ["src/schema/evidence-gate-simulation.schema.ts", "src/workflow/evidence-gate-snapshot.ts", "src/cli/commands/evidence-gate-simulate.command.ts"],
-      "notes": "evaluateRule()/aggregateOverallResult()/simulate() -- the sole pure, read-only simulation entry point, introduced in M28. Never imports runlog-store, atomic-write, or workflow-state-store."
+      "contractSummary": "evaluateRule()/aggregateOverallResult()/simulate() -- the sole pure, read-only simulation entry point, introduced in M28. Never imports runlog-store, atomic-write, or workflow-state-store.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "statusCommand": {
       "primary": "src/cli/commands/status.command.ts",
       "supporting": ["src/services/parallel-status-template.ts"],
-      "notes": "runStatus(); as of M28 optionally includes a read-only evidenceGate summary field."
+      "contractSummary": "runStatus(); as of M28 optionally includes a read-only evidenceGate summary field.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "workflowAssessment": {
       "primary": "src/workflow/workflow-assessment.ts",
@@ -122,38 +143,48 @@
         "src/services/checkpoint-service.ts",
         "src/services/project-update-service.ts"
       ],
-      "notes": "M32 establishes assessWorkflow() and WORKFLOW_RECOMMENDATION_RULES as the authoritative workflow-position, recommendation, integrity, and project-status owner. Legacy helpers remain only as compatibility adapters over assessWorkflow(); persisted nextRecommendedCommand is a recomputed compatibility cache."
+      "contractSummary": "M32 established assessWorkflow() and WORKFLOW_RECOMMENDATION_RULES as the authoritative workflow-position, recommendation, integrity, and project-status owner. Legacy helpers remain only as compatibility adapters over assessWorkflow().",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "reviewCommand": {
       "primary": "src/cli/commands/review.command.ts",
       "supporting": ["src/services/review-service.ts", "src/workflow/review-next-command.ts", "src/workflow/review-rules.ts"],
-      "notes": "runReviewCommand() and the runReview()/review-rules evaluation it delegates to."
+      "contractSummary": "runReviewCommand() and the runReview()/review-rules evaluation it delegates to.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "manageCommand": {
       "primary": "src/cli/commands/manage.command.ts",
       "supporting": ["src/services/manage-service.ts", "src/services/manage-report-template.ts"],
-      "notes": "runManage() and its reporting service/template."
+      "contractSummary": "runManage() and its reporting service/template.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "versioningPolicy": {
       "primary": "docs/governance/versioning.md",
-      "supporting": ["src/tooling/version-check.ts", "src/tooling/version-check-cli.ts"],
-      "notes": "package.json's version field is the single canonical version source; runVersionCheck()/version-check-cli.ts implement the policy's automated checks (pnpm version:check)."
+      "supporting": ["src/tooling/version-check.ts", "src/tooling/version-check-cli.ts", "src/tooling/relevant-paths.ts", "src/tooling/push-base.ts"],
+      "contractSummary": "package.json's version field is the single canonical version source, independent of AIQT_SCHEMA_VERSION, milestone tags, and release tags/Releases. runVersionCheck()/version-check-cli.ts implement the automated checks (pnpm version:check); relevant-paths.ts is the sole change-relevance allowlist.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
+    },
+    "pullRequestGovernance": {
+      "primary": ".github/pull_request_template.md",
+      "supporting": ["docs/governance/versioning.md", "src/tooling/push-base.ts", "src/tooling/resolve-push-base-cli.ts"],
+      "contractSummary": "The PR template (risk-band header, conditional sections, no N/A placeholders) plus versioning.md's 'Pull Request human-approval gate' section are the authoritative PR contract: CI green, mergeable, no blocking review issue, explicit human-applied `approved-for-merge` label (never self-applied by an agent), re-evaluated per PR state after any post-approval change. Direct-push-to-main comparison uses resolveDirectPushBase (push-base.ts) via GitHub's github.event.before, not an assumed HEAD~1.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "ciWorkflows": {
       "primary": ".github/workflows/validate.yml",
       "supporting": [],
-      "notes": "The sole GitHub Actions workflow (name: Validate), matrix build on Node 22 and 24 -- no other workflow files exist."
+      "contractSummary": "The sole GitHub Actions workflow (name: Validate). A single Node 24 job (no Node 22/24 matrix -- Node 22 was retired from CI after the M21-M34 era); runs typecheck -> lint -> build -> test -> version:check on every push to main and every pull request.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "testRuntimePolicy": {
       "primary": "vitest.config.ts",
       "supporting": [
         "tests/workload-timeout-policy.ts",
         "package.json",
-        ".github/workflows/validate.yml",
-        "docs/archive/legacy-milestones/m34-validation-workload-policy.md",
-        "docs/archive/legacy-milestones/m34-closure-report.md"
+        ".github/workflows/validate.yml"
       ],
-      "notes": "Post-M34 (WU34-02/WU34-04): vitest.config.ts still sets pool:'threads' (M21 rationale preserved in its own comment) and no global testTimeout/concurrency override. tests/workload-timeout-policy.ts is now the single shared source for the two class-scoped timeout constants (SPAWNING_SUITE_TEST_TIMEOUT_MS=15000, HEAVY_SPAWNING_TEST_TIMEOUT_MS=25000); 34 test files apply one via vi.setConfig, all other files keep the 5000ms default. package.json#scripts.validate now runs build before test (matching .github/workflows/validate.yml's Build-before-Test order, corrected in WU34-04) so tests/integration/built-binary-smoke.test.ts has a real dist/index.js. docs/archive/legacy-milestones/m34-validation-workload-policy.md (WU34-01/WU34-02/WU34-03 characterization+implementation record) and docs/archive/legacy-milestones/m34-closure-report.md remain the authoritative history; docs/archive/legacy-milestones/m34-ci-reliability-confirmation.md records the post-closure CI evidence. See also testInventoryPolicy (M35) for the workload-classification layer built on top of this."
+      "contractSummary": "pool:'threads', no global testTimeout/concurrency override. tests/workload-timeout-policy.ts is the single shared source for the two class-scoped timeout constants (SPAWNING_SUITE_TEST_TIMEOUT_MS=15000, HEAVY_SPAWNING_TEST_TIMEOUT_MS=25000). package.json's validate script runs build before test so tests/integration/built-binary-smoke.test.ts has a real dist/index.js. Full M34 history: docs/archive/legacy-milestones/m34-*.md. See testInventoryPolicy for the workload-classification layer built on top of this.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "autonomousRunContract": {
       "primary": "src/schema/autonomous-run.schema.ts",
@@ -174,20 +205,21 @@
         "src/workflow/autonomous-run-self-review.ts",
         "src/services/autonomous-run-evidence-binding-service.ts",
         "src/services/autonomous-run-command-result.ts",
-        "docs/archive/milestones/m36/m36-autonomous-run-contract.md",
-        "tests/unit/autonomous-run-boundary-scan.test.ts"
+        "src/cli/commands/autonomous-classify.command.ts"
       ],
-      "notes": "M36-WU01: contract-only -- lifecycle status enum + transition table, candidate/safety-assessment/budget/execution-policy/result-state/evidence-packet schemas, and 4 pure decision functions (classifyCandidate, checkBudget, classifyCommand/decideCommand). M36-WU02 added autonomous-run-preflight.ts (real, read-only repository inspection -- exactly 4 already-allowlisted git-command-runner.ts functions) and autonomous-candidate-intake-service.ts (candidate normalization + one-issue-per-run intake + dry-run classification report). M36-WU03 added the first real, mutating execution surface: autonomous-worktree-lifecycle.ts (gitWorktreeAdd/gitWorktreeRemove -- the exact 2-function mutating allowlist, built directly on git-command-runner.ts and workspace-path-policy.ts, deliberately NOT on workspace-service.ts's StateModel-coupled prepareIsolatedWorkspace/releaseIsolatedWorkspace -- see docs/archive/milestones/m36/m36-autonomous-run-contract.md Sec 10.1 for why that ownership decision was corrected from WU36-01's original table), autonomous-command-runner.ts (the one real command-execution call site -- structured args only, shell:false, mandatory pre-execution policy+boundary check), autonomous-run-branch-policy.ts (a parallel `autonomous/`-prefixed branch scheme, distinct from workspace-branch-policy.ts's `aiqt/` scheme), autonomous-run-agent-adapter.ts (a data-only AgentAdapter interface -- no implementation in this repository invokes a model), and autonomous-run-execution-service.ts (the orchestration loop tying worktree creation, budget-checked command execution, and unconditional cleanup together; two real bugs found and fixed by this Work Unit's own tests, recorded in Sec 10.4). M36-WU04 added: a new read-only git-command-runner.ts export (gitDiffNumstat, this milestone's only change to that M25 file); autonomous-run-diff-summary.ts (real diff/unexpected-file inspection, including a rename-path-parsing fix -- Sec 11.2); autonomous-run-validation-service.ts (targeted+authoritative validation via the already-reviewed WU36-03 command runner, structurally enforcing 'no pass without validation'); autonomous-run-self-review.ts (a pure, I/O-free findings evaluator); autonomous-run-evidence-binding-service.ts (the one place that ties execution+diff+validation+review into a final AutonomousEvidencePacket and decides resultState/recommendedHumanAction -- required refactoring autonomous-run-execution-service.ts's executeAutonomousRun into a cleanup-free runAutonomousCommandLoop plus the original cleanup-including wrapper, behavior-preserving, Sec 11.1); autonomous-run-command-result.ts (wraps a packet in an M33 CommandResult, not yet wired to any CLI command). autonomous-run-command-policy.ts's GIT_WRITE_PATTERNS was also extended to recognize git mv/git rm as git_operation (Sec 11.7 -- a real classification gap found by WU36-04's own tests). tests/unit/autonomous-run-boundary-scan.test.ts's WU36-01/02/03/04 sections all re-check on every suite run. See docs/archive/milestones/m36/m36-autonomous-run-contract.md Sec 2.3/9/10/11 for the ownership map and Sec 8/9.5/10.7/11.10 for the explicit non-enablement statements (still true after WU36-04: no CLI command exists to invoke any of this; no candidate reaches execution without a test explicitly constructing every input; no merge; no deployment; no coding model). Do not treat this entry as evidence that autonomous execution is enabled for any real target -- it is evidence that the bounded, policy-checked mechanics exist and are tested, with zero invocation path from any CLI surface. M39-HF02 (build spec Sec 9, 'Prompt/autonomous integration') added exactly one advisory reuse of the M39 executionGuidance decision owner: `buildDryRunClassificationReport`'s new `executionGuidance` field (complexity/reasoning-effort/agent-class only, via the same `classifyWorkComplexity`/`recommendAgentClass` exports -- no second decision owner) and its pass-through into `aiqt autonomous classify`'s transient `CommandResult.data` (never persisted to `AutonomousRunRecord`, never influencing `riskClass`/`canProceedWithoutApproval`/`requiresApproval`/`alwaysBlocked`/budgets/policy, all still computed exactly as before from `classifyCandidate` alone). See the `executionGuidance` entry for the owning module."
+      "contractSummary": "M36's bounded, policy-checked autonomous-execution mechanics: lifecycle status enum + transition table, candidate/safety-assessment/budget/execution-policy/result-state/evidence-packet schemas, a real (structured-args, shell:false, policy-checked) command-execution surface, and the evidence-binding pipeline that decides resultState/recommendedHumanAction. No CLI command invokes live execution against a real coding model from this repository; no merge; no deployment. Full engineering history: docs/archive/milestones/m36/m36-autonomous-run-contract.md.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "testInventoryPolicy": {
       "primary": "src/tooling/test-inventory-cli.ts",
       "supporting": [
         "docs/archive/milestones/m35/m35-test-suite-inventory.md",
-        "docs/archive/milestones/m35/m35-test-suite-inventory.generated.json",
-        "docs/governance/m35-test-rationalization-policy.md",
-        "tests/unit/m35-test-inventory-classification.test.ts"
+        "docs/governance/test-rationalization-policy.md",
+        "tests/unit/m35-test-inventory-classification.test.ts",
+        "src/tooling/test-inventory-classifier.ts"
       ],
-      "notes": "M35-WU01: test-inventory-cli.ts is the single, reusable static classifier for every tests/**/*.test.ts file -- workload class, feature domain, criticality, subprocess/filesystem/Git/built-binary usage, and inline-timeout presence -- optionally merged with real per-file runtime from a vitest --reporter=json run via --run-json. Its generated JSON is the machine-readable source docs/archive/milestones/m35/m35-test-suite-inventory.md summarizes; the deletion-evidence contract for any future test removal or merge lives in docs/governance/m35-test-rationalization-policy.md. This entry is inventory/classification only -- it does not own or change vitest.config.ts, tests/workload-timeout-policy.ts, or any test's timeout/concurrency behavior (see testRuntimePolicy for that)."
+      "contractSummary": "test-inventory-cli.ts is the single, reusable static classifier for every tests/**/*.test.ts file -- workload class, feature domain, criticality, subprocess/filesystem/Git/built-binary usage, and inline-timeout presence. The deletion-evidence contract for any future test removal or merge lives in docs/governance/test-rationalization-policy.md. Inventory/classification only -- does not own vitest.config.ts or any test's timeout/concurrency behavior (see testRuntimePolicy).",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "commandResultContract": {
       "primary": "src/core/output/result.ts",
@@ -200,7 +232,8 @@
         "src/cli/register-commands.ts",
         "src/cli/command-context.ts"
       ],
-      "notes": "M33 authoritative CommandResult/Issue/AiqtError/ExitCode shape (result.ts's CommandResult/makeResult/errorToResult match the M33 spec's canonical interface field-for-field; action is WorkflowAction | string as of WU33-03 to allow the parser-error path's action:'cli'). result.ts also exports familyFailureResult() (WU33-02: convergence target for all 29 local failure() helper files under src/cli/commands/, closes the exit-10 status/requiresHumanInput invariant everywhere), missingProjectResult() (WU33-02: shared missing-project result for the review/next/manage/export/status bespoke pre-check pattern), and parserErrorToResult() (WU33-03: converts a commander CommanderError into a canonical CommandResult). renderJson()/renderHuman() are the sole shared renderers (human-output.ts's renderIssue() now includes each issue's id inline, as of WU33-04); emit() in register-commands.ts is the sole shared stream router -- as of WU33-03 it writes --json to stdout unconditionally (M33 Sec 5.5 stream policy) and human-mode output to stdout-on-success/stderr-otherwise as before. register-commands.ts's root .exitOverride()/configureOutput() plus src/index.ts's catch block adapt parser-level errors into that same JSON pipeline when --json was requested (WU33-03), and the 5 --example-supporting commands uniformly reject --example --json with exit 3 (WU33-03). As of WU33-04, human-output.ts also exports renderResultFooter() -- the shared status/warnings/blockers/next-command trailing block all 7 raw-text bypass sites in register-commands.ts now append after their own specialized body, and review.command.ts routes non-blocking findings into the shared warnings channel (using finding.findingKey, not finding.id, as the rendered Issue.id). As of WU33-05: all 29 local failure() helpers carry a @deprecated M33-WU05 JSDoc tag pointing callers at familyFailureResult() directly (not removed -- assessed as disproportionate risk for zero behavioral benefit over the ~230 call sites); a suite-wide regex guard (tests/unit/m33-exit10-and-owner-inventory.test.ts) fails if any command file reintroduces the exact status-derivation ternary familyFailureResult replaced; a cross-command matrix (tests/unit/m33-cli-contract-matrix.test.ts) confirms all 58 actionable commands expose --json. The external-facing machine contract is documented at docs/governance/cli-machine-contract.md (linked from README.md). Still open: Contradiction F (workflow pointers not threaded through the ~230 local failure() call sites) -- documented as a known gap in the contract doc's closing section, not silently unresolved. See docs/archive/legacy-milestones/m33-wu01-command-result-contract.md for the full inventory, characterized contradictions, and target contract, and its Sec 5/6/7/8 addenda for the WU33-02 through WU33-05 changes."
+      "contractSummary": "M33's authoritative CommandResult/Issue/AiqtError/ExitCode shape. renderJson()/renderHuman() are the sole shared renderers; familyFailureResult()/missingProjectResult()/parserErrorToResult() are the shared failure-result builders every command family (including M40 release, M41 validation, M42 defects) uses. External-facing contract documented at docs/governance/cli-machine-contract.md. Full engineering history: docs/archive/legacy-milestones/m33-wu01-command-result-contract.md.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "historicalCompatibilityFixtures": {
       "primary": "tests/integration/cli.test.ts",
@@ -212,7 +245,8 @@
         "tests/integration/root-backward-compatibility.test.ts",
         "tests/integration/execution-adapter-claude-code-legacy-compat.test.ts"
       ],
-      "notes": "cli.test.ts's 'aiqt CLI entrypoint' describe block carries the original per-milestone command-set/exit-code assertions; later milestones (M22+) split their own dedicated historical-compatibility test files rather than extending it."
+      "contractSummary": "cli.test.ts's 'aiqt CLI entrypoint' describe block carries the original per-milestone command-set/exit-code assertions; later milestones (M22+) split their own dedicated historical-compatibility test files rather than extending it.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "sandboxBackendContract": {
       "primary": "src/schema/sandbox-backend.schema.ts",
@@ -226,26 +260,17 @@
         "src/workflow/sandbox-network-policy.ts",
         "src/workflow/sandbox-process-policy.ts",
         "src/workflow/sandbox-resource-policy.ts",
-        "docs/archive/milestones/m38/m38-sandbox-threat-model.md",
-        "docs/archive/milestones/m38/m38-sandbox-platform-decision.md",
-        "tests/unit/sandbox-wu01-boundary-scan.test.ts",
         "src/workspaces/sandbox-docker-backend.ts",
         "src/workspaces/sandbox-docker-command-runner.ts",
-        "tests/unit/sandbox-wu02-boundary-scan.test.ts",
-        "tests/integration/sandbox-docker-backend.test.ts",
         "src/workflow/sandbox-command-loop.ts",
-        "tests/unit/sandbox-command-loop.test.ts",
         "src/services/sandbox-run-execution-service.ts",
         "src/workflow/sandbox-run-self-review.ts",
         "src/services/sandbox-run-command-result.ts",
-        "tests/unit/sandbox-run-self-review.test.ts",
-        "tests/unit/sandbox-run-command-result.test.ts",
-        "tests/integration/sandbox-live-execution.test.ts",
         "src/cli/commands/autonomous-agent-import.command.ts",
-        "src/cli/commands/autonomous-cleanup.command.ts",
-        "tests/integration/sandbox-escape-testing.test.ts"
+        "src/cli/commands/autonomous-cleanup.command.ts"
       ],
-      "notes": "M38-WU01: contract-only -- capability enum (SandboxCapabilitySchema) plus MINIMUM_REQUIRED_SANDBOX_CAPABILITIES, filesystem/network/environment/process/resource policy schemas, an evidence schema, and a pure, zero-implementer SandboxBackend interface (sandbox-backend-contract.ts, mirroring autonomousRunContract's AgentAdapter precedent). decideSandboxPlatformSupport (sandbox-platform-decision.ts) chose Linux-only via an OCI-container backend as the initial supported platform, with Windows/macOS explicitly unsupported and fail-closed (see the platform decision doc for the full rationale -- this repository's CI runs exclusively on ubuntu-latest). evaluateSandboxCapabilities/evaluateSandboxNetworkCapability (sandbox-capability-evaluation.ts) return exactly two outcomes -- sufficient, or a SandboxFallbackRecommendation -- with no third 'proceed unsandboxed' branch; sandbox-fallback-policy.ts is the single function that ever produces that recommendation, and it always points at the M37 request/import workflow (aiqt autonomous run), never a bare process launch. The five sandbox-*-policy.ts files are pure structural validators only (no real mount/network/process/resource enforcement exists yet); sandbox-filesystem-policy.ts reuses autonomousRunContract's isAiqtOwnRepository guard unmodified for the self-management check. No CLI command references anything in this entry; no process-spawn/network/container surface exists anywhere in these files, verified by tests/unit/sandbox-wu01-boundary-scan.test.ts (mirroring autonomous-run-boundary-scan.test.ts's M36-WU01 pattern). Do not treat this entry as evidence that live sandboxed execution is enabled for any real target -- it is the platform decision, threat model, and pure data/interface contract a real backend was built against. M38-WU02 added the first real SandboxBackend implementer: DockerSandboxBackend (sandbox-docker-backend.ts), backed by exactly one real execFileSync('docker', ...) call site (sandbox-docker-command-runner.ts's runDockerCommand, mirroring autonomous-command-runner.ts's M36 discipline). checkAvailability/reportCapabilities/create/cleanup/destroy are real, tested Docker operations (real mounts, a real environment allowlist via -e NAME, --network none, --cpus/--memory/--memory-swap/--pids-limit resource flags, --cap-drop ALL/--security-opt no-new-privileges/--user 1000:1000 hardening, a pinned, embedded-Dockerfile-built base image aiqt-sandbox-base:1, never 'latest'). launchProcess/streamEvents/cancel/collectResult/exportEvidence are honest, explicit 'not yet supported' stubs (never a fabricated success) -- WU38-03 implements those for real. This backend permanently never claims network_destination_restriction (plain Docker has no destination-allowlist/egress-proxy mechanism), so network-enabled live execution remains unsupported by design; only network-denied live execution is in scope for this backend, ever. reportCapabilities() also omits process_tree_control (no process launch exists yet) and disk_limit (no portable, real write-byte enforcement for a bind-mounted worktree exists yet) -- evaluateSandboxCapabilities therefore correctly reports this WU38-02-only backend as insufficient for live execution until WU38-03 adds process_tree_control and a real disk-usage check. Tests (tests/integration/sandbox-docker-backend.test.ts) run against a REAL Docker daemon when available and self-skip with a logged reason when not (this repository's own Windows development machine has no Docker; this repository's own CI does) -- the first reviewed exception to the M35-WU01 'zero skipped tests' baseline, recorded in docs/archive/milestones/m35/m35-test-suite-inventory.md's M38-WU02 addendum. M38-WU03 made launchProcess/streamEvents/cancel/collectResult/exportEvidence real: launchProcess runs a real 'docker exec', bounded output, recording a real per-sandbox event log; cancel issues 'docker stop' escalating to 'docker kill', always re-verified via 'docker inspect' (never assumed) -- because every command runs inside the SAME container, this is a genuine, kernel-enforced (PID namespace) guarantee the whole process tree is gone, not per-process tracking logic this backend reimplements. reportCapabilities() now includes process_tree_control and disk_limit (real but DETECTIVE: checkDiskUsageBytes, a real 'docker exec ... du -sb', not part of the SandboxBackend interface -- an orchestrator-only helper). New: sandbox-command-loop.ts's executeSandboxedCommandLoop, the sandboxed equivalent of M36's runAutonomousCommandLoop -- mediates a proposed command list through the SAME M36 decideCommand classifier (reused unmodified) before ever calling launchProcess, enforces command-count/wall-clock/disk-usage budgets with the same inclusive-ceiling discipline, and calls backend.cancel() itself on a cancellation signal. This is the M38 pipeline's 'live agent process' step (build spec Sec 2) reinterpreted per Sec 1.1's own carried-forward invariant ('no live agent process owned by AIQT' must be preserved): it executes an ALREADY-DECIDED command list (from M37's request/import architecture or a future WU38-04 CLI wiring), never a new coding-model invocation -- no code in this Work Unit calls any model or spawns a coding-agent process. create() also now derives --user from the REAL host UID/GID (process.getuid()/getgid()) rather than a hardcoded 1000:1000, so the container can actually write into a bind-mounted worktree owned by whatever user invoked Docker -- a real Docker bind-mount permission requirement found and fixed before this Work Unit's own CI run, not after. Also fixed a real CI-only defect this Work Unit's own push uncovered (not reproducible locally, no Docker on this project's development machine): the first-ever docker build (image not yet cached) exceeded the per-test timeout under CI load -- fixed by warming the image once in beforeAll with a generous hook-only timeout, retagging m38-wu02-sandbox-isolation-backend to the fixed commit. M38-WU04 wired opt-in live execution into the M37 CLI: `aiqt autonomous agent-import --live` (autonomous-agent-import.command.ts), gated at two independent layers -- the operator's own standing AutonomousOperatorConfig.liveExecutionEnabled (default false; new field, autonomous-run-operator.schema.ts) AND the per-invocation --live flag, both required before any sandbox capability check even runs. New: sandbox-run-execution-service.ts's prepareLiveSandbox (real capability preflight via checkAvailability/evaluateSandboxCapabilities, then real worktree creation via the same M36 createAutonomousWorktree, then real backend.create()) and runLiveSandboxedRun (main command loop, then targeted/authoritative validation loops, all via executeSandboxedCommandLoop, then self-review, then unconditional cleanup in a finally block); sandbox-run-self-review.ts's reviewSandboxRun (pure, checks the one cheaply-available real invariant -- zero files changed); sandbox-run-command-result.ts's buildSandboxRunCommandResult (SandboxEvidence -> M33 CommandResult, mirroring buildAutonomousRunCommandResult). Extended AutonomousRunRecordSchema (autonomous-run-record.schema.ts) with sandboxContainerId (the crash-recovery anchor, persisted immediately after real sandbox creation, before any command runs) and sandboxEvidence (the live-mode evidence, distinct from the non-live evidencePacket field -- a run is always exactly one or the other). Crash recovery is real: autonomous-cleanup.command.ts detects a run whose sandboxContainerId is set but whose sandboxEvidence.cleanupStatus is not confirmed 'cleaned', and attempts a real backend.destroy() (a fresh Docker connection, possibly a fresh process) before allowing the record to be deleted -- refusing, and preserving the reference, if the sandbox backend is unavailable at that moment. Network-enabled live execution remains permanently unsupported (unchanged from WU38-02/03); resource dimensions the M36 AutonomousBudgetsSchema never had (CPU/memory/disk/process-count/output-byte) use fixed, documented conservative defaults, not yet operator-configurable (residual scope gap, recorded in the closure report). Tests (tests/integration/sandbox-live-execution.test.ts) are the second reviewed exception to the M35-WU01 'zero skipped tests' baseline, alongside sandbox-docker-backend.test.ts. Three real defects were found and fixed only by this repository's own CI (no Docker on this project's development machine): sandboxed git needed HOME/safe.directory/identity; a linked Git worktree's gitdir pointer needed the source repository's .git directory mounted into the sandbox too (new SandboxFilesystemPolicy.sourceRepositoryMount, nullable, hostPath===sandboxPath enforced -- a deliberate, narrow, documented exception to 'worktree is the only writable mount', scoped to just .git, never the source repo's own working tree); and evidence.filesChanged needed to be captured via a real committed-diff query (new DockerSandboxBackend.getChangedFilesAgainstBaseCommit) BEFORE cleanup() destroys the container, not via exportEvidence's own post-cleanup, uncommitted-only status check. M38-WU05 (build spec: 'Escape Testing, Controlled Pilot, and Closure') added tests/integration/sandbox-escape-testing.test.ts (real Docker daemon required, third reviewed skip exception): parent-repo write (fails -- the parent's own working tree is never mounted), host-home read (fails -- home never mounted), sibling-worktree access (fails -- a second run's worktree is invisible), secret access (no environment variable beyond the fixed HOME appears by default), network access (denied, confirmed no real response reaches a real command), process-limit/CPU/memory quotas (real cgroup values confirmed via docker inspect), disk usage growth (confirmed via checkDiskUsageBytes), orphan process (destroy() confirmed via docker inspect leaves nothing running), nested cancellation (cancel() while a detached background process is genuinely still active). 'Successful repair' and 'crash recovery' (also required scenarios) are not duplicated -- already covered end-to-end by sandbox-live-execution.test.ts. 'Fallback on unsupported hosts' is covered by a real, no-Docker-required test that runs on every host (including this project's own Windows development machine): a fresh backend on a non-Linux platform reports unavailable, and network-enabled live execution is refused by create() regardless of platform or Docker availability."
+      "contractSummary": "M38's real, opt-in, Linux-only (OCI-container) sandboxed execution backend: DockerSandboxBackend, real capability evaluation with no 'proceed unsandboxed' branch, `aiqt autonomous agent-import --live` gated at two independent config layers, crash-recovery via autonomous-cleanup.command.ts. Network-enabled live execution is permanently unsupported (plain Docker has no destination-allowlist). Escape-testing coverage (tests/integration/sandbox-escape-testing.test.ts) confirms parent-repo/host-home/sibling-worktree/secret/network isolation. Full engineering history and threat model: docs/archive/milestones/m38/m38-sandbox-threat-model.md and m38-sandbox-platform-decision.md.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "executionGuidance": {
       "primary": "src/workflow/execution-guidance.ts",
@@ -256,25 +281,59 @@
         "src/workflow/execution-continuation.ts",
         "src/workflow/execution-guidance-render.ts",
         "src/services/execution-guidance-profile-resolution-service.ts",
-        "docs/archive/milestones/m39/AIQT_Milestone_39_Build_Specification.md",
-        "tests/unit/execution-guidance.test.ts",
-        "tests/unit/execution-context-manifest.test.ts",
-        "tests/unit/execution-continuation.test.ts",
-        "tests/unit/execution-guidance-render.test.ts",
-        "tests/unit/execution-guidance-profile-resolution-service.test.ts",
         "src/workflow/execution-validation-classifier.ts",
-        "tests/unit/execution-validation-classifier.test.ts",
         "src/cli/commands/next-selection-helpers.ts",
         "src/cli/commands/next.command.ts",
         "src/cli/commands/next-preview.command.ts",
         "src/workflow/execution-guidance-efficiency-evidence.ts",
-        "tests/unit/execution-guidance-efficiency-evidence.test.ts",
-        "tests/integration/m39-execution-guidance-dogfood.test.ts",
         "src/cli/register-commands.ts",
         "src/templates/prompts/driver.prompt.template.ts",
         "src/cli/commands/autonomous-classify.command.ts"
       ],
-      "notes": "M39-WU01: contract-only decision owner -- the shared, provider-neutral ExecutionGuidance model (execution-guidance.schema.ts: WorkComplexity/ReasoningEffort/AgentClass/ContextProfile/ValidationTier/Confidence enums, plus the composite ExecutionGuidance/ContextItem/ContinuationCapsule/ValidationStep interfaces) and its sole pure decision owner (execution-guidance.ts: classifyWorkComplexity/recommendAgentClass/resolveConcreteRecommendation/buildValidationGuidance/buildOutputPolicy/buildSubagentGuidance/composeExecutionGuidance). Complexity classification uses only bounded counts (scope/suggestedFiles/dependencies breadth, acceptance-criteria count) and a fixed, literal risk/architectural keyword scan over existing Work Unit text -- never an LLM call, provider API, or clock/random source; confidence is 'low' whenever signals are absent or conflicting, never silently upgraded. Concrete agent/model labels are resolved only from an operator-supplied, narrow, additive config file (ExecutionGuidanceProfileConfigSchema, loaded by execution-guidance-profile-config-file.ts mirroring autonomousRunContract's M37-WU01 loadOperatorConfigFile pattern exactly: missing file is ok/null, malformed file fails closed) -- deliberately NOT added to AutonomousOperatorConfigSchema, which is a `.strict()` object governing autonomous execution safety/budget policy, not everyday agent-profile labeling. M39-WU02 added the real, pure context-manifest builder (execution-context-manifest.ts: buildContextManifest/deriveContextProfile/isPathWithinApprovedRoots -- prioritized must_read/should_read/reference_only candidates, a provider-neutral token-count heuristic, soft-target demotion that never touches must_read, a recorded (never-silent) MUST_READ_OVERFLOW warning against an optional hard limit, and an absolute-path/`..`-traversal safety filter) and the real, pure continuation-capsule builder (execution-continuation.ts: buildContinuationCapsule -- reuses Checkpoint.summary/filesChanged/validationResult/acceptanceCriteriaResult/issues verbatim, no new checkpoint field, bounded/deterministic truncation, only open issues carried forward). Both are still data-in/data-out: neither reads a file, an environment variable, or a repository directly -- real checkpoint-store/file-listing wiring is left to a later consumer-integration Work Unit. composeExecutionGuidance (execution-guidance.ts) now calls buildContextManifest/buildContinuationCapsule whenever a caller supplies `contextManifestInput`/`continuationInput`; omitting either preserves M39-WU01's exact placeholder/`null` behavior, so no existing caller's output changes. M39-WU03 added the shared rendering layer (execution-guidance-render.ts: renderExecutionGuidanceHuman -- the exact Sec 9 compact block shape, never embedding item paths or reason text; renderExecutionGuidancePromptNote -- a short 'follow the guidance, expand only on evidence' instruction) and a real, callable (but still unwired) project-config resolver (execution-guidance-profile-resolution-service.ts's resolveExecutionGuidanceProfileConfig, mirroring autonomous-shared.ts's M37-WU01 resolveOperatorConfigOrFail convention exactly: default filename `aiqt.execution-guidance.config.json` in `cwd`, explicit-path override, never required to exist -- deliberately no CLI-flag/env-var layer yet since no command consumes one). `ExecutionGuidance` itself round-trips losslessly through JSON (verified by test), so no separate JSON-rendering function was needed. No CLI command, packet builder, preview renderer, prompt driver, or autonomous surface calls any of this yet. M39-WU04 added execution-validation-classifier.ts's classifyValidationCommand/classifyValidationCommands -- a pure, conservative classifier over a Work Unit's own validationCommands strings, recognizing only this repository's own known script shapes (pnpm typecheck/lint/build -> static, bare pnpm test/validate/vitest -> full, a scoped `vitest run <path>` -> focused, explicit impacted/milestone keywords, anything else -> unclassified, never guessed into a lenient tier) -- and wired it into buildValidationGuidance (execution-guidance.ts) via a new optional `explicitValidationCommands` input: real classified commands populate `requiredNow` (an unclassified command is required now, not silently deferred), a full/milestone-tier command found without `explicitFullSuiteReason` stays deferred but is recorded as a visible reason. WU39-04 is also the first Work Unit to wire real CLI integration: next-selection-helpers.ts's new buildExecutionGuidanceForWorkUnit (called identically by next.command.ts and next-preview.command.ts, guaranteeing preview/apply parity) composes real guidance from the selected WorkUnit's own objective/scope/acceptanceCriteria/suggestedFiles/agentContextRefs/dependencies/validationCommands plus resolveExecutionGuidanceProfileConfig, exposed as a new, purely additive `data.executionGuidance` field -- never inside the hashed/persisted packet body, canonical state, or runlog event, so contentHash/state/runlog shape are byte-for-byte unchanged. A malformed profile config file falls back to generic guidance for this advisory field rather than failing the surrounding command. Continuation-capsule/dependency-derived context wiring remains intentionally deferred to WU39-05 ('Complete shared-guidance integration'). Verified against the full next/preview/checkpoint-flow suite plus cli.test.ts's historical-compatibility assertions (162 tests, including 'no new public commands registered' and 'no new runlog event types appear') -- zero regressions. Do not treat this entry as evidence that M39 guidance covers autonomous/prompt surfaces yet -- only `aiqt next`/`aiqt next --preview` are wired as of WU39-04. M39-WU05 completed the deferred integration: buildExecutionGuidanceForWorkUnit (next-selection-helpers.ts) now resolves each dependency EDGE id in `workUnit.dependencies` through `state.workGraph.dependencies` (a real bug caught by this WU's own dogfood tests -- `dependencies` holds edge ids, not prerequisite Work Unit ids directly, mirroring the same resolution `satisfiedBlockingDependencies` already used) to find each direct prerequisite's real Work Unit id, then looks up its latest checkpoint via the already-canonical `latestCheckpointForWorkUnit` (checkpoint-amendment-service.ts, M-prior, no new lookup/store) to feed both the context manifest's should_read tier and the continuation capsule. Added execution-guidance-efficiency-evidence.ts (computeContextFootprintReduction/computeContinuationCompactness -- pure arithmetic only, no fabricated numbers, no billing API) and a new dogfood suite (tests/integration/m39-execution-guidance-dogfood.test.ts) exercising three real, non-AIQT-repository fixture flows: a mechanical/simple-shaped Work Unit, a complex/architectural-shaped one, and a real two-Work-Unit dependency chain with both a Claude-Code-style and a Codex-style configured profile (plain local JSON strings, zero provider calls) -- the dependency flow's own real numbers show a 50% context-footprint reduction (exceeds the build spec's informal 30% target; reported honestly, not tuned to hit it). This dogfood pass also surfaced a real, documented heuristic edge case (not a defect): the risk-keyword scan matches 'authentication' in `outOfScope: [\"Do not implement authentication\"]` even though the text is a negation, conservatively classifying that Work Unit as more complex than a human would -- accepted as the safe direction per build spec Sec 7, not corrected, since erring toward more caution is explicitly the intended failure mode. Re-verified against the same 162-test next/preview/checkpoint-flow + cli.test.ts suite (170 total with the new tests) -- zero regressions. M39-WU-HF01 (post-integration-review stabilization): the M39 Integrated Review found that renderExecutionGuidanceHuman (built in WU39-03) was never actually printed anywhere -- `aiqt next`'s human (non-`--json`) output only exposed guidance via the JSON `data` field, not the human-readable block the build spec's Sec 9 example illustrates. Fixed narrowly in register-commands.ts's existing `next` raw-text bypass site (the same place that already prints `data.packet` + the shared result footer): the compact guidance block is inserted between the packet and the footer when `data.executionGuidance` is present, using the already-built, already-tested renderer verbatim -- no new rendering logic, no change to the hashed/persisted packet body, no change to `--json`/preview output. Verified via an extension of cli.test.ts's existing 'aiqt next human mode' test plus a full re-run of cli.test.ts/next-packet/next-preview/next.test.ts (77 tests, zero regressions). M39-HF02 (human-authorized post-review closure Work Unit) closed the two remaining Sec-9 integration gaps. Prompt: driver.prompt.template.ts's renderDriverPrompt (the generic, always-rendered operating-instructions prompt -- not WU-specific, so no classification call is made here) gained a static 'Execution guidance discipline' section telling the agent to follow aiqt next's already-rendered guidance block, start from its context, expand only on evidence, and prefer progressive validation over defaulting to the full suite -- zero new decision logic, purely textual policy referencing the existing feature. Autonomous: buildDryRunClassificationReport (autonomousRunContract's M36-WU02 file) gained an advisory-only `executionGuidance` field (complexity/reasoningEffort/recommendedClass), computed by directly reusing classifyWorkComplexity/recommendAgentClass (no second decision owner) with the candidate's objective/acceptanceCriteria and its own already-computed riskClass as input; wired through into `aiqt autonomous classify`'s transient CommandResult.data only (never persisted to AutonomousRunRecord, never touching riskClass/approval/budgets/policy). A full ExecutionGuidance object (context manifest, continuation, validation tiers) does not apply to an issue-shaped AutonomousCandidate (no scope/suggestedFiles/dependencies/validationCommands) and was deliberately not forced. Verified via tests/unit/prompt-templates.test.ts (36), tests/integration/autonomous-candidate-intake-service.test.ts (12), tests/unit/autonomous-run-boundary-scan.test.ts (58, confirming the new import introduces no forbidden execution/network/model-invocation surface), and tests/integration/autonomous-cli-lifecycle.test.ts (22) -- all pass, zero regressions."
+      "contractSummary": "M39's shared, provider-neutral ExecutionGuidance decision owner: composeExecutionGuidance() (classification, context manifest, continuation capsule, validation guidance) is the sole entry point `aiqt next`/`aiqt next --preview` call via next-selection-helpers.ts's buildExecutionGuidanceForWorkUnit, guaranteeing preview/apply parity by construction. M41 extended buildValidationGuidance with testImpactInput (see adaptiveTestSelection) -- purely additive, can only add a requiredNow step. Full engineering history: docs/archive/milestones/m39/AIQT_Milestone_39_Build_Specification.md.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
+    },
+    "releaseGovernance": {
+      "primary": "src/workflow/release-readiness.ts",
+      "supporting": ["src/cli/commands/release-status.command.ts", "src/cli/commands/release-prepare.command.ts", "src/cli/commands/release-validate.command.ts", "src/cli/commands/release-notes.command.ts", "src/state/release-decision-store.ts"],
+      "contractSummary": "M40's release-readiness/status/prepare/validate/notes surface: aggregates CI/version/risk/provenance state into one read-only readiness view and a governed release-decision record, without itself creating a tag, GitHub Release, or performing a merge. Full engineering history: docs/milestones/completed/m40/build-spec.md and closure-report.md.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
+    },
+    "releaseRiskAssessment": {
+      "primary": "src/workflow/release-risk.ts",
+      "supporting": ["src/cli/commands/release-assess.command.ts"],
+      "contractSummary": "computeReleaseRiskStatus()/computeReleaseApprovalAuthority() implement the exact repository four-band scale (0-24 green/25-49 yellow/50-74 orange/75-100 red; agent-approvable below 50) for RELEASE risk specifically -- a distinct domain from M42's remediation-risk.ts (remediation implementation risk) and from defect severity/confidence. Both reuse the same numeric boundaries, not the same scoring inputs or the same function.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
+    },
+    "releaseProvenance": {
+      "primary": "src/workflow/release-provenance.ts",
+      "supporting": ["src/state/release-decision-store.ts", "src/cli/commands/release-draft.command.ts"],
+      "contractSummary": "Builds the provenance record (WU commits/tags, milestone tag, baseline/final commit, validation evidence) a GitHub Release's required sections are drafted from; does not itself publish a Release.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
+    },
+    "adaptiveTestSelection": {
+      "primary": "src/workflow/test-impact-selection.ts",
+      "supporting": ["src/workflow/test-impact-adaptive-selection.ts", "src/workflow/test-impact-blast-radius.ts", "src/workflow/test-impact-feedback.ts", "src/schema/test-impact.schema.ts", "src/tooling/test-inventory-classifier.ts"],
+      "contractSummary": "M41's sole deterministic test-selection algorithm: selectTestImpact() (pure selection) plus selectTestImpactWithFeedback() (the feedback-aware wrapper every consumer calls). Explicit validationCommands are always mandatory; a broad-blast-radius path hit always escalates to full_required; unresolved trusted prior failures downgrade to broaden_required. Selection decides what runs now -- it is never deletion evidence (see docs/governance/test-rationalization-policy.md Sec 6a). TEST_IMPACT_SELECTION_VERSION='test-impact@1' is carried on every selection. Full engineering history: docs/milestones/completed/m41/build-spec.md and closure-report.md.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
+    },
+    "validationSelectExplain": {
+      "primary": "src/cli/commands/validation-select.command.ts",
+      "supporting": ["src/cli/commands/validation-explain.command.ts", "src/cli/commands/validation-shared.ts"],
+      "contractSummary": "aiqt validation select/explain -- read-only, never mutates workflow state, reuses buildExecutionGuidanceForWorkUnit directly (byte-for-byte parity with `next --preview`'s own testImpact field verified by test). No second selection path exists.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
+    },
+    "defectContract": {
+      "primary": "src/schema/defect.schema.ts",
+      "supporting": ["src/workflow/defect-transitions.ts", "src/workflow/defect-fingerprint.ts"],
+      "contractSummary": "M42's DefectRecord/DefectStatus/DefectSeverity/DefectConfidence/DefectTriageDecision/RemediationDecision contract, persisted as StateModel's optional, additive `defects` section (AIQT_SCHEMA_VERSION 0.6.0). The remediation queue is this list filtered to QUEUE_ELIGIBLE_STATUSES, not a second stored list or a `.aiqt/defects.*` file. DEFECT_TRANSITIONS is the sole lifecycle transition table; illegal transitions fail closed. computeDefectFingerprint dedups on structural identity only, never free text.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
+    },
+    "defectRemediationQueue": {
+      "primary": "src/workflow/defect-triage.ts",
+      "supporting": ["src/services/defect-discovery-service.ts", "src/services/defect-triage-service.ts", "src/services/defect-remediation-service.ts", "src/workflow/defect-discovery.ts", "src/workflow/remediation-risk.ts", "src/cli/commands/defects-discover.command.ts", "src/cli/commands/defects-triage.command.ts", "src/cli/commands/defects-remediate.command.ts", "src/cli/commands/defects-record-validation.command.ts"],
+      "contractSummary": "aiqt defects discover|list|inspect|triage|queue|transition|remediate|record-validation. Discovery (failed_validation/checkpoint_issue/human_reported only; other sources explicitly reported unsupported) never authorizes remediation. Triage (computeTriageDecision) is pure/deterministic; remediation risk (remediation-risk.ts) is scored from scope alone, independent of defect severity, using the same four-band scale as releaseRiskAssessment but a distinct scoring input -- risk >=50 requires explicit human approval or nothing is persisted. Validation evidence, not agent assertion, controls resolution/reopen. No live execution surface is invoked; this is the bounded external-agent handoff/request path, not a second execution engine. Full engineering history: docs/milestones/completed/m42/build-spec.md and closure-report.md.",
+      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     }
   }
 }

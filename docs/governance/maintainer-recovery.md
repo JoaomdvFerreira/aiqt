@@ -24,11 +24,13 @@ version.
 
 ## 2. Supported Node/pnpm setup
 
-- **Node.js:** `>=22.0.0` (`package.json` `engines.node`). Verified
-  supported range as of M21 (2026-07-20): Node 22 (Maintenance LTS,
-  security support through 2027-04-30) and Node 24 (Active LTS, through
-  2028-04-30). Node 20 reached end of security support on 2026-04-30 and
-  is no longer supported by this project.
+- **Node.js:** `>=24.0.0` (`package.json` `engines.node`). Node 24 (Active
+  LTS, through 2028-04-30) is the sole official runtime, per the Technical
+  Architecture Specification. Node 22 (Maintenance LTS) was supported
+  through the M21-M34 era but is no longer part of CI's job matrix --
+  `.github/workflows/validate.yml` now runs a single Node 24 job, not a
+  Node 22/24 matrix. Node 20 reached end of security support on
+  2026-04-30 and is unsupported.
 - **pnpm:** exactly `7.33.5` (`package.json` `packageManager`), matching
   CI's `pnpm/action-setup` pin and `pnpm-lock.yaml`'s `lockfileVersion:
   5.4` format.
@@ -38,12 +40,12 @@ version.
 ```bash
 pnpm typecheck   # tsc --noEmit
 pnpm lint        # eslint .
-pnpm test        # vitest run
 pnpm build       # tsc (emits dist/)
-pnpm coverage    # vitest run --coverage (see docs/coverage-baseline.md)
+pnpm test        # vitest run
+pnpm coverage    # vitest run --coverage; diagnostic only, see docs/archive/legacy-milestones/m21-coverage-baseline.md
 pnpm version:check                        # local consistency
 pnpm version:check -- --base <ref> --json # comparison mode
-pnpm validate    # typecheck && lint && test && version:check, in sequence
+pnpm validate    # typecheck && lint && build && test && version:check, in sequence (build runs before test so tests/integration/built-binary-smoke.test.ts has a real dist/index.js)
 ```
 
 If `pnpm run <script>` (or `pnpm validate`) fails in a sandboxed/restricted
@@ -54,8 +56,8 @@ M19-RC1 has used successfully in exactly that situation:
 ```bash
 node_modules/.bin/tsc --noEmit
 node_modules/.bin/eslint .
-node_modules/.bin/vitest run
 node_modules/.bin/tsc
+node_modules/.bin/vitest run
 node_modules/.bin/vitest run --coverage
 node_modules/.bin/tsx src/tooling/version-check-cli.ts
 ```
@@ -88,9 +90,15 @@ git log --oneline -1 v<expected-version>
 git log --oneline -1 m<N>-<slug>
 ```
 
-Both the milestone tag and the semantic-version tag for the same milestone
-must point at the same commit (verified for M20: `m20-explicit-next-
-selection` and `v0.7.0` both resolve to `ab227d2`).
+A milestone tag and a semantic-version tag are independent provenance
+domains and are not expected to resolve to the same commit -- the
+milestone tag sits on the milestone branch at closure, while a
+semantic-version tag (created only when a release is explicitly decided)
+sits on `main`'s merge commit. See `docs/governance/versioning.md`'s "Tag
+conventions" for the current model; this replaces an earlier (M20-era)
+assumption that the two always matched, which real M40/M41/M42 practice
+no longer holds (each milestone's `m<N>-...` tag and its corresponding
+`v<version>` tag resolve to different commits).
 
 ## 6. Failed atomic-write recovery expectations
 
@@ -110,7 +118,8 @@ never modified.
 
 See `GOVERNANCE.md` for the full, current, evidence-backed decision.
 Summary: CI (`.github/workflows/validate.yml`) runs on every push to
-`main` and every pull request, matrix-tested on Node 22 and 24, and fails
+`main` and every pull request, on a single Node 24 job (no Node 22/24
+matrix -- Node 22 was retired from CI after the M21-M34 era), and fails
 visibly on any check failure -- but it is **advisory, not platform-
 enforced**, because branch protection is unavailable on this private
 repository's current GitHub plan (confirmed via API: 403 on the
@@ -118,26 +127,49 @@ protection endpoint, `protected: false`). Compensating controls (solo
 maintainer, no force-push, always validate locally before push) are
 documented in `GOVERNANCE.md`.
 
-## 8. Release checklist
+## 8. Milestone closure, PR integration, and optional release
 
-For every completed milestone (extends `docs/governance/versioning.md`'s existing
-contributor checklist):
+Extends `docs/governance/versioning.md`'s contributor checklist and
+milestone branch lifecycle -- three distinct processes, not one linear
+sequence:
 
-1. implement the change on a feature branch;
-2. select and apply the correct version increment;
+**Milestone closure** (on the milestone branch):
+
+1. implement the milestone's Work Units, each with its own commit and WU
+   tag;
+2. select and apply the correct version increment, if the milestone's
+   changes are relevant per `docs/governance/versioning.md`'s allowlist;
 3. run the full local validation suite (`pnpm validate` or the direct
    fallback above);
-4. run `pnpm coverage` and compare against `docs/coverage-baseline.md` for
-   any critical-module regression;
-5. merge to `main` with `--no-ff`;
-6. create the milestone tag (`m<N>[-suffix]-<slug>`) and the
-   semantic-version tag (`v<version>`) on the merge commit;
-7. push the feature branch, `main`, and both tags explicitly (never `git
-   push --tags`);
-8. verify the real CI run via `gh run view` -- do not consider the
-   milestone closed on local validation alone;
-9. update this runbook and `docs/governance/versioning.md` if the release process
-   itself changed.
+4. optionally run `pnpm coverage` as a diagnostic signal -- it is not a
+   pass/fail gate and there is no maintained numeric baseline to compare
+   against (see `docs/archive/legacy-milestones/m21-coverage-baseline.md`
+   for the historical M21 snapshot);
+5. write the closure report; create the milestone tag
+   (`m<N>[-suffix]-<slug>`) on the milestone branch.
+
+**PR integration** (merging into `main`):
+
+6. open a Pull Request to `main`; push the milestone branch and its tag
+   explicitly (never `git push --tags`);
+7. merge only after CI is green and `approved-for-merge` is applied, using
+   a merge commit (never squash/rebase, to preserve WU commit/tag
+   provenance);
+8. verify the real post-merge CI run via `gh run view` -- do not consider
+   the milestone closed on local validation alone.
+
+**Optional product release** (a separate, explicit decision -- not
+automatic on merge; see `docs/governance/versioning.md`'s "GitHub Release
+governance"):
+
+9. if and only if a release is decided, create the semantic-version tag
+   (`v<version>`) on `main`'s merge commit and push it explicitly, then
+   publish the GitHub Release once post-merge CI is green. The milestone
+   tag and the semantic-version tag are independent and frequently point
+   at different commits -- do not expect or require them to match.
+
+10. update this runbook and `docs/governance/versioning.md` if the release
+    process itself changed.
 
 ## 9. Rollback to the previous milestone tag
 

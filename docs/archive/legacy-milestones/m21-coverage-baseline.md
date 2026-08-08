@@ -1,9 +1,13 @@
-# AIQT Coverage Baseline
+# AIQT Coverage Baseline (M21 snapshot, archived)
 
-**Status:** Baseline only (M21-WU05) -- no global or per-module threshold is
-enforced by CI or by `vitest.config.ts`. This document records a
-reproducible starting point for a future, separately reviewed decision
-about which modules deserve a numeric gate; it is not that decision.
+**Status:** Archived historical snapshot (post-M42 Governance Baseline
+Reconciliation). This is a point-in-time record from M21-WU05
+(2026-07-20, 1201/1201 tests) -- the suite has since grown to roughly 3x
+that size and this document's numbers are not representative of current
+coverage. No global or per-module coverage threshold is enforced by CI or
+`vitest.config.ts`; coverage remains diagnostic only. `pnpm coverage`
+still reproduces a fresh report on demand -- re-run it rather than trusting
+the numbers below for any current decision.
 
 ## How to reproduce
 
