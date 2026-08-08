@@ -136,7 +136,9 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   // dogfood coverage already match the earlier -schema.test.ts$/dogfood
   // rules above; this covers the remaining defect-*.test.ts unit/
   // integration coverage.
-  { pattern: /^defect-/, domain: "defect-lifecycle", criticality: "High-value" },
+  { pattern: /^defects?-/, domain: "defect-lifecycle", criticality: "High-value" },
+  // M43: bounded structural review and its M42 defect-intake integration.
+  { pattern: /^structural-|^m43-|^review-structural/, domain: "structural-review", criticality: "High-value" },
   { pattern: /dogfood/, domain: "self-consistency", criticality: "Normal" },
 ];
 

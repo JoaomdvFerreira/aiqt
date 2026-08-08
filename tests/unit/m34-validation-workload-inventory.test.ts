@@ -196,6 +196,11 @@ const KNOWN_SPAWNING_FILES = [
   "tests/integration/release-cli.test.ts",
   "tests/integration/release-draft.test.ts",
   "tests/integration/release-governance-service.test.ts",
+  // M43-WU05 (+2): structural-review fixtures are real, disposable
+  // git-initialized project directories (structural findings are
+  // commit-bound, Sec 3.4) -- both real, direct `execFileSync("git", ...)`.
+  "tests/integration/defects-intake-structural.test.ts",
+  "tests/integration/m43-structural-review-dogfood.test.ts",
 ].sort();
 
 /**

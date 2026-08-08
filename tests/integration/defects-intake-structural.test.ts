@@ -1,7 +1,12 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+
+// M34-WU02: this file spawns real subprocesses (git). Uses the shared
+// class constant, not a locally hardcoded literal.
+vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 import { runInit } from "../../src/cli/commands/init.command.js";
 import { runReviewStructural } from "../../src/cli/commands/review-structural.command.js";
 import { runDefectsIntakeStructural } from "../../src/cli/commands/defects-intake-structural.command.js";
@@ -17,7 +22,7 @@ function readState(dir: string) {
 
 function writeFile(root: string, relPath: string, content: string): void {
   const full = join(root, relPath);
-  mkdirSync(full.slice(0, full.lastIndexOf(process.platform === "win32" ? "\\" : "/")), { recursive: true });
+  mkdirSync(dirname(full), { recursive: true });
   writeFileSync(full, content, "utf8");
 }
 

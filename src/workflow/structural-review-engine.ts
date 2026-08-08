@@ -5,7 +5,7 @@ import type {
 } from "../schema/structural-review.schema.js";
 import { allStructuralDomains, isKnownStructuralDomain } from "./structural-review-domains.js";
 import { resolveReviewCommit } from "./structural-review-evidence.js";
-import { runOwnerMapPathValidationRule } from "./structural-rules/ownership-divergence-rules.js";
+import { runOwnerMapPathValidationRule, runDuplicateDecisionOwnerRule } from "./structural-rules/ownership-divergence-rules.js";
 import { runDependencyCycleRule } from "./structural-rules/dependency-coupling-rules.js";
 import { runResponsibilityConcentrationRule } from "./structural-rules/responsibility-concentration-rules.js";
 import { runUnreferencedCommandFileRule } from "./structural-rules/dead-structural-paths-rules.js";
@@ -22,7 +22,7 @@ type DomainRule = (repoRoot: string, reviewCommit: string) => StructuralFinding[
  * unsupported by `runStructuralReview`, never silently skipped.
  */
 const DOMAIN_RULES: Readonly<Record<StructuralReviewDomain, readonly DomainRule[]>> = {
-  ownership_divergence: [runOwnerMapPathValidationRule],
+  ownership_divergence: [runOwnerMapPathValidationRule, runDuplicateDecisionOwnerRule],
   dependency_coupling: [runDependencyCycleRule],
   responsibility_concentration: [runResponsibilityConcentrationRule],
   dead_structural_paths: [runUnreferencedCommandFileRule],

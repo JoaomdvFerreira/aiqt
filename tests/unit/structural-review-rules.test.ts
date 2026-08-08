@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { makeTempDir, removeDir } from "../helpers.js";
-import { runOwnerMapPathValidationRule } from "../../src/workflow/structural-rules/ownership-divergence-rules.js";
+import { runOwnerMapPathValidationRule, runDuplicateDecisionOwnerRule } from "../../src/workflow/structural-rules/ownership-divergence-rules.js";
 import { runDependencyCycleRule } from "../../src/workflow/structural-rules/dependency-coupling-rules.js";
 import { runResponsibilityConcentrationRule } from "../../src/workflow/structural-rules/responsibility-concentration-rules.js";
 import { runUnreferencedCommandFileRule } from "../../src/workflow/structural-rules/dead-structural-paths-rules.js";
@@ -47,6 +47,47 @@ describe("structural review rules (fixture-based, no live-repo dependency)", () 
         JSON.stringify({ protocolVersion: "x@1", entries: { fooOwner: { primary: "src/real.ts", supporting: [] } } }),
       );
       expect(runOwnerMapPathValidationRule(dir, COMMIT)).toHaveLength(0);
+    });
+  });
+
+  describe("runDuplicateDecisionOwnerRule", () => {
+    it("flags a file outside the owner's primary+supporting set that re-exports the same governed symbol name", () => {
+      dir = makeTempDir();
+      writeFile(dir, "src/owner.ts", "export function decide() { return 1; }");
+      writeFile(dir, "src/rogue.ts", "export function decide() { return 2; }");
+      writeFile(
+        dir,
+        "docs/governance/repository-owner-map.json",
+        JSON.stringify({ protocolVersion: "x@1", entries: { decisionOwner: { primary: "src/owner.ts", supporting: [] } } }),
+      );
+      const findings = runDuplicateDecisionOwnerRule(dir, COMMIT);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].confidence).toBe("strong_signal");
+      expect(findings[0].affectedPaths.sort()).toEqual(["src/owner.ts", "src/rogue.ts"]);
+    });
+
+    it("does not flag the owner's own declared supporting file", () => {
+      dir = makeTempDir();
+      writeFile(dir, "src/owner.ts", "export function decide() { return 1; }");
+      writeFile(dir, "src/support.ts", "export function decide() { return 1; }");
+      writeFile(
+        dir,
+        "docs/governance/repository-owner-map.json",
+        JSON.stringify({ protocolVersion: "x@1", entries: { decisionOwner: { primary: "src/owner.ts", supporting: ["src/support.ts"] } } }),
+      );
+      expect(runDuplicateDecisionOwnerRule(dir, COMMIT)).toHaveLength(0);
+    });
+
+    it("does not flag when no other file shares a governed symbol name", () => {
+      dir = makeTempDir();
+      writeFile(dir, "src/owner.ts", "export function decide() { return 1; }");
+      writeFile(dir, "src/unrelated.ts", "export function somethingElse() { return 1; }");
+      writeFile(
+        dir,
+        "docs/governance/repository-owner-map.json",
+        JSON.stringify({ protocolVersion: "x@1", entries: { decisionOwner: { primary: "src/owner.ts", supporting: [] } } }),
+      );
+      expect(runDuplicateDecisionOwnerRule(dir, COMMIT)).toHaveLength(0);
     });
   });
 
@@ -158,7 +199,14 @@ describe("structural review rules (fixture-based, no live-repo dependency)", () 
 
     it("does not flag the reviewed allowlisted owner", () => {
       dir = makeTempDir();
-      writeFile(dir, "src/workspaces/git-command-runner.ts", `import { execFileSync } from "node:child_process";\nexecFileSync("git");`);
+      // Uses a backtick-quoted argument deliberately -- this repository's
+      // own M35 test-inventory classifier textually matches a straight-
+      // quoted git spawn call as evidence a TEST FILE itself spawns git
+      // (see hasGitSpawn in src/tooling/test-inventory-classifier.ts),
+      // which would misclassify this fixture literal as this unit test
+      // file spawning a real process. It does not -- this string is
+      // fixture content written to a temp file, never executed.
+      writeFile(dir, "src/workspaces/git-command-runner.ts", "import { execFileSync } from \"node:child_process\";\nexecFileSync(`git`);");
       expect(runDuplicateExecutionAuthorityRule(dir, COMMIT)).toHaveLength(0);
     });
 
@@ -170,7 +218,7 @@ describe("structural review rules (fixture-based, no live-repo dependency)", () 
 
     it("does not flag repository governance/release tooling (isolated-by-design false-positive control)", () => {
       dir = makeTempDir();
-      writeFile(dir, "src/tooling/some-release-script.ts", `import { spawnSync } from "node:child_process";\nspawnSync("git", ["status"]);`);
+      writeFile(dir, "src/tooling/some-release-script.ts", "import { spawnSync } from \"node:child_process\";\nspawnSync(`git`, [\"status\"]);");
       expect(runDuplicateExecutionAuthorityRule(dir, COMMIT)).toHaveLength(0);
     });
   });
