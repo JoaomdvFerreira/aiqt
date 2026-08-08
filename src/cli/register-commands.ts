@@ -187,6 +187,7 @@ import {
   runMaintenanceScheduleRemove,
 } from "./commands/maintenance-schedule.command.js";
 import { runMaintenanceStatus, runMaintenanceHistory } from "./commands/maintenance-status.command.js";
+import { runMaintenanceRunDue, runMaintenanceCancel } from "./commands/maintenance-run.command.js";
 import { runReleaseAssess } from "./commands/release-assess.command.js";
 import { runReleaseValidate } from "./commands/release-validate.command.js";
 import { runReleaseNotes } from "./commands/release-notes.command.js";
@@ -1941,6 +1942,26 @@ export function buildProgram(): Command {
     .action((raw: RawMaintenanceHistoryOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runMaintenanceHistory(ctx, { scheduleId: raw.scheduleId, limit: raw.limit !== undefined ? Number(raw.limit) : undefined });
+      emit(result, ctx.json);
+    });
+
+  maintenanceCommand
+    .command("run-due")
+    .description("Execute at most one due maintenance occurrence via typed dispatch -- never a shell command, never parallel (M45-WU03/WU04)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: RawMaintenanceStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceRunDue(ctx);
+      emit(result, ctx.json);
+    });
+
+  maintenanceCommand
+    .command("cancel <occurrenceId>")
+    .description("Cancel the current active maintenance occurrence -- bookkeeping only, no live process to signal")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((occurrenceId: string, raw: RawMaintenanceStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runMaintenanceCancel(ctx, occurrenceId);
       emit(result, ctx.json);
     });
 
