@@ -201,6 +201,10 @@ const KNOWN_SPAWNING_FILES = [
   // commit-bound, Sec 3.4) -- both real, direct `execFileSync("git", ...)`.
   "tests/integration/defects-intake-structural.test.ts",
   "tests/integration/m43-structural-review-dogfood.test.ts",
+  // M44-WU02 (+1): the historical-evidence-reconstruction fixture builds a
+  // real disposable Git repository (linear + divergent-branch history)
+  // directly via `execFileSync("git", ...)`, mirroring git-command-runner.test.ts.
+  "tests/integration/historical-evidence.test.ts",
 ].sort();
 
 /**
