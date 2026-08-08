@@ -209,6 +209,9 @@ const KNOWN_SPAWNING_FILES = [
   // initGitFixtureRepo (structural review needs a real commit to resolve
   // reviewCommit against).
   "tests/integration/maintenance-run-due.test.ts",
+  // M45-WU05 (+1): the closing dogfood suite also uses initGitFixtureRepo
+  // for its structural-review scenarios.
+  "tests/integration/maintenance-dogfood.test.ts",
 ].sort();
 
 /**
