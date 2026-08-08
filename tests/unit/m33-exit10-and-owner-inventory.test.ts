@@ -173,6 +173,8 @@ const LOCAL_FAILURE_HELPER_FILES = [
   "execution-import.command.ts",
   "execution-stale.command.ts",
   "execution-status.command.ts",
+  "review-structural-explain.command.ts",
+  "review-structural.command.ts",
   "workspace.command.ts",
 ].sort();
 
