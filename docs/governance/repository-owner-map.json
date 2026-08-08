@@ -311,6 +311,12 @@
       "contractSummary": "Builds the provenance record (WU commits/tags, milestone tag, baseline/final commit, validation evidence) a GitHub Release's required sections are drafted from; does not itself publish a Release.",
       "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
+    "historicalReleaseReconstruction": {
+      "primary": "src/schema/historical-reconstruction.schema.ts",
+      "supporting": [],
+      "contractSummary": "M44's transient historical-reconstruction contract: HistoricalReleaseTarget/ReconstructionAssessment are never a ReleaseCandidate/ReleaseDecision (releaseGovernance/releaseProvenance own those). Reuses ReleaseEvidenceStatus (verified/reconstructed/partial/missing/waived) from release-governance.schema.ts unchanged; adds HistoricalEvidenceConflict as a blocking-finding-style disagreement between two evidence items rather than a sixth evidence-item status. A sufficiently evidenced target is mapped into the existing releaseGovernance/releaseProvenance/releaseRiskAssessment owners, never re-implemented. Full engineering history: docs/milestones/active/m44/build-spec.md (docs/milestones/completed/m44/ at closure).",
+      "lastVerifiedCommit": "93419d503e18d1060524ba45524b54e6aea7020d"
+    },
     "adaptiveTestSelection": {
       "primary": "src/workflow/test-impact-selection.ts",
       "supporting": ["src/workflow/test-impact-adaptive-selection.ts", "src/workflow/test-impact-blast-radius.ts", "src/workflow/test-impact-feedback.ts", "src/schema/test-impact.schema.ts", "src/tooling/test-inventory-classifier.ts"],
