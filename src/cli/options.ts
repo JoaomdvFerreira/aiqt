@@ -517,6 +517,16 @@ export interface RawReleaseDraftOptions {
   tokenEnv?: string;
 }
 
+export interface RawReleaseHistoryOptions {
+  json?: boolean;
+}
+
+export interface RawReleaseReconstructOptions {
+  json?: boolean;
+  repository: string;
+  tokenEnv?: string;
+}
+
 // ---------------------------------------------------------------------------
 // M41-WU03: aiqt validation ... (test-impact selection read-only CLI surface).
 // ---------------------------------------------------------------------------

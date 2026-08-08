@@ -311,10 +311,22 @@
       "contractSummary": "Builds the provenance record (WU commits/tags, milestone tag, baseline/final commit, validation evidence) a GitHub Release's required sections are drafted from; does not itself publish a Release.",
       "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
+    "historicalReleaseReconstruction": {
+      "primary": "src/schema/historical-reconstruction.schema.ts",
+      "supporting": [
+        "src/workflow/historical-evidence.ts",
+        "src/workflow/reconstruction-engine.ts",
+        "src/services/historical-reconstruction-service.ts",
+        "src/cli/commands/release-history.command.ts",
+        "src/cli/commands/release-reconstruct.command.ts"
+      ],
+      "contractSummary": "M44's transient historical-reconstruction contract: HistoricalReleaseTarget/ReconstructionAssessment are never a ReleaseCandidate/ReleaseDecision (releaseGovernance/releaseProvenance own those). Reuses ReleaseEvidenceStatus (verified/reconstructed/partial/missing/waived) from release-governance.schema.ts unchanged; adds HistoricalEvidenceConflict as a blocking-finding-style disagreement between two evidence items rather than a sixth evidence-item status. historical-evidence.ts is the pure Git/file evidence-collection layer (discoverSemverReleaseTags, selectBaseRelease's ancestry-only fail-closed algorithm, discoverMilestoneReferences); reconstruction-engine.ts is the pure reconstruction-quality decision (computeReconstructionStatus -- never produces `existing_release` itself) and M40 mapping (mapToReleaseIntentRequest -> the exact releaseGovernanceService.ReleaseIntentRequest shape, never a parallel candidate model) plus retrospective-notes banner reusing renderReleaseNotesMarkdown verbatim; historical-reconstruction-service.ts is the sole orchestration point (mirrors release-governance-service.ts's split) that sequences evidence collection, calls the engine, calls the existing assessReleaseDecision, and (WU44-04) layers verifyExistingGithubRelease on top -- reusing services/github-release-client.ts's existing getReleaseByTag (releaseProvenance's supporting owner, M40-WU04's single bounded GitHub adapter) verbatim, never a new HTTP client, never createReleaseDraft. `unverified` (no token / non-owner-repo identity / API failure) is always distinct from an authoritative `not_found`; a found published release upgrades the outcome to `existing_release`, never fabricated locally. M40 remains the sole readiness/risk/approval-authority owner, including its forward-looking 'tag already exists' readiness check, which correctly fires for every historical reconstruction since the tag is real. `aiqt release history`/`release reconstruct <tag> [--token-env]` are both read-only. Full engineering history: docs/milestones/active/m44/build-spec.md (docs/milestones/completed/m44/ at closure).",
+      "lastVerifiedCommit": "93419d503e18d1060524ba45524b54e6aea7020d"
+    },
     "adaptiveTestSelection": {
       "primary": "src/workflow/test-impact-selection.ts",
       "supporting": ["src/workflow/test-impact-adaptive-selection.ts", "src/workflow/test-impact-blast-radius.ts", "src/workflow/test-impact-feedback.ts", "src/schema/test-impact.schema.ts", "src/tooling/test-inventory-classifier.ts"],
-      "contractSummary": "M41's sole deterministic test-selection algorithm: selectTestImpact() (pure selection) plus selectTestImpactWithFeedback() (the feedback-aware wrapper every consumer calls). Explicit validationCommands are always mandatory; a broad-blast-radius path hit always escalates to full_required; unresolved trusted prior failures downgrade to broaden_required. Selection decides what runs now -- it is never deletion evidence (see docs/governance/test-rationalization-policy.md Sec 6a). TEST_IMPACT_SELECTION_VERSION='test-impact@1' is carried on every selection. Full engineering history: docs/milestones/completed/m41/build-spec.md and closure-report.md.",
+      "contractSummary": "M41's sole deterministic test-selection algorithm: selectTestImpact() (pure selection) plus selectTestImpactWithFeedback() (the feedback-aware wrapper every consumer calls). Explicit validationCommands are always mandatory; a broad-blast-radius path hit always escalates to full_required; unresolved trusted prior failures downgrade to broaden_required. Selection decides what runs now -- it is never deletion evidence (see docs/governance/test-rationalization-policy.md Sec 6a). TEST_IMPACT_SELECTION_VERSION='test-impact@1' is carried on every selection. Full engineering history: docs/archive/milestones/m41/build-spec.md and closure-report.md.",
       "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
     },
     "validationSelectExplain": {
