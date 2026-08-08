@@ -1,33 +1,35 @@
 <!--
 Read before filling this in:
-- Sections are conditional. Remove any section that does not apply.
-- Never fill an irrelevant section with "N/A" — delete it instead.
+- Sections are conditional. If a section has no material content, remove
+  the whole section — do not write "None", "N/A", or equivalent
+  placeholders. This especially applies to Known limitations, Exceptions,
+  Potential risks, Documentation impact, and Milestone details.
 - Do not keep a heading just because it exists in this template.
 - Milestone PRs: see docs/governance/versioning.md's "Milestone branch
   lifecycle" and "GitHub Release governance" sections before merging.
 -->
 
-## Risk
+## 🟢 Risk: <!-- score -->/100 — <!-- GREEN / YELLOW / ORANGE / RED -->
+<!-- Replace the emoji + band word above to match the score:
+0-24 🟢 GREEN · 25-49 🟡 YELLOW · 50-74 🟠 ORANGE · 75-100 🔴 RED -->
 
-**Score:** <!-- 0-100 --> · **Band:** <!-- 🟢 0-24 / 🟡 25-49 / 🟠 50-74 / 🔴 75-100 -->
-
-**Approval authority:** <!-- pick one and delete the others
-- <50 (🟢/🟡): agent/automation approval permitted once other gates pass
-- 50-74 (🟠): human approval required
-- 75-100 (🔴): human approval + explicit waiver required
+**Approval:** <!-- pick one and delete the others
+- <50: agent/automation permitted once other gates pass
+- 50-74: human approval required
+- 75-100: human approval + explicit waiver required
 -->
 
 **Type:** <!-- feature | fix | maintenance | governance | documentation | hotfix | milestone -->
 
 ## At a glance
 
-| | |
+| Item | Value |
 |---|---|
 | Change type | <!-- feature / fix / maintenance / governance / docs / hotfix / milestone --> |
 | Risk | <!-- score + band --> |
 | Runtime code touched | <!-- yes / no --> |
 | Schema/package version changed | <!-- yes / no --> |
-| Release intended | <!-- yes / no / N/A --> |
+| Release intended | <!-- yes / no --> |
 
 ## Summary
 
@@ -44,32 +46,38 @@ as concise bullets. -->
 
 ## Exceptions
 
-<!-- Any gate intentionally skipped or deferred, and why. Remove if none. -->
+<!-- Any gate intentionally skipped or deferred, and why. Remove this
+section entirely if there are none — do not write "None". -->
 
 ## Potential risks
 
 <!-- Main contributing risks and their mitigations, plus residual risk
-after mitigation. Remove if risk score is 0. -->
+after mitigation. Remove this section entirely if risk is negligible —
+do not write "None". -->
 
 ## Known limitations
 
-<!-- Anything intentionally deferred or out of scope. Remove if none. -->
+<!-- Anything intentionally deferred or out of scope. Remove this section
+entirely if there are none — do not write "None". -->
 
 ## Provenance
 
-<!-- Author (human/agent), model/tool if agent-authored, and any relevant
-originating task/session reference. -->
+<!-- Primary: what was actually done — commands run, branch/base,
+verification performed. Author identity and agent/model/session
+reference are optional context, not required fields. -->
 
 ## Milestone details
 
-<!-- Only include for milestone PRs. -->
+<!-- Only for milestone PRs. Remove this section entirely otherwise —
+do not write "N/A". -->
 
 - **Milestone:**
 - **Work Units:** <!-- each WU with its commit/tag -->
 
 ## Documentation impact
 
-<!-- Docs added/updated. Remove if none. -->
+<!-- Docs added/updated. Remove this section entirely if none — do not
+write "None". -->
 
 ## Release impact
 
