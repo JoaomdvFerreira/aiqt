@@ -41,6 +41,13 @@ permissions:
 
 env:
   GH_TOKEN: ${{ github.token }}
+  # No `actions/checkout` step exists in this workflow (deliberately --
+  # see the file header), so there is no local git repository for `gh` to
+  # infer its target from. Without this, every `gh pr ...` call fails with
+  # "fatal: not a git repository" (found live on this exact workflow's
+  # first real run against a new commit). GH_REPO makes `gh` target this
+  # repository explicitly, independent of any local git state.
+  GH_REPO: ${{ github.repository }}
   APPROVAL_LABEL: approved-for-merge
   # The exact check names Validate (.github/workflows/validate.yml)
   # currently registers -- inspected live via `gh pr view --json
