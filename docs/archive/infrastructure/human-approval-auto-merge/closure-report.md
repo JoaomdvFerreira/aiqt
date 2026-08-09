@@ -189,6 +189,20 @@ This PR requires a manual human merge — the workflow it adds cannot
 automate its own landing. After merge, the next suitable PR (or a tiny
 docs-only smoke PR if none is available) exercises the live path.
 
+## Activation verification
+
+- Bootstrap PR #19 merged manually (not through the automation it
+  introduced, which did not yet exist on `main`).
+- Merge commit: `7604c689648770cd88e964312638e6b461ecafcf`.
+- Post-merge `main` `Validate` succeeded.
+- `.github/workflows/human-approval-merge.yml` is now the trusted,
+  `pull_request_target`-resolved copy authoritative for every
+  subsequently-opened PR.
+- The first live `approved-for-merge` automatic-merge smoke test is the
+  `infra/human-approval-auto-merge-smoke` follow-up PR (this docs-only
+  amendment); it is pending until explicit human authorization is
+  applied to its exact HEAD once `Validate` is green for it.
+
 ## PR readiness
 
 Branch pushed, not merged. `approved-for-merge` not applied. No Release
