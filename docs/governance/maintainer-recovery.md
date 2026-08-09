@@ -150,11 +150,12 @@ sequence:
 
 **PR integration** (merging into `main`):
 
-6. open a Pull Request to `main`; push the milestone branch and its tag
-   explicitly (never `git push --tags`);
-7. merge only after CI is green and `approved-for-merge` is applied, using
-   a merge commit (never squash/rebase, to preserve WU commit/tag
-   provenance);
+6. run `pnpm pr:ready` and confirm it passes; push the milestone branch and
+   its tag explicitly (never `git push --tags`); open a Pull Request to
+   `main`;
+7. the human maintainer merges manually once CI is green and the change is
+   approved, using a merge commit (never squash/rebase, to preserve WU
+   commit/tag provenance);
 8. verify the real post-merge CI run via `gh run view` -- do not consider
    the milestone closed on local validation alone.
 

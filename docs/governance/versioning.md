@@ -330,9 +330,9 @@ milestone PRs.
     |
 Pull Request to main
     |
-human review + approved-for-merge
+human review
     |
-merge                                    (milestone PRs always use a merge
+human manual merge                       (milestone PRs always use a merge
     |                                     commit, never squash or rebase --
     |                                     this preserves every existing WU
     |                                     commit/tag's provenance verbatim)
@@ -350,90 +350,49 @@ A milestone branch is created only when starting that milestone's Work Units
 — not preemptively. Existing Git history is never rewritten to fit this
 lifecycle onto already-closed milestones.
 
-## Pull Request human-approval gate
+## Pull Request merge gate
 
 Before a milestone (or any) Pull Request is merged, all of the following
 must hold:
 
-- CI/check requirements are satisfied;
+- CI/check requirements are satisfied (`Validate` green on the PR);
 - the PR is mergeable (no conflicts);
 - no blocking review issue remains open;
 - applicable risk governance is satisfied (see GitHub Release governance
   below for the risk-score approval thresholds that also inform this gate);
-- explicit human approval exists.
+- the human maintainer has reviewed the change.
 
-### Machine-readable approval signal
+### Merging is a manual human action
 
-AIQT Pull Requests are currently created using the same GitHub identity as
-the human maintainer, so GitHub does not permit a native `APPROVED` review
-from that identity on its own PR. While this remains true, the label
+There is no automated merge mechanism and no machine-readable approval
+label. The repository workflow is:
 
-```text
-approved-for-merge
-```
+1. an agent completes the work;
+2. `pnpm pr:ready` must pass locally (see the pre-PR audit step in
+   "Milestone branch lifecycle" above);
+3. the agent opens the Pull Request;
+4. GitHub's `Validate` workflow runs;
+5. the human maintainer reviews the PR;
+6. if CI is green and the change is approved, the human maintainer merges
+   manually, using a merge commit (milestone PRs never squash/rebase — this
+   preserves every WU commit/tag's provenance verbatim);
+7. otherwise the PR remains open for correction.
 
-on the Pull Request is the authoritative machine-readable signal that
-human approval has been given. It substitutes for a native GitHub review
-approval in this operating mode — it does not add an additional, separate
-requirement on top of one.
+The human maintainer's own merge action is the explicit approval — there
+is no separate signal an agent reads or acts on beforehand. An agent must
+never merge a Pull Request against this repository on the maintainer's
+own initiative, and must never treat conversation text, CI status, or a
+risk score as authorization to do so by itself; merging happens only when
+the maintainer performs it, or explicitly directs an agent to perform the
+merge action in that specific instance.
 
-### Ownership of the label
-
-- Only the human maintainer may apply `approved-for-merge`.
-- An agent must never add this label to its own PR, under any
-  circumstance.
-- An agent must never infer approval from conversation text, an earlier
-  prompt, CI status, a risk score, or the mere absence of review comments.
-  The label itself, read directly from GitHub, is the only valid signal.
-- An agent may only *read* the label; applying or removing it as a grant
-  of approval is exclusively the maintainer's action.
-
-### Approval applies to the reviewed PR state, not the PR in general
-
-Human approval is granted for the specific PR state that was reviewed. If
-source code, tests, documentation, version metadata, generated artifacts,
-or any other tracked content changes after `approved-for-merge` was
-applied:
-
-- the previous approval is invalid, regardless of how small the change is;
-- `approved-for-merge` must be removed before, or as part of, making that
-  change (an agent making such a change removes the label itself rather
-  than leaving a stale approval in place);
-- CI/checks must run again as applicable to the new commit;
-- the human must review the updated PR;
-- the human must re-apply `approved-for-merge` before merge.
-
-An agent must never merge a PR merely because a stale `approved-for-merge`
-label remains present after new commits were pushed following its
-removal — the label is re-evaluated per PR state, not treated as a
-standing grant.
-
-### Merge gate
-
-Immediately before performing a merge, an agent must verify directly from
-GitHub (not from memory of an earlier check in the same conversation)
-that:
-
-- the PR is open;
-- the target and source branches are the expected ones;
-- `approved-for-merge` is present;
-- required/current checks are green;
-- the PR is mergeable;
-- no known blocking review issue remains;
-- risk governance permits the merge.
-
-If any of these fails, the agent stops without merging and reports the
-specific failing condition.
-
-### Future compatibility
-
-This label-based mechanism is the current fallback governance control,
-adopted specifically because PRs share the maintainer's own GitHub
-identity. If AIQT later merges PRs under a separate bot/GitHub App
-identity, adopts native required reviewers, or adds branch
-protection/rulesets, native GitHub review approval may supersede this
-label mechanism — but only through a deliberate governance update to this
-document, not silently or by assumption.
+A repository previously used an `approved-for-merge` label plus an
+automated merge workflow as a fallback approval signal (GitHub does not
+permit a native `APPROVED` review from the same identity that opened the
+PR). That mechanism was removed: it added a second, separately-maintained
+merge path that could act as soon as CI turned green, when the intent was
+always for a human to look at the result before it merges. Manual review
+followed by manual merge is now the sole mechanism.
 
 ## Tag conventions
 
@@ -520,9 +479,10 @@ For every completed milestone/change:
    against the branch you intend to merge into;
 7. for a milestone: create the milestone tag on the milestone branch, then
    push the branch and the tag explicitly (never `git push --tags`);
-8. open a Pull Request to the target branch and merge (with a merge
-   commit, never squash/rebase, for milestone PRs) only after CI is green
-   and `approved-for-merge` is applied;
+8. run `pnpm pr:ready` and confirm it passes, then open a Pull Request to
+   the target branch; the human maintainer merges manually (with a merge
+   commit, never squash/rebase, for milestone PRs) once CI is green and
+   the change is approved;
 9. verify post-merge CI is green on the target branch.
 
 Steps 10-11 below are a **separate, explicit decision**, not an automatic
