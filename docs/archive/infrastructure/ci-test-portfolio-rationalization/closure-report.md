@@ -13,7 +13,7 @@
 | IH-02 | `85fe358` | 18/100 🟢 | One-job topology, PR-run cancellation, shards removed |
 | IH-03 | `1f2de37` | 22/100 🟢 | 11 duplicate CLI-surface snapshots consolidated into 3 (strengthened) |
 | IH-04 | `138bf19` | 30/100 🟡 | Real-CLI spine moved to the built binary; timeout family eliminated |
-| IH-05 | *this commit* | 26/100 🟢 | Change-aware validation, post-merge review, governance, closure |
+| IH-05 | `0f034f5` | 26/100 🟢 | Change-aware validation, post-merge review, governance, closure |
 
 **Final infrastructure risk: 30/100 (🟡 yellow)** — the intervention's
 maximum, from IH-04's file breadth. Below the 50/100 human-approval
