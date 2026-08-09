@@ -173,8 +173,8 @@
     "ciWorkflows": {
       "primary": ".github/workflows/validate.yml",
       "supporting": [],
-      "contractSummary": "The sole GitHub Actions workflow (name: Validate). A single Node 24 job (no Node 22/24 matrix -- Node 22 was retired from CI after the M21-M34 era); runs typecheck -> lint -> build -> test -> version:check on every push to main and every pull request.",
-      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
+      "contractSummary": "The sole GitHub Actions workflow (name: Validate), on every push to main and every pull request. One Node 24 job named `validate` (no Node 22/24 matrix -- Node 22 was retired from CI after the M21-M34 era) running checkout(fetch-depth 0) -> pnpm/node setup with pnpm store cache -> install -> typecheck -> lint -> build -> test -> version:check (local, then the blocking PR-base or direct-push-to-main comparison). IH-02 replaced M35-WU04's 6-job/3-shard fan-out with this single job because GitHub bills per job rounded up to the whole minute: measured 18 billed runner-minutes for 6 jobs vs 14 for one, plus 5 redundant setup cycles and a dist/ artifact round-trip removed. A `concurrency` group cancels superseded pull_request runs only; push-to-main runs are the authoritative post-merge gate and are never cancelled.",
+      "lastVerifiedCommit": "679abcda66d09d0ba8f2bc635f58bb9c4e531458"
     },
     "testRuntimePolicy": {
       "primary": "vitest.config.ts",
