@@ -315,11 +315,18 @@ closure report
     |
 milestone tag (m<N>[-suffix]-<slug>), created on the milestone branch
     |
-pre-PR audit: if package.json's version changed during the milestone,
-run tests/unit/package-version.test.ts, `pnpm version:check` (local
-mode), and `pnpm version:check -- --base <target-branch>` (comparison
-mode) before opening the PR -- catches a stale hardcoded version
-literal or an invalid/missing bump before CI does.
+pre-PR audit: run `pnpm pr:ready` (optionally `-- --base <target-branch>`
+if the base is not `main`) and confirm it exits 0 before opening the PR.
+This is a required step, not an optional one -- it reuses the exact
+`runVersionCheck` logic `pnpm version:check` and CI's `version-check` job
+both call (local consistency, then comparison against the target
+branch), plus tests/unit/package-version.test.ts when a version change is
+detected, so it can never drift from what CI actually enforces. It
+catches a stale hardcoded version literal or an invalid/missing bump
+before CI does -- exactly the round-trip a missing bump on a
+non-milestone repository-tooling change (`.github/workflows/**`) cost in
+practice. Applies to every PR against this repository, not only
+milestone PRs.
     |
 Pull Request to main
     |
