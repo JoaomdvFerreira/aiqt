@@ -123,7 +123,8 @@ from making the work cheaper, not from skipping the gate.
 No other governance document changed. `relevant-paths.ts`'s allowlist is
 untouched; the canonical schema is untouched.
 
-**IH-05 implementation risk: 26/100 (🟢 green).** One new pure classifier
+**IH-05 implementation risk: 26/100 (🟡 yellow** — `25`–`49` is the yellow
+band in `docs/governance/versioning.md`'s four-band scale**).** One new pure classifier
 plus its CLI (repository tooling, no AIQT product surface), one new test
 file with 7 tests including a drift guard, one conditional step, and three
 governance documents brought in line with what the repository now does.
