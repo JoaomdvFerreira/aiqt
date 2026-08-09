@@ -48,3 +48,13 @@ subject matter is relevant to the current task.
   the working tree clean at WU boundaries — no stray untracked files, no
   uncommitted state.
 - Do not push unless explicitly instructed.
+- Before running `gh pr create` for any PR against this repository, run
+  `pnpm pr:ready` (add `-- --base <target-branch>` if the PR's base is not
+  `main`) and confirm it exits 0. This is required, not optional — it is
+  the fast, local, fail-closed check for exactly the version-governance
+  gate CI's `version-check` job enforces (see
+  [`docs/governance/versioning.md`](docs/governance/versioning.md)'s
+  "Milestone branch lifecycle" pre-PR audit step), and it exists because a
+  missing version bump was caught by CI instead of locally in practice. It
+  does not replace `pnpm validate` or CI — it only prevents opening a PR
+  that CI's version-check would reject outright.

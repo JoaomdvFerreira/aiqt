@@ -1,6 +1,6 @@
 {
   "name": "aiqt",
-  "version": "0.39.0",
+  "version": "0.40.0",
   "type": "module",
   "private": true,
   "license": "UNLICENSED",
@@ -24,6 +24,7 @@
     "test:repeated": "tsx src/tooling/repeated-run-validation-cli.ts",
     "coverage": "vitest run --coverage",
     "version:check": "tsx src/tooling/version-check-cli.ts",
+    "pr:ready": "tsx src/tooling/pr-ready-cli.ts",
     "validate": "pnpm typecheck && pnpm lint && pnpm build && pnpm test && pnpm version:check"
   },
   "dependencies": {
