@@ -159,7 +159,9 @@ sequence:
    live and merges automatically with a merge commit (never squash/rebase,
    to preserve WU commit/tag provenance) using an exact-HEAD-SHA
    precondition; applying the label before Validate is green does not
-   queue a merge and is cleared as invalid;
+   queue a merge and is cleared as invalid; a Red-risk (`75`-`100`) PR is
+   never eligible through this automation and requires a direct manual
+   merge instead;
 8. verify the real post-merge CI run via `gh run view` -- do not consider
    the milestone closed on local validation alone.
 

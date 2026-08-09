@@ -392,8 +392,8 @@ The repository workflow is:
    succeeded for that exact HEAD** — the maintainer is always looking at
    an already-validated, final state, never a state CI has not yet
    confirmed;
-6. if approved, the maintainer applies the `approved-for-merge` label to
-   that reviewed HEAD;
+6. if approved and risk is below Red (score `< 75`), the maintainer
+   applies the `approved-for-merge` label to that reviewed HEAD;
 7. `.github/workflows/human-approval-merge.yml` immediately re-reads live
    PR/check/risk state and, only if every gate in "Pull Request merge
    gate" above still holds for that exact HEAD, merges using GitHub's
@@ -405,8 +405,11 @@ The repository workflow is:
    one labeled, that authorization is invalid — the workflow clears the
    label and the maintainer must look again and re-apply it once the
    HEAD is actually green; for every other gate failure (mergeability,
-   blocking review, unparseable/insufficient risk governance) the PR
-   simply remains open, unmerged, for correction.
+   blocking review, unparseable risk, or Red-band risk) the PR simply
+   remains open, unmerged — Red in particular is never eligible for
+   automatic merge under this workflow at all, regardless of the label
+   or any PR-body text, and instead goes through the manual-merge path
+   below.
 
 This automation performs only the mechanical merge action once a human
 has authorized the exact, already-validated HEAD they are looking at. It
@@ -438,14 +441,33 @@ successful, so the human is always looking at the final, validated state
 before merge, and automation supplies only the mechanical merge step
 afterward — it never waits on or reacts to a future CI result.
 
-**Red-risk waiver.** A Red-band (`75`-`100`) PR requires an explicit
-waiver in addition to `approved-for-merge`: a `**Waiver:**` line in the
-PR body's risk header (immediately after the `**Approval:**` line, see
-`.github/pull_request_template.md`) with non-empty maintainer-authored
-justification text. `approved-for-merge` alone never substitutes for
-this waiver. If risk cannot be parsed deterministically from the PR body,
-or the band is Red without a non-empty `**Waiver:**` line, the merge gate
-fails closed regardless of the label.
+**Trust boundary.** `.github/workflows/human-approval-merge.yml` holds
+`contents: write` and therefore must never execute code the PR under
+evaluation controls. It triggers on `pull_request_target`, not
+`pull_request`: GitHub always resolves and runs a `pull_request_target`
+workflow's *definition* from the target branch (`main`), never from the
+PR's own ref — including a PR that edits this very file — and the
+workflow never runs `actions/checkout` or otherwise fetches/executes PR
+content; every step is a metadata/API read or write only. One structural
+consequence: this workflow cannot make itself, or any change to itself,
+authoritative for the PR that introduces it — only the copy already
+merged to `main` ever runs. This is why the PR that lands this workflow
+requires one manual bootstrap merge, and why any future PR that modifies
+this file is still evaluated only under the version of it already on
+`main`, never the PR's proposed edit.
+
+**Red-risk band is not automatable.** A Red-band (`75`-`100`) PR is never
+eligible for merge through this automation, unconditionally — `approved-
+for-merge` does not authorize it, and no PR-body text (a `Waiver:` line
+or otherwise) is treated as evidence of a human-granted waiver, because
+PR-body text is authored or editable by the same agent/PR author the
+approval exists to check and so cannot itself satisfy Red-risk
+governance. A Red PR always falls through to the existing manual-merge
+path: the maintainer reviews and merges it directly (not through
+`approved-for-merge`/this workflow), under the same waiver expectations
+as "GitHub Release governance" above. If risk cannot be parsed
+deterministically from the PR body at all, the merge gate fails closed
+the same way.
 
 ## Tag conventions
 

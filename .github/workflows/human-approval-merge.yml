@@ -23,10 +23,23 @@ name: Human Approval Merge
 # shell command -- all PR-controlled text is read through `gh ... --json`
 # and compared/parsed only inside `jq`/grep, never `eval`'d or echoed into a
 # shell expression.
+#
+# TRUST BOUNDARY: this workflow holds `contents: write`, so it must never
+# execute code the PR controls. `pull_request_target` (not `pull_request`)
+# is deliberate: GitHub resolves and runs this workflow's *definition* from
+# the base branch (`main`), never from the PR's own ref, regardless of what
+# the PR changes -- including a PR that edits this very file. No step here
+# ever runs `actions/checkout`, `git fetch`/`checkout` of the PR head, or
+# installs/executes anything from PR content; every action is a read/write
+# against the GitHub API only. Practical consequence: this workflow cannot
+# make itself authoritative for the PR that introduces or modifies it --
+# only the copy already merged to `main` ever runs, which is why this PR's
+# own landing is necessarily a manual bootstrap (see build-spec.md).
 
 on:
-  pull_request:
+  pull_request_target:
     types: [labeled, synchronize]
+    branches: [main]
 
 permissions: {}
 
@@ -140,22 +153,26 @@ jobs:
             fail_closed "not cleanly mergeable (mergeable=$mergeable, mergeStateStatus=$merge_state)"
           fi
 
+          # Risk band is read only to enforce the fixed 0-74/75-100 cutoff
+          # below. PR-body text (including any "Waiver:" line) is never
+          # treated as evidence of a human-granted waiver -- it is authored
+          # or editable by the same agent/PR author the approval is meant
+          # to check, so it cannot itself satisfy Red-risk governance. Red
+          # always fails closed here; it remains subject to the existing,
+          # separate manual-merge/waiver governance in versioning.md, not
+          # to anything this workflow reads from the PR body.
           body="$(jq -r '.body // ""' <<<"$pr_json")"
           risk_line="$(grep -m1 -E '^##[[:space:]]*[^ ]*[[:space:]]*Risk:[[:space:]]*[0-9]+/100[[:space:]]*—[[:space:]]*(GREEN|YELLOW|ORANGE|RED)' <<<"$body" || true)"
           if [ -z "$risk_line" ]; then
             fail_closed "PR body risk header is missing or unparseable"
           fi
           risk_score="$(grep -oE '[0-9]{1,3}/100' <<<"$risk_line" | grep -oE '^[0-9]{1,3}')"
-          risk_band="$(grep -oE '(GREEN|YELLOW|ORANGE|RED)' <<<"$risk_line")"
           if [ -z "$risk_score" ] || [ "$risk_score" -gt 100 ]; then
             fail_closed "risk score '$risk_score' failed to parse deterministically"
           fi
 
-          if [ "$risk_band" = "RED" ]; then
-            waiver_line="$(grep -m1 -E '^\*\*Waiver:\*\*[[:space:]]*[^[:space:]]' <<<"$body" || true)"
-            if [ -z "$waiver_line" ]; then
-              fail_closed "Red risk ($risk_score/100) with no non-empty **Waiver:** line -- approved-for-merge alone is not sufficient"
-            fi
+          if [ "$risk_score" -ge 75 ]; then
+            fail_closed "Red risk ($risk_score/100) -- automatic merge is unavailable at this band regardless of approved-for-merge; requires manual human merge under the separate Red waiver/manual-merge governance"
           fi
 
           # Immediately before merge: one final live re-read, re-confirming

@@ -19,11 +19,6 @@ Read before filling this in:
 - 75-100: human approval + explicit waiver required
 -->
 
-<!-- Only for Red (75-100): required, and only satisfied by non-empty
-justification text on this line -- approved-for-merge never substitutes
-for it. Remove this line entirely for any other band. -->
-<!-- **Waiver:** -->
-
 **Type:** <!-- feature | fix | maintenance | governance | documentation | hotfix | milestone -->
 
 ## At a glance

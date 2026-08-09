@@ -19,9 +19,18 @@ a bump; see Validation below).
   entry updated to the new contract and workflow as a supporting file.
 - `docs/governance/maintainer-recovery.md` — PR-integration step 7
   updated to the new merge model.
-- `.github/pull_request_template.md` — added the commented-out
-  `**Waiver:**` line, active only for Red-band PRs.
 - This directory (`build-spec.md`, `closure-report.md`).
+
+**2026-08-09 corrections** (this revision): switched the privileged jobs'
+trigger from `pull_request` to `pull_request_target` (`branches: [main]`)
+so the workflow definition is always resolved from `main`, never a PR's
+own ref — required because the job holds `contents: write`. Removed the
+PR-body `**Waiver:**` line as Red-risk evidence entirely (it was
+authored/editable by the same agent the approval exists to check, so it
+could never be trustworthy evidence); Red risk (`>= 75`) now fails closed
+unconditionally, with no bypass, and falls through to the pre-existing
+manual-merge/waiver governance instead. The PR-template line added for
+that mechanism was reverted.
 
 No product source (`src/**`) touched; no `.aiqt/` created; no Release,
 tag, or merge performed; `approved-for-merge` was not self-applied.
@@ -74,8 +83,10 @@ signal and cleared, not queued.
     map(max_by(.submittedAt))`; any `CHANGES_REQUESTED` blocks. ✅
 11. **missing/unparseable risk → blocked** — `risk_line` grep must match
     the exact template header shape; empty match → `fail_closed`. ✅
-12. **Red risk without required waiver → blocked** — `risk_band == RED`
-    requires a non-empty `**Waiver:**` line; missing → `fail_closed`. ✅
+12. **Red risk without required waiver → blocked** — `risk_score >= 75`
+    unconditionally `fail_closed`s before any label/waiver text is even
+    considered; there is no code path where Red risk merges through this
+    workflow. ✅
 13. **HEAD changes during gate/merge → SHA precondition prevents merge**
     — the final re-read compares `recheck_head` to the earlier `head_sha`
     and blocks on mismatch; independently, `--match-head-commit` makes
@@ -86,10 +97,35 @@ signal and cleared, not queued.
 15. **no PR code executed** — no `actions/checkout`, no dependency
     install; only `gh`/`jq` read/write via the GitHub API. All
     PR-controlled text (body, labels) is consumed exclusively through
-    `jq`/`grep` filters, never interpolated into a shell command. ✅
+    `jq`/`grep` filters, never interpolated into a shell command.
+    Reinforced structurally by `pull_request_target`: even if a step here
+    somehow referenced repository files, none would exist in the runner's
+    workspace (no checkout ever runs). ✅
 16. **no Release/package/schema/product behavior change** — confirmed
     above (no `src/**`, no version bump beyond what governance-doc/CI
     changes themselves require, no tag, no Release). ✅
+
+Additional scenarios reviewed for the two 2026-08-09 corrections:
+
+17. **PR attempts to modify the privileged merge workflow itself** — under
+    `pull_request_target`, GitHub always executes the workflow
+    *definition* already on `main` for evaluating that PR, never the PR's
+    proposed edit to `.github/workflows/human-approval-merge.yml`. A PR
+    that weakens or backdoors this file therefore cannot make its own
+    weakened version authoritative for its own merge decision — the
+    unmodified, already-reviewed `main` copy evaluates it. This also means
+    the PR that first introduces this file (this one) cannot be
+    auto-merged by it at all, since no copy exists on `main` yet until a
+    human merges it manually. ✅ (structural, not logic-dependent)
+18. **Red PR with a fabricated/non-empty `Waiver:` line** — the workflow
+    no longer parses or checks for any `Waiver:` line; the only risk logic
+    is `risk_score >= 75 → fail_closed`, evaluated before any other
+    PR-body content is read. A fabricated waiver line has no code path
+    that reaches it. ✅
+19. **Red PR with `approved-for-merge` applied** — same `risk_score >= 75`
+    check runs unconditionally after the label/Validate/review/mergeable
+    gates, before the final merge call; a present, valid, fresh label on
+    an already-green HEAD still cannot bypass it. ✅
 
 ## Validation performed
 
@@ -104,6 +140,11 @@ signal and cleared, not queued.
 - Confirmed no untrusted PR text reaches `eval`/direct shell
   interpolation — every PR-controlled field flows through `jq`/`grep`
   only.
+- Confirmed the workflow trigger is `pull_request_target`
+  (`branches: [main]`), not `pull_request`, and that no step performs
+  `actions/checkout` or any other fetch of PR content under either
+  trigger type — the trust boundary holds structurally, not just by
+  convention.
 - `pnpm version:check` / `pnpm pr:ready` deferred to immediately before
   `gh pr create`, per `docs/governance/versioning.md`'s pre-PR audit
   step (this workflow file is on the version-check relevant-paths
@@ -132,13 +173,15 @@ signal and cleared, not queued.
   and the template must change together (already cross-referenced in
   `repository-owner-map.json`'s `pullRequestGovernance` entry).
 
-Overall risk: **Orange (≈55/100)** — new write authority (`contents:
-write`) over the default branch's merge action is a genuine mutation
-boundary, but scope is narrow (label-triggered only, no checkout, no
-polling, exact-SHA precondition, fail-closed on every ambiguous state),
-and the design was reasoned through scenario-by-scenario rather than
-merely asserted. Human approval is mandatory before this PR merges per
-that same band.
+Overall risk: **Orange (≈45/100)**, down from the prior revision's ≈55 —
+new write authority (`contents: write`) over the default branch's merge
+action is still a genuine mutation boundary, but the two corrections
+materially narrow it: `pull_request_target` closes the "PR modifies its
+own privileged workflow" trust gap structurally (not just by review
+discipline), and removing PR-body text as Red-risk evidence closes an
+authorship/trust gap that the prior revision left unaddressed (a
+non-empty `Waiver:` line was never actually proof a human wrote it).
+Human approval is mandatory before this PR merges per that same band.
 
 ## Bootstrap
 

@@ -58,15 +58,24 @@ Re-read live from the GitHub API immediately before merging:
 - no unresolved `CHANGES_REQUESTED` review (latest review per author);
 - `mergeable == MERGEABLE` and `mergeStateStatus == CLEAN`;
 - PR body risk header parses deterministically (`## ... Risk: N/100 —
-  BAND`);
-- if `BAND == RED`, a non-empty `**Waiver:**` line is present in the PR
-  body — `approved-for-merge` alone never substitutes for a Red waiver;
+  BAND`) and the score is below Red (`< 75`);
 - one final live re-read immediately before merge reconfirms
   head/state/label/mergeability are unchanged from the checks above.
 
 Missing, pending, stale, ambiguous, or conflicting state at any gate
 fails closed: the workflow step exits `0` without merging (or, for the
 CI-staleness case specifically, clears the invalid label first).
+
+**Red risk (75-100) is never eligible through this automation**, under
+any condition, including `approved-for-merge` being present. No PR-body
+text (a `Waiver:` line or otherwise) is treated as evidence of a
+human-granted waiver, because that text is authored or editable by the
+same agent/PR author the approval exists to check and so cannot itself
+satisfy Red-risk governance. A Red PR always requires a direct manual
+merge by the maintainer, under the existing separate waiver governance
+in `docs/governance/versioning.md`'s "GitHub Release governance"
+section — this automation does not attempt to solve Red-risk waiver
+evidence in this iteration.
 
 ## Implementation
 
@@ -88,7 +97,15 @@ finishing later than the label never causes a merge.
   per-job grants: `pull-requests: write` to strip a label,
   `contents: write` + `pull-requests: write` + `checks: read` to
   evaluate/merge);
-- no `actions/checkout`, no PR code fetched or executed;
+- **trigger is `pull_request_target`, not `pull_request`, deliberately**:
+  a `pull_request_target` workflow's *definition* is always resolved from
+  the target branch (`main`), never the PR's own ref, which is the
+  required trust boundary for a job holding `contents: write` — a PR
+  cannot make its own edit to this file (or anything else) authoritative
+  for its own evaluation, only the copy already on `main` ever runs;
+  `branches: [main]` further scopes it to PRs actually targeting `main`;
+- no `actions/checkout`, no `git fetch`/checkout of the PR head, no PR
+  code fetched or executed under any trigger;
 - no dependency installation (`gh` and `jq` are runner-preinstalled);
 - all PR-controlled text (title/body/branch) is read via `gh ... --json`
   and consumed only inside `jq`/`grep` — never interpolated into a shell
