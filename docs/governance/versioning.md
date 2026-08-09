@@ -456,18 +456,20 @@ requires one manual bootstrap merge, and why any future PR that modifies
 this file is still evaluated only under the version of it already on
 `main`, never the PR's proposed edit.
 
-**Red-risk band is not automatable.** A Red-band (`75`-`100`) PR is never
-eligible for merge through this automation, unconditionally — `approved-
-for-merge` does not authorize it, and no PR-body text (a `Waiver:` line
-or otherwise) is treated as evidence of a human-granted waiver, because
-PR-body text is authored or editable by the same agent/PR author the
-approval exists to check and so cannot itself satisfy Red-risk
-governance. A Red PR always falls through to the existing manual-merge
-path: the maintainer reviews and merges it directly (not through
-`approved-for-merge`/this workflow), under the same waiver expectations
-as "GitHub Release governance" above. If risk cannot be parsed
-deterministically from the PR body at all, the merge gate fails closed
-the same way.
+**Red-risk band is not automatable.** Risk `75`-`100` is never eligible
+for automatic merge — `approved-for-merge` does not authorize it, and no
+PR-body text (a `Waiver:` line or otherwise) is treated as evidence of a
+human-granted waiver, because PR-body text is authored or editable by
+the same agent/PR author the approval exists to check and so cannot
+itself satisfy Red-risk governance. The workflow fails closed and
+existing human/manual PR governance applies: the maintainer reviews and
+merges the PR directly (not through `approved-for-merge`/this
+workflow). This is PR-merge governance, not the "GitHub Release
+governance" section below — that section separately governs publishing
+a GitHub Release after a merge has already happened, and this repository
+does not currently define a shared contract between the two. If risk
+cannot be parsed deterministically from the PR body at all, the merge
+gate fails closed the same way.
 
 ## Tag conventions
 

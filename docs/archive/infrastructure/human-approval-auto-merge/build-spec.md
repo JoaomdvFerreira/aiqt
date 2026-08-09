@@ -66,16 +66,18 @@ Missing, pending, stale, ambiguous, or conflicting state at any gate
 fails closed: the workflow step exits `0` without merging (or, for the
 CI-staleness case specifically, clears the invalid label first).
 
-**Red risk (75-100) is never eligible through this automation**, under
-any condition, including `approved-for-merge` being present. No PR-body
-text (a `Waiver:` line or otherwise) is treated as evidence of a
+**Risk 75-100 is never eligible for automatic merge**, under any
+condition, including `approved-for-merge` being present. No PR-body text
+(a `Waiver:` line or otherwise) is treated as evidence of a
 human-granted waiver, because that text is authored or editable by the
-same agent/PR author the approval exists to check and so cannot itself
-satisfy Red-risk governance. A Red PR always requires a direct manual
-merge by the maintainer, under the existing separate waiver governance
-in `docs/governance/versioning.md`'s "GitHub Release governance"
-section — this automation does not attempt to solve Red-risk waiver
-evidence in this iteration.
+same agent/PR author the approval exists to check. The workflow fails
+closed and existing human/manual PR governance applies — a Red PR
+requires a direct manual merge by the maintainer. This is PR-merge
+governance, kept separate from GitHub Release publication governance
+(`docs/governance/versioning.md`'s "GitHub Release governance" section)
+unless a future change explicitly defines a shared contract between the
+two; this automation does not attempt to solve Red-risk waiver evidence
+in this iteration.
 
 ## Implementation
 

@@ -173,7 +173,7 @@ Additional scenarios reviewed for the two 2026-08-09 corrections:
   and the template must change together (already cross-referenced in
   `repository-owner-map.json`'s `pullRequestGovernance` entry).
 
-Overall risk: **Orange (≈45/100)**, down from the prior revision's ≈55 —
+Overall risk: **Yellow (≈45/100)**, down from the prior revision's ≈55 —
 new write authority (`contents: write`) over the default branch's merge
 action is still a genuine mutation boundary, but the two corrections
 materially narrow it: `pull_request_target` closes the "PR modifies its
