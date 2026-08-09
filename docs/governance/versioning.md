@@ -344,9 +344,11 @@ milestone PRs.
     |
 Pull Request to main
     |
-human review
+Validate green on this exact HEAD
     |
-human manual merge                       (milestone PRs always use a merge
+human review + approved-for-merge        (only valid once Validate is
+    |                                     already green for this HEAD;
+    |                                     automation merges via a merge
     |                                     commit, never squash or rebase --
     |                                     this preserves every existing WU
     |                                     commit/tag's provenance verbatim)
@@ -376,37 +378,74 @@ must hold:
   below for the risk-score approval thresholds that also inform this gate);
 - the human maintainer has reviewed the change.
 
-### Merging is a manual human action
+### Merging is human-authorized, mechanically automatic
 
-There is no automated merge mechanism and no machine-readable approval
-label. The repository workflow is:
+The repository workflow is:
 
 1. an agent completes the work;
 2. `pnpm pr:ready` must pass locally (see the pre-PR audit step in
    "Milestone branch lifecycle" above);
 3. the agent opens the Pull Request;
-4. GitHub's `Validate` workflow runs;
-5. the human maintainer reviews the PR;
-6. if CI is green and the change is approved, the human maintainer merges
-   manually, using a merge commit (milestone PRs never squash/rebase — this
-   preserves every WU commit/tag's provenance verbatim);
-7. otherwise the PR remains open for correction.
+4. GitHub's `Validate` workflow runs to completion on the PR's current
+   HEAD;
+5. the human maintainer reviews the PR **only once `Validate` has already
+   succeeded for that exact HEAD** — the maintainer is always looking at
+   an already-validated, final state, never a state CI has not yet
+   confirmed;
+6. if approved, the maintainer applies the `approved-for-merge` label to
+   that reviewed HEAD;
+7. `.github/workflows/human-approval-merge.yml` immediately re-reads live
+   PR/check/risk state and, only if every gate in "Pull Request merge
+   gate" above still holds for that exact HEAD, merges using GitHub's
+   merge endpoint with `merge_method=merge` and `sha=<exact current
+   HEAD>` (milestone PRs never squash/rebase — this preserves every WU
+   commit/tag's provenance verbatim);
+8. otherwise nothing merges: if the label was applied while `Validate`
+   was missing, pending, failed, or belongs to a different SHA than the
+   one labeled, that authorization is invalid — the workflow clears the
+   label and the maintainer must look again and re-apply it once the
+   HEAD is actually green; for every other gate failure (mergeability,
+   blocking review, unparseable/insufficient risk governance) the PR
+   simply remains open, unmerged, for correction.
 
-The human maintainer's own merge action is the explicit approval — there
-is no separate signal an agent reads or acts on beforehand. An agent must
-never merge a Pull Request against this repository on the maintainer's
-own initiative, and must never treat conversation text, CI status, or a
-risk score as authorization to do so by itself; merging happens only when
-the maintainer performs it, or explicitly directs an agent to perform the
-merge action in that specific instance.
+This automation performs only the mechanical merge action once a human
+has authorized the exact, already-validated HEAD they are looking at. It
+never holds standing authorization waiting for a future CI result:
+`approved-for-merge → CI still pending → CI later turns green → merge`
+is explicitly **not** supported — applying the label before `Validate`
+has succeeded for that HEAD is not a valid authorization, does not queue
+a merge, and does not get reconsidered when CI later finishes. Any new
+commit after a valid authorization makes it stale immediately; the
+workflow removes the label on the next push, and the exact-HEAD-SHA
+merge precondition independently prevents merging past a stale
+authorization into a newer, unreviewed revision even in a race. An agent
+must never apply `approved-for-merge` to its own PR, and must never treat
+conversation text, CI status, or a risk score alone as authorization —
+only the maintainer's own label application on an already-green HEAD is
+authorization.
 
 A repository previously used an `approved-for-merge` label plus an
 automated merge workflow as a fallback approval signal (GitHub does not
 permit a native `APPROVED` review from the same identity that opened the
-PR). That mechanism was removed: it added a second, separately-maintained
-merge path that could act as soon as CI turned green, when the intent was
-always for a human to look at the result before it merges. Manual review
-followed by manual merge is now the sole mechanism.
+PR). That mechanism was removed on 2026-08-09: it allowed the label to be
+applied before CI finished and merged automatically whenever CI later
+turned green, so the human's moment of authorization could precede — and
+therefore not actually reflect — the exact validated state that
+ultimately merged. This model closes that gap structurally rather than
+reintroducing the removed one unchanged: authorization is accepted only
+when applied to a HEAD whose `Validate` result is already known and
+successful, so the human is always looking at the final, validated state
+before merge, and automation supplies only the mechanical merge step
+afterward — it never waits on or reacts to a future CI result.
+
+**Red-risk waiver.** A Red-band (`75`-`100`) PR requires an explicit
+waiver in addition to `approved-for-merge`: a `**Waiver:**` line in the
+PR body's risk header (immediately after the `**Approval:**` line, see
+`.github/pull_request_template.md`) with non-empty maintainer-authored
+justification text. `approved-for-merge` alone never substitutes for
+this waiver. If risk cannot be parsed deterministically from the PR body,
+or the band is Red without a non-empty `**Waiver:**` line, the merge gate
+fails closed regardless of the label.
 
 ## Tag conventions
 
@@ -494,9 +533,11 @@ For every completed milestone/change:
 7. for a milestone: create the milestone tag on the milestone branch, then
    push the branch and the tag explicitly (never `git push --tags`);
 8. run `pnpm pr:ready` and confirm it passes, then open a Pull Request to
-   the target branch; the human maintainer merges manually (with a merge
-   commit, never squash/rebase, for milestone PRs) once CI is green and
-   the change is approved;
+   the target branch; once `Validate` is already green on the exact HEAD,
+   the human maintainer reviews it and applies `approved-for-merge`, which
+   `.github/workflows/human-approval-merge.yml` verifies live and merges
+   automatically (with a merge commit, never squash/rebase, for milestone
+   PRs);
 9. verify post-merge CI is green on the target branch.
 
 Steps 10-11 below are a **separate, explicit decision**, not an automatic

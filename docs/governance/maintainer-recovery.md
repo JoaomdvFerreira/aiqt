@@ -153,9 +153,13 @@ sequence:
 6. run `pnpm pr:ready` and confirm it passes; push the milestone branch and
    its tag explicitly (never `git push --tags`); open a Pull Request to
    `main`;
-7. the human maintainer merges manually once CI is green and the change is
-   approved, using a merge commit (never squash/rebase, to preserve WU
-   commit/tag provenance);
+7. once `Validate` is already green on that exact HEAD, the human
+   maintainer reviews it and applies `approved-for-merge`;
+   `.github/workflows/human-approval-merge.yml` re-verifies every gate
+   live and merges automatically with a merge commit (never squash/rebase,
+   to preserve WU commit/tag provenance) using an exact-HEAD-SHA
+   precondition; applying the label before Validate is green does not
+   queue a merge and is cleared as invalid;
 8. verify the real post-merge CI run via `gh run view` -- do not consider
    the milestone closed on local validation alone.
 
