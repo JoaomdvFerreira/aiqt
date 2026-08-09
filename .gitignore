@@ -5,3 +5,12 @@ coverage/
 *.log
 .DS_Store
 *.tgz
+
+# IH-05: tests/integration/autonomous-{controlled-pilot,run-dogfood-pilot}
+# write generated evidence into docs/engineering/ as a side effect of a
+# full suite run. Those artifacts were never tracked, but they were also
+# never ignored, so every local `pnpm test` left the working tree dirty --
+# a recurring trap for the "clean tree at Work Unit boundaries" rule.
+# Ignoring the generated artifacts is the fix; the suites' behavior is
+# unchanged.
+docs/engineering/*.generated.json

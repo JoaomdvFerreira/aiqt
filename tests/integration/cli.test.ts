@@ -5,6 +5,7 @@ import { writeFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeTempDir, removeDir } from "../helpers.js";
+import { BUILT_CLI_ENTRY } from "../cli-runner.js";
 
 // M34-WU02: this file spawns real subprocesses (CLI and/or git); see
 // docs/engineering/m34-validation-workload-policy.md Sec 6.1 for the
@@ -14,11 +15,9 @@ vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");
-const tsxCli = join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs");
-const entry = join(repoRoot, "src", "index.ts");
 
 function runCli(args: string[], cwd: string) {
-  return spawnSync(process.execPath, [tsxCli, entry, ...args], {
+  return spawnSync(process.execPath, [BUILT_CLI_ENTRY, ...args], {
     cwd,
     encoding: "utf8",
   });
@@ -149,7 +148,7 @@ describe("aiqt CLI entrypoint", () => {
     dir = makeTempDir();
     expect(runCli(["init"], dir).status).toBe(0);
     const payload = JSON.stringify({ project: { objective: "Ship it", targetUsers: ["devs"] } });
-    const res = spawnSync(process.execPath, [tsxCli, entry, "import", "update", "--stdin", "--json"], {
+    const res = spawnSync(process.execPath, [BUILT_CLI_ENTRY, "import", "update", "--stdin", "--json"], {
       cwd: dir,
       encoding: "utf8",
       input: payload,
@@ -163,7 +162,7 @@ describe("aiqt CLI entrypoint", () => {
   it("M8: aiqt import update --stdin exits 3 without hanging when stdin is empty", () => {
     dir = makeTempDir();
     expect(runCli(["init"], dir).status).toBe(0);
-    const res = spawnSync(process.execPath, [tsxCli, entry, "import", "update", "--stdin", "--json"], {
+    const res = spawnSync(process.execPath, [BUILT_CLI_ENTRY, "import", "update", "--stdin", "--json"], {
       cwd: dir,
       encoding: "utf8",
       input: "",
@@ -387,79 +386,111 @@ describe("aiqt CLI entrypoint", () => {
     expect(res.status).toBe(0);
   });
 
-  it("M14: no new public commands are registered -- --help lists exactly the pre-M14 command set", () => {
+  /**
+   * IH-03 (CI & Test Portfolio Rationalization) consolidation of the
+   * six per-milestone "no new public commands are registered" snapshots
+   * (M14, M15, M15-RC1, M16, M17, M18) that previously lived in this file.
+   *
+   * Why they merged: every one of them ran against the *current* binary,
+   * and every one asserted the *same* positive command list via
+   * `expect(stdout).toContain(command)` (M18 asserted a 16-entry subset of
+   * the same 18). Six separate `--help` spawns therefore re-detected one
+   * regression -- "a command disappeared from --help" -- six times. The
+   * only content unique to each was its milestone-specific *negative*
+   * assertion, and every one of those is preserved verbatim below, still
+   * labelled with the milestone that introduced it. Nothing this file used
+   * to assert about the command surface stopped being asserted; it is
+   * asserted once, from one `--help` invocation, instead of six.
+   *
+   * The positive assertion is also **strengthened**, not merely merged.
+   * All six originals asserted `expect(stdout).toContain(command)`, which
+   * cannot actually detect a missing command: renaming `dependency` to
+   * `depz` and re-running left every one of them green, because the word
+   * "dependency" still appears in `next`'s own description prose. The
+   * merged test parses the `Commands:` section and asserts the **exact**
+   * top-level command set, which is what all six titles always claimed to
+   * be checking. Verified by re-injecting the same `dependency` -> `depz`
+   * rename: this test now fails, and fails naming the missing command.
+   */
+  function topLevelCommandNames(helpStdout: string): string[] {
+    const commandsSection = helpStdout.slice(helpStdout.indexOf("\nCommands:"));
+    return [...commandsSection.matchAll(/^ {2}([a-z][a-z-]*)/gm)]
+      .map((m) => m[1])
+      .filter((name) => name !== "help")
+      .sort();
+  }
+
+  it("no new public command is registered: --help lists exactly the historical command set, and no milestone's hypothetical command surface leaked into it", () => {
     dir = makeTempDir();
     const res = runCli(["--help"], dir);
     expect(res.status).toBe(0);
-    for (const command of [
-      "init",
-      "status",
-      "next",
-      "update",
-      "plan",
-      "checkpoint",
-      "review",
-      "export",
-      "start",
-      "continue",
-      "prompt",
-      "manage",
-      "skills",
-      "import",
-      "issue",
-      "repair",
-      "dependency",
-      "graph",
-    ]) {
-      expect(res.stdout).toContain(command);
-    }
+    // The exact, reviewed top-level command surface. A command added or
+    // removed without review fails here, naming the difference.
+    expect(topLevelCommandNames(res.stdout)).toEqual(
+      [
+        // pre-M14 surface, asserted by every one of the six merged snapshots
+        "init",
+        "status",
+        "next",
+        "update",
+        "plan",
+        "checkpoint",
+        "review",
+        "export",
+        "start",
+        "continue",
+        "prompt",
+        "manage",
+        "skills",
+        "import",
+        "issue",
+        "repair",
+        "dependency",
+        "graph",
+        // added by later milestones, each with its own dedicated suite
+        "evidence",
+        "defects",
+        "workspace",
+        "execution",
+        "autonomous",
+        "maintenance",
+        "release",
+        "validation",
+      ].sort(),
+    );
     // A hypothetical M14 command surface (e.g. "design") must not appear.
     expect(res.stdout).not.toMatch(/^\s*design\s/m);
-  });
-
-  it("M14: aiqt prompt driver/plan/next/skills-plan/export retain their pre-M14 exit-code contracts", () => {
-    dir = makeTempDir();
-    expect(runCli(["init"], dir).status).toBe(0);
-    // Missing target for export still returns exit 10 (needs_input), unchanged from M6.
-    const exportRes = runCli(["export"], dir);
-    expect(exportRes.status).toBe(10);
-    // Unsupported prompt kind still returns exit 3, unchanged from M7.
-    const promptRes = runCli(["prompt", "bogus"], dir);
-    expect(promptRes.status).toBe(3);
-  });
-
-  it("M15: no new public commands are registered -- --help still lists exactly the pre-M15 command set", () => {
-    dir = makeTempDir();
-    const res = runCli(["--help"], dir);
-    expect(res.status).toBe(0);
-    for (const command of [
-      "init",
-      "status",
-      "next",
-      "update",
-      "plan",
-      "checkpoint",
-      "review",
-      "export",
-      "start",
-      "continue",
-      "prompt",
-      "manage",
-      "skills",
-      "import",
-      "issue",
-      "repair",
-      "dependency",
-      "graph",
-    ]) {
-      expect(res.stdout).toContain(command);
-    }
     // A hypothetical M15 command surface (e.g. "git" or "source-control") must not appear.
     expect(res.stdout).not.toMatch(/^\s*git\s/m);
     expect(res.stdout).not.toMatch(/^\s*source-control\s/m);
+    // A hypothetical M15-RC1 command surface (e.g. "boundary") must not appear.
+    expect(res.stdout).not.toMatch(/^\s*boundary\s/m);
+    // M16: --implementation-root is an option on existing commands, not a new command.
+    expect(res.stdout).not.toMatch(/^\s*implementation-root\s/m);
+    expect(res.stdout).not.toMatch(/^\s*root\s/m);
+    // M17: --extend/--replace-placeholder are options on existing commands, not new commands.
+    expect(res.stdout).not.toMatch(/^\s*extend\s/m);
+    expect(res.stdout).not.toMatch(/^\s*replace-placeholder\s/m);
   });
 
-  it("M15: representative pre-M15 exit-code contracts remain unchanged", () => {
+  it("M18: graph repair exposes --dry-run and --apply as options, not as new public commands", () => {
+    dir = makeTempDir();
+    const repairHelp = runCli(["graph", "repair", "--help"], dir);
+    expect(repairHelp.stdout).toContain("--dry-run");
+    expect(repairHelp.stdout).toContain("--apply");
+  });
+
+  /**
+   * IH-03 consolidation of the five per-milestone "representative exit-code
+   * contracts remain unchanged" snapshots (M14, M15, M15-RC1, M16, M17).
+   * The M15, M15-RC1, M16 and M17 tests were byte-identical to each other
+   * -- same five invocations, same five expected statuses -- and M14's was
+   * a strict two-assertion subset of them. Five tests and 23 real CLI
+   * spawns detected exactly one class of regression: "a long-standing
+   * exit-code contract changed". The union of all five assertions is kept
+   * here, from one project setup.
+   */
+  it("representative long-standing exit-code contracts remain unchanged (M14/M15/M15-RC1/M16/M17)", () => {
     dir = makeTempDir();
     expect(runCli(["init"], dir).status).toBe(0);
     // Missing target for export still returns exit 10 (needs_input), unchanged since M6.
@@ -507,46 +538,6 @@ describe("aiqt CLI entrypoint", () => {
     }
   }, 15000);
 
-  it("M15-RC1: no new public commands are registered -- --help still lists exactly the pre-M15 command set", () => {
-    dir = makeTempDir();
-    const res = runCli(["--help"], dir);
-    expect(res.status).toBe(0);
-    for (const command of [
-      "init",
-      "status",
-      "next",
-      "update",
-      "plan",
-      "checkpoint",
-      "review",
-      "export",
-      "start",
-      "continue",
-      "prompt",
-      "manage",
-      "skills",
-      "import",
-      "issue",
-      "repair",
-      "dependency",
-      "graph",
-    ]) {
-      expect(res.stdout).toContain(command);
-    }
-    // A hypothetical M15-RC1 command surface (e.g. "git" or "boundary") must not appear.
-    expect(res.stdout).not.toMatch(/^\s*git\s/m);
-    expect(res.stdout).not.toMatch(/^\s*boundary\s/m);
-  });
-
-  it("M15-RC1: representative pre-M15-RC1 exit-code contracts remain unchanged", () => {
-    dir = makeTempDir();
-    expect(runCli(["init"], dir).status).toBe(0);
-    expect(runCli(["export"], dir).status).toBe(10);
-    expect(runCli(["prompt", "bogus"], dir).status).toBe(3);
-    expect(runCli(["frobnicate"], dir).status).toBe(3);
-    expect(runCli(["next"], dir).status).toBe(2);
-  });
-
   it("M15-RC1: aiqt next --json still succeeds and no new runlog event types appear alongside the Repository Boundary Rule", () => {
     dir = makeTempDir();
     expect(runCli(["init"], dir).status).toBe(0);
@@ -582,46 +573,6 @@ describe("aiqt CLI entrypoint", () => {
     }
   }, 15000);
 
-  it("M16: no new public commands are registered -- --help still lists exactly the pre-M16 command set", () => {
-    dir = makeTempDir();
-    const res = runCli(["--help"], dir);
-    expect(res.status).toBe(0);
-    for (const command of [
-      "init",
-      "status",
-      "next",
-      "update",
-      "plan",
-      "checkpoint",
-      "review",
-      "export",
-      "start",
-      "continue",
-      "prompt",
-      "manage",
-      "skills",
-      "import",
-      "issue",
-      "repair",
-      "dependency",
-      "graph",
-    ]) {
-      expect(res.stdout).toContain(command);
-    }
-    // --implementation-root is an option on existing commands, not a new command.
-    expect(res.stdout).not.toMatch(/^\s*implementation-root\s/m);
-    expect(res.stdout).not.toMatch(/^\s*root\s/m);
-  });
-
-  it("M16: representative pre-M16 exit-code contracts remain unchanged", () => {
-    dir = makeTempDir();
-    expect(runCli(["init"], dir).status).toBe(0);
-    expect(runCli(["export"], dir).status).toBe(10);
-    expect(runCli(["prompt", "bogus"], dir).status).toBe(3);
-    expect(runCli(["frobnicate"], dir).status).toBe(3);
-    expect(runCli(["next"], dir).status).toBe(2);
-  });
-
   it("M16: aiqt init --implementation-root writes existingRepositoryPath and no new runlog event types appear", () => {
     dir = makeTempDir();
     const implRoot = join(dir, "..", "split-app");
@@ -647,46 +598,6 @@ describe("aiqt CLI entrypoint", () => {
     expect(res.status).toBe(3);
     const parsed = JSON.parse(res.stdout || res.stderr);
     expect(parsed.exitCode).toBe(3);
-  });
-
-  it("M17: no new public commands are registered -- --help still lists exactly the pre-M17 command set", () => {
-    dir = makeTempDir();
-    const res = runCli(["--help"], dir);
-    expect(res.status).toBe(0);
-    for (const command of [
-      "init",
-      "status",
-      "next",
-      "update",
-      "plan",
-      "checkpoint",
-      "review",
-      "export",
-      "start",
-      "continue",
-      "prompt",
-      "manage",
-      "skills",
-      "import",
-      "issue",
-      "repair",
-      "dependency",
-      "graph",
-    ]) {
-      expect(res.stdout).toContain(command);
-    }
-    // --extend/--replace-placeholder are options on existing commands, not new commands.
-    expect(res.stdout).not.toMatch(/^\s*extend\s/m);
-    expect(res.stdout).not.toMatch(/^\s*replace-placeholder\s/m);
-  });
-
-  it("M17: representative pre-M17 exit-code contracts remain unchanged", () => {
-    dir = makeTempDir();
-    expect(runCli(["init"], dir).status).toBe(0);
-    expect(runCli(["export"], dir).status).toBe(10);
-    expect(runCli(["prompt", "bogus"], dir).status).toBe(3);
-    expect(runCli(["frobnicate"], dir).status).toBe(3);
-    expect(runCli(["next"], dir).status).toBe(2);
   });
 
   it("M17: ordinary aiqt plan on a non-empty graph still returns PLAN-GRAPH-NOT-EMPTY with exit 2", () => {
@@ -761,32 +672,4 @@ describe("aiqt CLI entrypoint", () => {
     expect(res.stdout.trim()).toBe(packageJson.version);
   });
 
-  it("M18: no new public commands are registered except graph repair --apply -- --help still lists exactly the pre-M18 command set plus the new option", () => {
-    dir = makeTempDir();
-    const res = runCli(["--help"], dir);
-    expect(res.status).toBe(0);
-    for (const command of [
-      "init",
-      "status",
-      "update",
-      "plan",
-      "next",
-      "checkpoint",
-      "manage",
-      "export",
-      "prompt",
-      "review",
-      "skills",
-      "issue",
-      "repair",
-      "dependency",
-      "graph",
-      "import",
-    ]) {
-      expect(res.stdout).toContain(command);
-    }
-    const repairHelp = runCli(["graph", "repair", "--help"], dir);
-    expect(repairHelp.stdout).toContain("--dry-run");
-    expect(repairHelp.stdout).toContain("--apply");
-  });
 });

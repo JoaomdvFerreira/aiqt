@@ -126,16 +126,22 @@ Per the build spec's cross-Work-Unit invariants (Sec 8) and Success Metrics (Sec
   justification. A defect is resolved by fixing the behavior the test
   correctly caught, not by removing the detector.
 
-## 7. Runtime target
+## 7. Cost target
 
-Primary target (build spec Sec 4): **authoritative per-commit CI duration under 5 minutes**.
+**Primary metric: GitHub Actions runner-minutes per safely merged change**, computed with GitHub's per-job whole-minute rounding (`Σ ceil(job_seconds / 60)`) across a change's PR validation *and* its post-merge `main` run.
 
-Current baseline (`docs/archive/milestones/m35/m35-test-suite-inventory.md` Sec 4.3): ~9 minutes (Node 24 leg alone, once Node 22 is removed from the mandatory matrix per Sec 2 of that document). The inventory's Sec 4.5 cost-concentration finding (top 30 of 232 files = 96% of measured execution time) is the direct input to WU35-03's prioritization — the runtime target is reached by optimizing the identified performance-heavy set, not by broad, undifferentiated test removal across the whole suite. **No test may be removed merely to improve the headline runtime number** (build spec Sec 3, explicit invariant #11) — every reduction must independently satisfy Sec 2 through Sec 5 of this policy regardless of its runtime effect.
+This supersedes M35's wall-clock-only target ("authoritative per-commit CI duration under 5 minutes"), and was changed deliberately by the 2026-08-09 CI & Test Portfolio Rationalization intervention (`docs/archive/infrastructure/ci-test-portfolio-rationalization/`). Wall-clock feedback still matters and is still reported, but it is explicitly the **secondary** metric: CI is a metered resource, and a topology that lowers wall-clock by paying for more concurrent runners can raise the bill while appearing faster. The old target was itself a cause of that — it is what motivated the three-shard fan-out that the 2026-08-09 measurement showed cost 4 extra billed minutes per run for zero additional assertion.
+
+Two invariants survive the metric change unaltered, and are the reason changing it is safe:
+
+- **No test may be removed to improve a cost number** — neither wall-clock nor runner-minutes (M35 build spec Sec 3, explicit invariant #11). Every reduction must independently satisfy Sec 2 through Sec 5 of this policy regardless of its cost effect.
+- **Cost is reduced by removing waste inside the work, not by removing the work.** The 2026-08-09 baseline is the worked example: 88.8% of all test execution time was per-invocation TypeScript transform in the real-CLI integration suites, not test logic. Removing that halved the suite while deleting nothing — whereas deleting all 190 fast-unit files would have cut the bill by 0.6%. The same principle produced M35's own Sec 4.5 cost-concentration finding (top 30 of 232 files = 96% of execution time): optimize the identified performance-heavy set, never apply broad undifferentiated removal.
 
 ## 8. Before/after recording requirement
 
 Every Work Unit from WU35-02 onward must record, in its commit body and (for WU35-04) the closure report:
 
+- **runner-minutes per PR run, per post-merge `main` run, and per merged change** (Sec 7's primary metric), computed from real completed-run job durations with per-job whole-minute rounding — not from a local estimate;
 - total CI wall-clock (Node 24 leg, sourced from a real CI run, not a local estimate);
 - test execution and collection time;
 - build time;

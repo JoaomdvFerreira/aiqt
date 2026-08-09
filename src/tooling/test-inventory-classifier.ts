@@ -44,12 +44,19 @@ function hasCliSpawn(text: string): boolean {
     /spawnSync\(\s*process\.execPath/.test(text) ||
     /tsxCli/.test(text) ||
     /dist[\\/]index\.js/.test(text) ||
+    /\bBUILT_CLI_ENTRY\b/.test(text) ||
     /\brunAutonomousCommand\(/.test(text) ||
     /\bexecuteAutonomousRun\(/.test(text)
   );
 }
 function hasBuiltBinary(text: string): boolean {
-  return /dist[\\/]index\.js/.test(text);
+  // IH-04: the real-CLI integration spine now spawns the built artifact via
+  // tests/cli-runner.ts's BUILT_CLI_ENTRY rather than each file writing the
+  // `dist/index.js` path literal itself. Both spellings mean the same
+  // thing -- this file spawns the shipped binary -- so both classify as
+  // built-binary usage, exactly as the earlier `tsxCli`/`initGitFixtureRepo`
+  // shared-helper indirections were folded into the detectors above.
+  return /dist[\\/]index\.js/.test(text) || /\bBUILT_CLI_ENTRY\b/.test(text);
 }
 function usesTempDir(text: string): boolean {
   return /makeTempDir|copyFixture|contextFor/.test(text);
@@ -121,7 +128,12 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   { pattern: /^status|^manage|^export/, domain: "read-only-views", criticality: "Normal" },
   { pattern: /^init|update|root-resolution|implementation-root/, domain: "project-bootstrap", criticality: "High-value" },
   { pattern: /package-version|semver|push-base|relevant-paths|versioning|^ids\.test/, domain: "release-tooling", criticality: "High-value" },
-  { pattern: /^m34-validation-workload-inventory|^m35-test-inventory-classification/, domain: "validation-infrastructure", criticality: "Critical" },
+  // IH-05: validation-profile.test.ts joins the two inventory guards in
+  // this domain -- all three are guards over the repository's own
+  // validation machinery rather than over AIQT product behavior. Critical:
+  // it is what keeps the CI docs-only profile's "no test reads docs/"
+  // precondition from decaying silently.
+  { pattern: /^m34-validation-workload-inventory|^m35-test-inventory-classification|^validation-profile/, domain: "validation-infrastructure", criticality: "Critical" },
   { pattern: /^autonomous-/, domain: "autonomous-run-safety", criticality: "Critical" },
   { pattern: /^sandbox-/, domain: "sandbox-execution-safety", criticality: "Critical" },
   // M40-WU05: release candidate/provenance/risk/readiness/CLI/draft --
@@ -211,7 +223,15 @@ export function classifyAllTestFiles(repoRoot: string, testsDir: string, runJson
     const gitSpawn = hasGitSpawn(text);
     const cliSpawn = hasCliSpawn(text);
     const builtBinary = hasBuiltBinary(text);
-    const workloadClass = builtBinary
+    // IH-04: keyed on the domain, not on `builtBinary`. Since the real-CLI
+    // spine started spawning dist/index.js via BUILT_CLI_ENTRY, 29 files
+    // reference the built binary but only one *is* the built-binary smoke
+    // suite. Keying the class off the flag relabelled 28
+    // evidence/execution/workspace and CLI-subprocess suites as
+    // "built-binary-smoke", breaking continuity with the M34/M35 workload
+    // taxonomy. `subprocessUsage.builtBinary` still reports the flag
+    // truthfully for all 29.
+    const workloadClass = domain === "built-binary"
       ? "built-binary-smoke"
       : gitSpawn && cliSpawn
         ? "evidence-execution-workspace-integration"

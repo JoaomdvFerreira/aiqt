@@ -1,36 +1,42 @@
 name: Validate
 
 # M19: full repository validation plus version-governance enforcement.
-# M35-WU04: Node 24 is now the sole mandatory per-commit runtime (the
-# Preferred support policy chosen in docs/engineering/m35-test-suite-
-# inventory.md Sec 2: "Official runtime: Node 24, Node 22: unsupported").
-# Node 22 was removed from this workflow's matrix -- it is no longer
-# validated on any push or PR. No periodic/scheduled Node 22 compatibility
-# workflow was added; the Preferred policy explicitly does not require one.
-# If Node 22 support is ever reinstated, restore a `node-version` matrix
-# and the `matrix.node-version == 24` guards this file's single-job
-# predecessor used to carry.
+# M35-WU04: Node 24 is the sole mandatory per-commit runtime (the
+# Preferred support policy chosen in
+# docs/archive/milestones/m35/m35-test-suite-inventory.md Sec 2: "Official
+# runtime: Node 24, Node 22: unsupported"). No periodic/scheduled Node 22
+# compatibility workflow exists; the Preferred policy explicitly does not
+# require one. If Node 22 support is ever reinstated, restore a
+# `node-version` matrix and the `matrix.node-version == 24` guards this
+# file's original single-job form used to carry.
 #
-# M35-WU04 topology change: the previous single sequential job (typecheck
-# -> lint -> build -> test -> version-check, ~9 minutes wall-clock on
-# Node 24 per docs/m34-ci-reliability-confirmation.md) is split into
-# parallel jobs so independent GitHub-hosted runners, not one runner's
-# CPU budget, absorb the suite's real cost:
-#   - quality: typecheck + lint (fast, no build output needed).
-#   - build: `pnpm build` once; dist/ is uploaded as an artifact and
-#     reused by test/version-check (build spec Sec 7 WU35-04, "reuse
-#     build outputs safely") instead of every job rebuilding it.
-#   - test: 3-way vitest --shard matrix (build spec Sec 7, "parallelize
-#     by workload where beneficial") -- measured locally at 69.5s/83.9s/
-#     136.5s per shard (233 files / 2408 tests total, unbalanced by
-#     vitest's default file-order sharding, still a large improvement
-#     over one ~500s sequential run); each shard needs the dist/
-#     artifact since any shard may contain
-#     tests/integration/built-binary-smoke.test.ts.
-#   - version-check: needs build AND test (preserves the original
-#     sequential semantics -- don't report a version-governance verdict
-#     if the suite itself already failed) plus the dist/ artifact
-#     (runVersionCheck checks builtRuntimeMatchesPackage).
+# IH-02 topology change (CI & Test Portfolio Rationalization, see
+# docs/archive/infrastructure/ci-test-portfolio-rationalization/):
+# M35-WU04 had split this workflow into 6 job instances (quality, build,
+# 3 test shards, version-check) to reduce *wall-clock* time. The
+# optimization target is now *GitHub Actions runner-minutes per safely
+# merged change*, and GitHub bills each job rounded up to the whole
+# minute. Measured against real completed runs (ih01-baseline.md Sec 3):
+#
+#   topology            billed runner-min   PR wall-clock
+#   6 jobs / 3 shards           18              ~6m05s
+#   2 jobs / 2 shards           16              ~7m30s
+#   2 jobs / 1 test job         15             ~13m25s
+#   1 job (this file)           14             ~13m50s   <- fewest minutes
+#
+# The 14-minute figure is this topology's cost at the IH-01 baseline's
+# test runtime. IH-04 then removes the dominant term inside that runtime
+# (per-spawn TypeScript transform in the CLI integration suites), which is
+# what takes the single job materially below it.
+#
+# One job also deletes work that the split topology paid for repeatedly:
+# 5 redundant checkout/pnpm-setup/setup-node/install cycles (~64s), the
+# dist/ artifact upload + 3 downloads, and 5 of the 6 per-job whole-minute
+# rounding remainders (~2.4 min/run). The sequential step order preserves
+# the original semantics exactly -- in particular version-check still runs
+# only after build *and* test, so a version-governance verdict is never
+# reported for a commit whose suite already failed.
+#
 # Never publishes a package, creates a tag/release, or commits/mutates any
 # file -- read-only validation only. Requires no secrets.
 
@@ -39,82 +45,68 @@ on:
     branches: [main]
   pull_request:
 
+# IH-02: a superseded PR run is pure wasted quota, so cancel in-progress
+# runs for the same pull request when a new commit arrives. Pushes to
+# `main` are the authoritative post-merge gate and are never cancelled:
+# `cancel-in-progress` is evaluated per-event, and the group key falls
+# back to `github.ref` (a distinct group from any PR's) for them.
+concurrency:
+  group: validate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  quality:
+  validate:
+    name: validate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # M19 §18: full history is required by this job's version-check
+          # steps (deterministic PR-base/merge-base resolution, which a
+          # shallow checkout cannot do) and by tests that exercise real git
+          # history resolution (e.g. tests/unit/push-base.test.ts).
+          fetch-depth: 0
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+
+      # IH-05 change-aware validation. Emits profile=docs-only|full. The
+      # ONLY thing a profile can change is whether `pnpm test` runs; the job
+      # itself, the required check, typecheck, lint, build and every
+      # version-governance step always run, so the required check always
+      # resolves and can never be left pending. Fail-closed in every
+      # direction: an unresolvable base, an uncomputable diff, or a single
+      # changed path outside docs/ all yield `full`, and if this step itself
+      # fails the job fails. See src/tooling/validation-profile.ts and its
+      # tests/unit/validation-profile.test.ts guard, which pins the fact
+      # that no test reads this repository's own docs/ tree.
+      - name: Classify validation profile
+        id: profile
+        run: >
+          node node_modules/tsx/dist/cli.mjs src/tooling/validation-profile-cli.ts
+          --base "${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}"
+          --head HEAD
+          >> "$GITHUB_OUTPUT"
+
       - run: pnpm typecheck
       - run: pnpm lint
 
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      # Builds dist/ once, in-process, for every consumer that follows:
+      # tests/integration/built-binary-smoke.test.ts and version:check's
+      # builtRuntimeMatchesPackage check. The split topology moved this
+      # same dist/ between jobs as an artifact; one job just keeps it.
       - run: pnpm build
-      - uses: actions/upload-artifact@v7
-        with:
-          name: dist
-          path: dist/
-          retention-days: 1
 
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3]
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          # M19 §18: full history retained even in the sharded test job --
-          # tests/unit/push-base.test.ts and similar exercise real git
-          # history resolution regardless of which shard picks them up.
-          fetch-depth: 0
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - uses: actions/download-artifact@v7
-        with:
-          name: dist
-          path: dist/
-      - run: node node_modules/vitest/vitest.mjs run --shard=${{ matrix.shard }}/3
-
-  version-check:
-    needs: [build, test]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          # M19 §18: sufficient history to resolve the PR base and merge
-          # base deterministically -- a shallow checkout cannot do this.
-          fetch-depth: 0
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - uses: actions/download-artifact@v7
-        with:
-          name: dist
-          path: dist/
+      # Skipped only for a change every one of whose paths is under docs/.
+      # Everything else -- source, tests, CI, schema, build, packaging,
+      # anything unrecognised -- runs the full suite, and so does any change
+      # whose classification could not be established.
+      - name: Test
+        if: steps.profile.outputs.profile != 'docs-only'
+        run: pnpm test
 
       - name: Version check (local consistency)
         run: pnpm version:check
@@ -144,7 +136,7 @@ jobs:
       - name: Version check (direct push to main, enforced)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.resolve_push_base.outputs.action == 'compare'
         # M19-RC1 §11/§14: this is a blocking merge gate, identical in kind
-        # to the PR comparison step below -- no continue-on-error, no
+        # to the PR comparison step above -- no continue-on-error, no
         # `|| true`, no swallowed exit code. A relevant change pushed
         # directly to main without a version bump fails this step, and the
         # job, exactly like a non-compliant PR would.

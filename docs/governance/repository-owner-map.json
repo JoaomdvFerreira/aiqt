@@ -172,19 +172,26 @@
     },
     "ciWorkflows": {
       "primary": ".github/workflows/validate.yml",
-      "supporting": [],
-      "contractSummary": "The sole GitHub Actions workflow (name: Validate). A single Node 24 job (no Node 22/24 matrix -- Node 22 was retired from CI after the M21-M34 era); runs typecheck -> lint -> build -> test -> version:check on every push to main and every pull request.",
-      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
+      "supporting": [
+        "src/tooling/validation-profile.ts",
+        "src/tooling/validation-profile-cli.ts",
+        "src/tooling/version-check-cli.ts",
+        "src/tooling/resolve-push-base-cli.ts"
+      ],
+      "contractSummary": "The sole GitHub Actions workflow (name: Validate), on every push to main and every pull request. IH-05 added a fail-closed change-aware `docs-only` profile (src/tooling/validation-profile.ts) whose only effect is skipping the test step when every changed path is under docs/; every other step, including both blocking version-governance comparisons, always runs, so the single required check always resolves. One Node 24 job named `validate` (no Node 22/24 matrix -- Node 22 was retired from CI after the M21-M34 era) running checkout(fetch-depth 0) -> pnpm/node setup with pnpm store cache -> install -> typecheck -> lint -> build -> test -> version:check (local, then the blocking PR-base or direct-push-to-main comparison). IH-02 replaced M35-WU04's 6-job/3-shard fan-out with this single job because GitHub bills per job rounded up to the whole minute: measured 18 billed runner-minutes for 6 jobs vs 14 for one, plus 5 redundant setup cycles and a dist/ artifact round-trip removed. A `concurrency` group cancels superseded pull_request runs only; push-to-main runs are the authoritative post-merge gate and are never cancelled.",
+      "lastVerifiedCommit": "679abcda66d09d0ba8f2bc635f58bb9c4e531458"
     },
     "testRuntimePolicy": {
       "primary": "vitest.config.ts",
       "supporting": [
         "tests/workload-timeout-policy.ts",
+        "tests/cli-runner.ts",
+        "tests/global-setup.ts",
         "package.json",
         ".github/workflows/validate.yml"
       ],
-      "contractSummary": "pool:'threads', no global testTimeout/concurrency override. tests/workload-timeout-policy.ts is the single shared source for the two class-scoped timeout constants (SPAWNING_SUITE_TEST_TIMEOUT_MS=15000, HEAVY_SPAWNING_TEST_TIMEOUT_MS=25000). package.json's validate script runs build before test so tests/integration/built-binary-smoke.test.ts has a real dist/index.js. Full M34 history: docs/archive/legacy-milestones/m34-*.md. See testInventoryPolicy for the workload-classification layer built on top of this.",
-      "lastVerifiedCommit": "be126cea9a7ae5dd02627eac93baede0b5f116a7"
+      "contractSummary": "pool:'threads', no global testTimeout/concurrency override (IH-04 measured 4/8/16 workers at 0 failures each and deliberately kept the availableParallelism() default). tests/workload-timeout-policy.ts is the single shared source for the two class-scoped timeout constants (SPAWNING_SUITE_TEST_TIMEOUT_MS=15000, HEAVY_SPAWNING_TEST_TIMEOUT_MS=25000), unchanged by IH-04. tests/cli-runner.ts's BUILT_CLI_ENTRY is the single entry point every real-CLI integration suite spawns -- the built dist/index.js, not tsx src/index.ts; tests/integration/built-binary-smoke.test.ts is deliberately excluded and still spawns both entry points, which is what makes that substitution a tested claim. tests/global-setup.ts (vitest globalSetup) rebuilds dist/ fail-closed whenever it is missing or older than src/, so a stale build can never be what the suite validates. package.json's validate script still runs build before test. Full M34 history: docs/archive/legacy-milestones/m34-*.md. See testInventoryPolicy for the workload-classification layer built on top of this.",
+      "lastVerifiedCommit": "679abcda66d09d0ba8f2bc635f58bb9c4e531458"
     },
     "autonomousRunContract": {
       "primary": "src/schema/autonomous-run.schema.ts",

@@ -5,6 +5,7 @@ import { writeFileSync, readFileSync, chmodSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeTempDir, removeDir, initGitFixtureRepo } from "../helpers.js";
+import { BUILT_CLI_ENTRY } from "../cli-runner.js";
 
 // M34-WU02: this file spawns real subprocesses (CLI and/or git); see
 // docs/engineering/m34-validation-workload-policy.md Sec 6.1 for the
@@ -18,11 +19,9 @@ vi.setConfig({ testTimeout: HEAVY_SPAWNING_TEST_TIMEOUT_MS });
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");
-const tsxCli = join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs");
-const entry = join(repoRoot, "src", "index.ts");
 
 function runCli(args: string[], cwd: string) {
-  return spawnSync(process.execPath, [tsxCli, entry, ...args], { cwd, encoding: "utf8" });
+  return spawnSync(process.execPath, [BUILT_CLI_ENTRY, ...args], { cwd, encoding: "utf8" });
 }
 
 const T1 = "2026-01-01T00:00:00.000Z";

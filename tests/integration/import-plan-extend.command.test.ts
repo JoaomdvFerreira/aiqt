@@ -3,8 +3,6 @@ import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { PassThrough } from "node:stream";
 import { runInit } from "../../src/cli/commands/init.command.js";
 import { runUpdate } from "../../src/cli/commands/update.command.js";
@@ -15,6 +13,7 @@ import { runImport } from "../../src/cli/commands/import.command.js";
 import { normalizeInitOptions } from "../../src/cli/options.js";
 import { ExitCode } from "../../src/core/output/exit-codes.js";
 import { makeTempDir, removeDir, contextFor } from "../helpers.js";
+import { BUILT_CLI_ENTRY } from "../cli-runner.js";
 
 // M34-WU02: this file spawns real subprocesses (CLI and/or git); see
 // docs/engineering/m34-validation-workload-policy.md Sec 6.1 for the
@@ -22,10 +21,6 @@ import { makeTempDir, removeDir, contextFor } from "../helpers.js";
 // hardcoded literal.
 vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = join(here, "..", "..");
-const tsxCli = join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs");
-const entry = join(repoRoot, "src", "index.ts");
 
 const DONE_PAYLOAD = {
   summary: "Implemented.",
@@ -239,7 +234,7 @@ describe("aiqt import plan --stdin --extend: real CLI process", () => {
 
     const res = spawnSync(
       process.execPath,
-      [tsxCli, entry, "import", "plan", "--stdin", "--extend", "--refine-work-unit", "WU002", "--json"],
+      [BUILT_CLI_ENTRY, "import", "plan", "--stdin", "--extend", "--refine-work-unit", "WU002", "--json"],
       { cwd: dir, encoding: "utf8", input: JSON.stringify(REFINEMENT_INPUT) },
     );
     expect(res.status).toBe(0);
@@ -254,7 +249,7 @@ describe("aiqt import plan --stdin --extend: real CLI process", () => {
 
     const res = spawnSync(
       process.execPath,
-      [tsxCli, entry, "import", "plan", "--stdin", "--extend", "--json"],
+      [BUILT_CLI_ENTRY, "import", "plan", "--stdin", "--extend", "--json"],
       { cwd: dir, encoding: "utf8", input: JSON.stringify(APPEND_INPUT) },
     );
     expect(res.status).toBe(0);
