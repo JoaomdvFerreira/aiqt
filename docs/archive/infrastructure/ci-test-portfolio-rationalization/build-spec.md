@@ -7,8 +7,9 @@
 **Primary objective:** Minimize GitHub Actions runner-minutes per safely merged change while preserving or improving regression-detection confidence.
 
 > **Documentation placement note.** This is infrastructure hardening, not
-> milestone M46. It deliberately lives under `docs/infrastructure/active/`,
-> never `docs/milestones/active/`, and is archived at closure to
+> milestone M46. It deliberately lived under `docs/infrastructure/active/`
+> while in progress -- never `docs/milestones/active/` -- and was archived at
+> closure to this directory,
 > `docs/archive/infrastructure/ci-test-portfolio-rationalization/`. It does
 > not trigger the milestone rolling-archive lifecycle in
 > `docs/governance/milestone-protocol.md` §10 — that resumes when M46 starts.

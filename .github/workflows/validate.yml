@@ -11,7 +11,7 @@ name: Validate
 # file's original single-job form used to carry.
 #
 # IH-02 topology change (CI & Test Portfolio Rationalization, see
-# docs/infrastructure/active/ci-test-portfolio-rationalization/):
+# docs/archive/infrastructure/ci-test-portfolio-rationalization/):
 # M35-WU04 had split this workflow into 6 job instances (quality, build,
 # 3 test shards, version-check) to reduce *wall-clock* time. The
 # optimization target is now *GitHub Actions runner-minutes per safely
@@ -73,6 +73,24 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      # IH-05 change-aware validation. Emits profile=docs-only|full. The
+      # ONLY thing a profile can change is whether `pnpm test` runs; the job
+      # itself, the required check, typecheck, lint, build and every
+      # version-governance step always run, so the required check always
+      # resolves and can never be left pending. Fail-closed in every
+      # direction: an unresolvable base, an uncomputable diff, or a single
+      # changed path outside docs/ all yield `full`, and if this step itself
+      # fails the job fails. See src/tooling/validation-profile.ts and its
+      # tests/unit/validation-profile.test.ts guard, which pins the fact
+      # that no test reads this repository's own docs/ tree.
+      - name: Classify validation profile
+        id: profile
+        run: >
+          node node_modules/tsx/dist/cli.mjs src/tooling/validation-profile-cli.ts
+          --base "${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}"
+          --head HEAD
+          >> "$GITHUB_OUTPUT"
+
       - run: pnpm typecheck
       - run: pnpm lint
 
@@ -82,7 +100,13 @@ jobs:
       # same dist/ between jobs as an artifact; one job just keeps it.
       - run: pnpm build
 
-      - run: pnpm test
+      # Skipped only for a change every one of whose paths is under docs/.
+      # Everything else -- source, tests, CI, schema, build, packaging,
+      # anything unrecognised -- runs the full suite, and so does any change
+      # whose classification could not be established.
+      - name: Test
+        if: steps.profile.outputs.profile != 'docs-only'
+        run: pnpm test
 
       - name: Version check (local consistency)
         run: pnpm version:check

@@ -263,13 +263,27 @@ never reuses AIQT's own workflow exit codes (`0`/`2`/`3`/`10`).
 
 ## CI
 
-`.github/workflows/validate.yml` runs, on every push and pull request:
-typecheck → lint → test → build → `pnpm version:check` (local mode) →
-a **blocking** base-comparison check. CI never publishes a package,
-creates a tag or GitHub Release, or commits/mutates any file; it only
-reads and reports. There is no `continue-on-error`, `|| true`, or any
-other soft-failure pattern on either comparison step — a policy failure
-fails the workflow exactly like a failing test would.
+`.github/workflows/validate.yml` runs, on every push to `main` and every
+pull request, as a **single** `validate` job: typecheck → lint → build →
+test → `pnpm version:check` (local mode) → a **blocking** base-comparison
+check. CI never publishes a package, creates a tag or GitHub Release, or
+commits/mutates any file; it only reads and reports. There is no
+`continue-on-error`, `|| true`, or any other soft-failure pattern on
+either comparison step — a policy failure fails the workflow exactly like
+a failing test would.
+
+**Change-aware validation.** A `Classify validation profile` step
+(`src/tooling/validation-profile.ts`) may reduce the job to a `docs-only`
+profile, whose sole effect is skipping the test step. It is fail-closed:
+the profile is `docs-only` only when *every* changed path is under
+`docs/`, and an unresolvable comparison base, an uncomputable diff, or any
+single unrecognised path all yield `full`. Every other step — including
+both version-governance comparisons — always runs, so the required check
+always resolves and can never be left pending. This is deliberately a
+*separate* allowlist from `src/tooling/relevant-paths.ts`: that module
+decides whether a version bump is required, this one decides whether the
+suite may be skipped, and a path must never become test-skippable as a
+side effect of editing the version-governance allowlist.
 
 **Pull requests** compare against the actual
 `github.event.pull_request.base.ref`, fetched explicitly before
