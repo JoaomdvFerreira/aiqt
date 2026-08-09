@@ -17,6 +17,13 @@ export default defineConfig({
     // plain and --coverage runs) to exit 0 cleanly, repeatably, with an
     // identical 1216/1216 pass count and no coverage regression.
     pool: "threads",
+    // IH-04: the real-CLI integration spine spawns the built entry point
+    // (tests/cli-runner.ts), and built-binary-smoke.test.ts has always
+    // required a prior `pnpm build`. This setup rebuilds dist/ when it is
+    // missing or older than src/, so a stale build can never silently be
+    // what the suite validates. In CI (one job: build then test) it is a
+    // no-op mtime scan.
+    globalSetup: ["tests/global-setup.ts"],
     // M21-WU05: reproducible coverage baseline only -- no thresholds are
     // configured here. Global/module thresholds are an explicit, separate,
     // reviewed decision for a future milestone (M21 Build Spec v0.2 §5.5),

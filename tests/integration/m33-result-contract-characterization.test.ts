@@ -2,11 +2,11 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { HEAVY_SPAWNING_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { spawnSync } from "node:child_process";
 import { writeFileSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { makeTempDir, removeDir, contextFor } from "../helpers.js";
 import { runReviewCommand } from "../../src/cli/commands/review.command.js";
 import { runStatus } from "../../src/cli/commands/status.command.js";
+import { BUILT_CLI_ENTRY } from "../cli-runner.js";
 
 // M33-WU01: these tests characterize (do not fix) the CLI result/stream
 // contradictions inventoried in
@@ -17,13 +17,9 @@ import { runStatus } from "../../src/cli/commands/status.command.js";
 // than a global one.
 vi.setConfig({ testTimeout: HEAVY_SPAWNING_TEST_TIMEOUT_MS });
 
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = join(here, "..", "..");
-const tsxCli = join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs");
-const entry = join(repoRoot, "src", "index.ts");
 
 function runCli(args: string[], cwd: string) {
-  return spawnSync(process.execPath, [tsxCli, entry, ...args], { cwd, encoding: "utf8" });
+  return spawnSync(process.execPath, [BUILT_CLI_ENTRY, ...args], { cwd, encoding: "utf8" });
 }
 
 /**

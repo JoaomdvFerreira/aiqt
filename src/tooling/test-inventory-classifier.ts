@@ -44,12 +44,19 @@ function hasCliSpawn(text: string): boolean {
     /spawnSync\(\s*process\.execPath/.test(text) ||
     /tsxCli/.test(text) ||
     /dist[\\/]index\.js/.test(text) ||
+    /\bBUILT_CLI_ENTRY\b/.test(text) ||
     /\brunAutonomousCommand\(/.test(text) ||
     /\bexecuteAutonomousRun\(/.test(text)
   );
 }
 function hasBuiltBinary(text: string): boolean {
-  return /dist[\\/]index\.js/.test(text);
+  // IH-04: the real-CLI integration spine now spawns the built artifact via
+  // tests/cli-runner.ts's BUILT_CLI_ENTRY rather than each file writing the
+  // `dist/index.js` path literal itself. Both spellings mean the same
+  // thing -- this file spawns the shipped binary -- so both classify as
+  // built-binary usage, exactly as the earlier `tsxCli`/`initGitFixtureRepo`
+  // shared-helper indirections were folded into the detectors above.
+  return /dist[\\/]index\.js/.test(text) || /\bBUILT_CLI_ENTRY\b/.test(text);
 }
 function usesTempDir(text: string): boolean {
   return /makeTempDir|copyFixture|contextFor/.test(text);

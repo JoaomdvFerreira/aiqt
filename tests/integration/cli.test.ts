@@ -5,6 +5,7 @@ import { writeFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeTempDir, removeDir } from "../helpers.js";
+import { BUILT_CLI_ENTRY } from "../cli-runner.js";
 
 // M34-WU02: this file spawns real subprocesses (CLI and/or git); see
 // docs/engineering/m34-validation-workload-policy.md Sec 6.1 for the
@@ -14,11 +15,9 @@ vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");
-const tsxCli = join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs");
-const entry = join(repoRoot, "src", "index.ts");
 
 function runCli(args: string[], cwd: string) {
-  return spawnSync(process.execPath, [tsxCli, entry, ...args], {
+  return spawnSync(process.execPath, [BUILT_CLI_ENTRY, ...args], {
     cwd,
     encoding: "utf8",
   });
@@ -149,7 +148,7 @@ describe("aiqt CLI entrypoint", () => {
     dir = makeTempDir();
     expect(runCli(["init"], dir).status).toBe(0);
     const payload = JSON.stringify({ project: { objective: "Ship it", targetUsers: ["devs"] } });
-    const res = spawnSync(process.execPath, [tsxCli, entry, "import", "update", "--stdin", "--json"], {
+    const res = spawnSync(process.execPath, [BUILT_CLI_ENTRY, "import", "update", "--stdin", "--json"], {
       cwd: dir,
       encoding: "utf8",
       input: payload,
@@ -163,7 +162,7 @@ describe("aiqt CLI entrypoint", () => {
   it("M8: aiqt import update --stdin exits 3 without hanging when stdin is empty", () => {
     dir = makeTempDir();
     expect(runCli(["init"], dir).status).toBe(0);
-    const res = spawnSync(process.execPath, [tsxCli, entry, "import", "update", "--stdin", "--json"], {
+    const res = spawnSync(process.execPath, [BUILT_CLI_ENTRY, "import", "update", "--stdin", "--json"], {
       cwd: dir,
       encoding: "utf8",
       input: "",

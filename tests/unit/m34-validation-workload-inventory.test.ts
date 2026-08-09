@@ -362,7 +362,14 @@ describe("M34-WU02: every known-spawning file now has a class-scoped timeout ove
     const allFiles = walkTestFiles(testsDir);
     const offenders: string[] = [];
     for (const f of allFiles) {
-      const text = readFileSync(f, "utf8");
+      // IH-04: line endings are normalized before matching. This pattern
+      // previously spelled the separator as a bare `,\n`, which cannot match
+      // a CRLF working tree (`core.autocrlf=true`, i.e. every Windows
+      // checkout) -- so the guard silently missed
+      // tests/integration/cli.test.ts and failed locally on unmodified main
+      // while passing on CI's Linux/LF checkout. Same assertion, same
+      // recorded baseline; it now holds on both line endings.
+      const text = readFileSync(f, "utf8").split("\r\n").join("\n");
       const matches = [...text.matchAll(/\n\s*(\d{4,7}),\n\s*\);/g)];
       if (matches.length > 0) offenders.push(relPath(f));
     }

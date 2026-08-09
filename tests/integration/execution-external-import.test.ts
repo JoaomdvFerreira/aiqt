@@ -2,9 +2,9 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { spawnSync, execFileSync } from "node:child_process";
 import { writeFileSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { makeTempDir, removeDir, initGitFixtureRepo } from "../helpers.js";
+import { BUILT_CLI_ENTRY } from "../cli-runner.js";
 
 // Every test here drives the real CLI through 2-4 tsx subprocess spawns
 // (each paying Node startup + on-the-fly TS transpile with no build cache)
@@ -16,13 +16,9 @@ import { makeTempDir, removeDir, initGitFixtureRepo } from "../helpers.js";
 // docs/engineering/m30-correction-node22-integration-timeouts.md.
 vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = join(here, "..", "..");
-const tsxCli = join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs");
-const entry = join(repoRoot, "src", "index.ts");
 
 function runCli(args: string[], cwd: string) {
-  return spawnSync(process.execPath, [tsxCli, entry, ...args], { cwd, encoding: "utf8" });
+  return spawnSync(process.execPath, [BUILT_CLI_ENTRY, ...args], { cwd, encoding: "utf8" });
 }
 
 const T1 = "2026-01-01T00:00:00.000Z";
