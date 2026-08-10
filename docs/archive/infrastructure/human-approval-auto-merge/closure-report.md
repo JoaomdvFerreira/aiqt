@@ -189,7 +189,54 @@ This PR requires a manual human merge — the workflow it adds cannot
 automate its own landing. After merge, the next suitable PR (or a tiny
 docs-only smoke PR if none is available) exercises the live path.
 
+## Activation verification
+
+- Bootstrap PR #19 merged manually (not through the automation it
+  introduced, which did not yet exist on `main`).
+- Merge commit: `7604c689648770cd88e964312638e6b461ecafcf`.
+- Post-merge `main` `Validate` succeeded.
+- `.github/workflows/human-approval-merge.yml` became the trusted,
+  `pull_request_target`-resolved copy authoritative for every
+  subsequently-opened PR.
+- The first live `approved-for-merge` automatic-merge smoke test was the
+  `infra/human-approval-auto-merge-smoke` follow-up, PR #20.
+
+## Discontinuation (2026-08-10)
+
+PR #20's live smoke exercise did exactly what it was for: it correctly
+exposed a self-referential `mergeStateStatus` self-block. The
+`evaluate-and-merge` job's own in-flight check run made GitHub's
+aggregate `mergeStateStatus` report `UNSTABLE` at the moment the job
+evaluated its own gate, causing a correct, safe no-op rather than a
+merge — the workflow failed closed exactly as designed when its own
+precondition wasn't cleanly met, rather than merging incorrectly.
+
+The defect was fully diagnosed and a narrow fix was identified: drop the
+`mergeStateStatus` aggregate check and keep `mergeable == MERGEABLE` plus
+the already-explicit `Validate`-success check. That fix was **not
+applied**. The mechanism was deliberately discontinued instead: automating
+a single human merge click did not justify the ongoing GitHub Actions
+usage, the standing `contents: write` privileged write surface over the
+default branch, and the governance/maintenance complexity of a privileged
+`pull_request_target` workflow. No further implementation was pursued on
+this line of work.
+
+PR #20 was closed without merging. `.github/workflows/human-approval-merge.yml`
+was removed and the governance documents it touched
+(`docs/governance/versioning.md`, `docs/governance/repository-owner-map.json`,
+`docs/governance/maintainer-recovery.md`) were reconciled back to the
+manual-merge model as pre-milestone housekeeping folded into M46, per the
+plan recorded in PR #20's closing comment (avoiding a dedicated cleanup PR
+and its own Actions cycle). The target model going forward is:
+
+```
+Validate GREEN → human reviews current PR state → human performs manual merge
+```
+
 ## PR readiness
 
-Branch pushed, not merged. `approved-for-merge` not applied. No Release
-created. M46/M47/M48 not started.
+PR #19: merged (`7604c68`). PR #20: closed, not merged. No Release
+created from either. The auto-merge mechanism itself is discontinued;
+manual review/manual merge (restored by M46's housekeeping commit) is the
+sole mechanism going forward, with no plan to reintroduce automation for
+this step.
