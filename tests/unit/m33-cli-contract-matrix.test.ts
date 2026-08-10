@@ -79,7 +79,10 @@ describe("M33-WU05: CLI contract matrix -- every actionable command exposes --js
 // (+2 for `aiqt release history`/`release reconstruct`), 97 as of M45-WU02
 // (+9 for the `aiqt maintenance` family: schedule add/list/inspect/update/
 // enable/disable/remove, status, history), 99 as of M45-WU03 (+2 for
-// `run-due`/`cancel`) -- distinct from the *.command.ts file count (some
-// files export multiple registered commands, e.g. workspace.command.ts
-// covers prepare/status/release/recover).
-const EXPECTED_COMMAND_COUNT = 112; // M47: +6 (pr prepare/inspect/push/create/status/validate)
+// `run-due`/`cancel`), 112 as of M47 (M46 portfolio + M47 `aiqt pr`
+// prepare/inspect/push/create/status/validate), 117 as of M48-WU05 (+5 for
+// the `aiqt review night` family: run/submit/status/cancel/coverage) --
+// distinct from the *.command.ts file count (some files export multiple
+// registered commands, e.g. workspace.command.ts covers
+// prepare/status/release/recover).
+const EXPECTED_COMMAND_COUNT = 117;

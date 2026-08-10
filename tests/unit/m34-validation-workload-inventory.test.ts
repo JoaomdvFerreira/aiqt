@@ -226,6 +226,10 @@ const KNOWN_SPAWNING_FILES = [
   // M45-WU05 (+1): the closing dogfood suite also uses initGitFixtureRepo
   // for its structural-review scenarios.
   "tests/integration/maintenance-dogfood.test.ts",
+  // M48-WU05 (+1): the Night Audit run/submit/status/cancel/coverage suite
+  // uses initGitFixtureRepo (structural-review call-through and real
+  // git diff --numstat evidence both need a real commit).
+  "tests/integration/night-audit-run.test.ts",
 ].sort();
 
 /**

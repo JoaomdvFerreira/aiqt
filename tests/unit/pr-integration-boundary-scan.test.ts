@@ -109,8 +109,13 @@ describe("M47-WU01: the state boundary is a separate, non-repository-local store
   });
 
   it("M47 does not change the canonical project-state schema version", () => {
+    // This asserts M47 introduced no schema drift, not that no LATER
+    // milestone may legitimately bump AIQT_SCHEMA_VERSION for its own
+    // reasons -- the literal here tracks the live value and is updated
+    // deliberately whenever a later milestone does so (M48: 0.7.0 -> 0.8.0
+    // for its own additive StateModel sections, unrelated to M47's files).
     const text = readFileSync(join(repoRoot, "src", "core", "constants", "schema-version.ts"), "utf8");
-    expect(text).toMatch(/AIQT_SCHEMA_VERSION = "0\.7\.0"/);
+    expect(text).toMatch(/AIQT_SCHEMA_VERSION = "0\.8\.0"/);
   });
 
   it("package.json declares no new runtime dependency for M47-WU01 (still exactly @inquirer/prompts, commander, zod)", () => {

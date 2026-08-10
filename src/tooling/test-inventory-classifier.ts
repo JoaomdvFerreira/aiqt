@@ -172,6 +172,13 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   // /dogfood/ rule so pr-live-dogfood.test.ts classifies with the rest of
   // the domain it actually guards rather than as generic self-consistency.
   { pattern: /^pr-|^git-command-runner-pr-/, domain: "pull-request-integration", criticality: "Critical" },
+  // M48: bounded overnight project review and GitHub Issue generation --
+  // the repository's second remote-write authority (Issue creation only,
+  // no PR/merge/deploy). Critical for the same reason
+  // pull-request-integration is: these files prove the external-mutation
+  // idempotency/dedup boundary (lookup-before-create, backlog suppression)
+  // holds.
+  { pattern: /^night-audit-/, domain: "night-audit-review", criticality: "Critical" },
   { pattern: /dogfood/, domain: "self-consistency", criticality: "Normal" },
 ];
 
