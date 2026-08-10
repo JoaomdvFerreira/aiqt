@@ -173,7 +173,7 @@ aiqt pr status <integration-id>  # reconcile, read-only
 🔎  —   M47 Execution-Efficiency Postmortem (analytical process input, not a numbered milestone)
 ▶  M48  Night Project Review & Issue Generation — bounded overnight review, evidence-backed GitHub Issues, no code fixes/PRs/merges
 ○  M49  Cost-Aware Execution Profiles & Escalation — stable milestone-level execution baseline, bounded escalation for genuinely hard reasoning
-○  M50  Autonomous Remediation Sessions — bounded remediation over governed issues/evidence, separate from M48's read-only review
+○   —   Human-directed issue-to-remediation workflow — uncommitted future candidate, pending real M48 usage; autonomous remediation remains deferred until real usage demonstrates a need
 ```
 
 ## Documentation

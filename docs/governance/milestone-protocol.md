@@ -263,7 +263,7 @@ tool-specific prompt template can map it to whatever is actually available.
   A Claude Code (or other tool-specific) prompt template maps these to an
   actual available model/effort setting; the mapping is advisory
   configuration, never a canonical governance concept (see Product
-  Specification §15, Provider Neutrality).
+  Specification §20, Provider Neutrality).
 - **Escalation triggers are narrow and pre-named**, not discovered mid-run.
   Valid triggers name a *reasoning* difficulty, not a risk score by itself:
 
