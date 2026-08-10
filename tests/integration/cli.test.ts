@@ -456,6 +456,7 @@ describe("aiqt CLI entrypoint", () => {
         "maintenance",
         "release",
         "validation",
+        "portfolio",
       ].sort(),
     );
     // A hypothetical M14 command surface (e.g. "design") must not appear.

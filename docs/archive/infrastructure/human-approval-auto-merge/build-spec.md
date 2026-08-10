@@ -2,8 +2,14 @@
 
 **Work type:** Development-process automation (not a product milestone)
 **Branch:** `infra/human-approval-auto-merge`
-**Status:** implemented, PR-ready; bootstrap merge is manual (see
-"Bootstrap limitation" in the closure report)
+**Status:** DISCONTINUED (2026-08-10, M46 pre-milestone housekeeping). The
+mechanism this spec describes was bootstrapped (PR #19) and then
+deliberately removed after its live smoke exercise (PR #20) surfaced a
+self-referential `mergeStateStatus` defect. See
+`docs/archive/infrastructure/human-approval-auto-merge/closure-report.md`'s
+"Discontinuation" section for the full outcome and reasoning. Retained
+here as historical evidence only -- do not treat this spec as describing
+live behavior.
 
 ## Background
 

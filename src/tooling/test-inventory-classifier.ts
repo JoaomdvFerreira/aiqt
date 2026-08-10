@@ -160,6 +160,10 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   { pattern: /^maintenance-/, domain: "maintenance-scheduling", criticality: "Critical" },
   // M43: bounded structural review and its M42 defect-intake integration.
   { pattern: /^structural-|^m43-|^review-structural/, domain: "structural-review", criticality: "High-value" },
+  // M46: multi-repository portfolio registry/snapshot/governance -- reads
+  // existing member evidence (defects, maintenance schedules, canonical
+  // state) without owning any of those domains itself.
+  { pattern: /^portfolio-/, domain: "portfolio-governance", criticality: "High-value" },
   { pattern: /dogfood/, domain: "self-consistency", criticality: "Normal" },
 ];
 

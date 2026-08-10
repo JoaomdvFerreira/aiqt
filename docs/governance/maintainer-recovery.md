@@ -153,15 +153,10 @@ sequence:
 6. run `pnpm pr:ready` and confirm it passes; push the milestone branch and
    its tag explicitly (never `git push --tags`); open a Pull Request to
    `main`;
-7. once `Validate` is already green on that exact HEAD, the human
-   maintainer reviews it and applies `approved-for-merge`;
-   `.github/workflows/human-approval-merge.yml` re-verifies every gate
-   live and merges automatically with a merge commit (never squash/rebase,
-   to preserve WU commit/tag provenance) using an exact-HEAD-SHA
-   precondition; applying the label before Validate is green does not
-   queue a merge and is cleared as invalid; a Red-risk (`75`-`100`) PR is
-   never eligible through this automation and requires a direct manual
-   merge instead;
+7. once `Validate` is green on that HEAD, the human maintainer reviews the
+   PR and merges manually, using a merge commit (never squash/rebase, to
+   preserve WU commit/tag provenance) -- there is no automated merge
+   mechanism or machine-readable approval label;
 8. verify the real post-merge CI run via `gh run view` -- do not consider
    the milestone closed on local validation alone.
 

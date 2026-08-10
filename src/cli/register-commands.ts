@@ -83,6 +83,13 @@ import {
   type RawMaintenanceScheduleUpdateOptions,
   type RawMaintenanceStatusOptions,
   type RawMaintenanceHistoryOptions,
+  type RawPortfolioCreateOptions,
+  type RawPortfolioListOptions,
+  type RawPortfolioInspectOptions,
+  type RawPortfolioAddOptions,
+  type RawPortfolioRemoveOptions,
+  type RawPortfolioStatusOptions,
+  type RawPortfolioCheckOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -198,6 +205,15 @@ import { runReleaseHistory } from "./commands/release-history.command.js";
 import { runReleaseReconstruct } from "./commands/release-reconstruct.command.js";
 import { runValidationSelect } from "./commands/validation-select.command.js";
 import { runValidationExplain } from "./commands/validation-explain.command.js";
+import {
+  runPortfolioCreate,
+  runPortfolioList,
+  runPortfolioInspect,
+  runPortfolioAdd,
+  runPortfolioRemove,
+  runPortfolioStatus,
+  runPortfolioCheck,
+} from "./commands/portfolio.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman, renderResultFooter } from "../core/output/human-output.js";
@@ -2130,6 +2146,88 @@ export function buildProgram(): Command {
         }
       }
 
+      emit(result, ctx.json);
+    });
+
+  // ---------------------------------------------------------------------
+  // M46-WU02: aiqt portfolio ... (multi-repository portfolio registry).
+  // Local-first, explicit registration only -- no filesystem crawling, no
+  // remote discovery. Portfolio persistence is user-home-scoped, not tied
+  // to the current working directory's own `.aiqt/` project.
+  // ---------------------------------------------------------------------
+  const portfolioCommand = program
+    .command("portfolio")
+    .description("Register and inspect multiple explicitly-registered AIQT-managed repositories (M46) -- aggregates existing evidence, never a second source of truth");
+
+  portfolioCommand
+    .command("create")
+    .description("Create a new local portfolio manifest")
+    .option("--json", "emit machine-readable JSON output", false)
+    .requiredOption("--name <name>", "portfolio name")
+    .action((raw: RawPortfolioCreateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runPortfolioCreate(ctx, raw.name);
+      emit(result, ctx.json);
+    });
+
+  portfolioCommand
+    .command("list")
+    .description("Read-only listing of all known portfolios")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((raw: RawPortfolioListOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runPortfolioList(ctx);
+      emit(result, ctx.json);
+    });
+
+  portfolioCommand
+    .command("inspect <portfolio>")
+    .description("Read-only registry metadata and explicit member references for one portfolio")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((portfolio: string, raw: RawPortfolioInspectOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runPortfolioInspect(ctx, portfolio);
+      emit(result, ctx.json);
+    });
+
+  portfolioCommand
+    .command("add <portfolio> <repo>")
+    .description("Explicitly register an AIQT-managed repository as a portfolio member (fails closed if <repo> has no .aiqt/project.json)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--alias <alias>", "human-readable alias for this member")
+    .action((portfolio: string, repo: string, raw: RawPortfolioAddOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runPortfolioAdd(ctx, portfolio, repo, { alias: raw.alias });
+      emit(result, ctx.json);
+    });
+
+  portfolioCommand
+    .command("remove <portfolio> <member>")
+    .description("Remove a member from a portfolio -- portfolio membership only, never mutates the member repository")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((portfolio: string, member: string, raw: RawPortfolioRemoveOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runPortfolioRemove(ctx, portfolio, member);
+      emit(result, ctx.json);
+    });
+
+  portfolioCommand
+    .command("status <portfolio>")
+    .description("Load member state and return a compact deterministic portfolio snapshot -- never mutates a member repository")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((portfolio: string, raw: RawPortfolioStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runPortfolioStatus(ctx, portfolio);
+      emit(result, ctx.json);
+    });
+
+  portfolioCommand
+    .command("check <portfolio>")
+    .description("Aggregate defect/maintenance/blocker/human-input attention signals across a portfolio -- read-only, never creates remediation authority")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((portfolio: string, raw: RawPortfolioCheckOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runPortfolioCheck(ctx, portfolio);
       emit(result, ctx.json);
     });
 
