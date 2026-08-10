@@ -1,4 +1,4 @@
-# Claude Code Milestone Prompt Template v0.3
+# Claude Code Milestone Prompt Template v0.4
 
 Reusable prompt skeleton for future AIQT milestones under
 [milestone-protocol.md](milestone-protocol.md). Fill the bracketed fields;
@@ -34,6 +34,27 @@ tree, no stray `.aiqt/` state) directly against live Git/GitHub state
 before writing code -- per milestone-protocol.md, not a bespoke "Gate"
 contract. Owners are read from repository-owner-map.json and verified
 against current source, not assumed from the map.
+
+For a `high_risk` milestone, the build spec states, so far as planning can
+resolve them (milestone-protocol.md §1 "High-risk planning fields"):
+existing owners; resolved decisions; mutation boundaries; persistence/
+schema decision; failure/idempotency semantics; validation matrix
+(the threat-model table); unresolved decisions named explicitly; baseline
+execution profile; escalation triggers. Do not re-derive a decision the
+build spec already resolved by rereading the repository during
+implementation.
+
+Execution profile: <baselineCapability>/<baselineEffort> per
+milestone-protocol.md §12, mapped from the build spec's provider-neutral
+profile to this session's actual model/effort setting. Hold this profile
+for the whole milestone; do not switch model/effort per Work Unit. Escalate
+within the same session, for a bounded portion of a Work Unit, only for a
+build-spec-named trigger (an unresolved architecture/ownership decision,
+ambiguous irreversible-mutation semantics, an unresolved security boundary,
+idempotency/partial-side-effect ambiguity, conflicting canonical owners, or
+a repeated failed implementation approach) -- never merely because a Work
+Unit's implementation risk is `>= 50` (that already stops for human review
+in its own right, per §1/§11, independent of execution profile).
 
 Execute the milestone's defined Work Units automatically, in order,
 without pausing for approval. For each Work Unit: implement only its
