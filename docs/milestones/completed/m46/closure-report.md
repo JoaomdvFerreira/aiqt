@@ -41,7 +41,7 @@ two-most-recent-completed-milestones window (`milestone-protocol.md` Sec
 | WU46-02 | `cfc0919` | `wu46-02-portfolio-cli` | `aiqt portfolio create/list/inspect/add/remove`, fail-closed non-AIQT registration policy |
 | WU46-03 | `af8bb33` | `wu46-03-portfolio-snapshot-status` | `aiqt portfolio status`, `PortfolioSnapshot`, typed member classification reusing existing canonical readers |
 | WU46-04 | `12a770a` | `wu46-04-portfolio-governance-check` | `aiqt portfolio check`, governance aggregation over existing M42 defect / M45 maintenance-schedule evidence |
-| WU46-05 | `b850796`, `ecb7320` | (this closure) | Version bump, full-suite reconciliation, dogfood scenarios, closure docs |
+| WU46-05 | `b850796`, `ecb7320`, `b6d58e0`, plus one post-audit reconciliation commit | (this closure) | Version bump, full-suite reconciliation, dogfood scenarios, closure docs, and a closure-audit correction adding open `DecisionEscalation` aggregation to `check` |
 
 ## What changed
 
@@ -58,6 +58,11 @@ two-most-recent-completed-milestones window (`milestone-protocol.md` Sec
   bounded read/classification path both `status` and `check` build on;
   `check` reuses M45's own `selectDueSchedule()` pure function for
   maintenance-due detection rather than a second due-decision algorithm.
+  A closure-audit finding added a second human-input signal to `check`:
+  M22's `DecisionEscalation` records with status `open`, read via the
+  existing `getDecisionEscalations()` accessor (`state.evidence.decisionEscalations`)
+  — no new or duplicated contract, no member mutation, no new
+  remediation authority. `resolved`/`withdrawn` escalations never count.
 - **Test-suite reconciliation:** the repository's own cross-cutting guard
   tests (`cli.test.ts`'s exact top-level command snapshot,
   `m33-cli-contract-matrix.test.ts`'s command count, and
@@ -67,7 +72,7 @@ two-most-recent-completed-milestones window (`milestone-protocol.md` Sec
 
 ## Tests
 
-70 portfolio-specific tests across 10 files
+77 portfolio-specific tests across 10 files
 (`tests/unit/portfolio-{schema,home,store,service,snapshot,governance}.test.ts`,
 `tests/integration/portfolio-{registry,status,check}-cli.test.ts`,
 `tests/integration/portfolio-dogfood.test.ts`), covering:
@@ -82,9 +87,11 @@ two-most-recent-completed-milestones window (`milestone-protocol.md` Sec
 - member status classification (`healthy`/`blocked`/`unavailable`/
   `invalid_state`/`not_aiqt_managed`) and deterministic summary
   aggregation;
-- governance aggregation (open/needs-human defect counts, maintenance-due
-  detection, blocked-status carry-through) and the exit-10 `needs_input`
-  contract;
+- governance aggregation (open/needs-human defect counts, open decision
+  escalation counts, maintenance-due detection, blocked-status
+  carry-through) and the exit-10 `needs_input` contract, including
+  resolved/withdrawn escalations correctly excluded and mixed
+  defect+escalation signals aggregating without double-counting;
 - all 18 build-spec Sec 8 dogfood scenarios (empty/single/multiple
   members, duplicate add, missing/moved repo, invalid member state
   alongside a healthy one, mixed blocked+healthy, `needs_input` member,
@@ -113,6 +120,20 @@ two-most-recent-completed-milestones window (`milestone-protocol.md` Sec
 - Manual end-to-end smoke: `tsx src/index.ts portfolio create/list --json`
   against a disposable `AIQT_PORTFOLIO_HOME`.
 
+**Post-closure-audit reconciliation.** A read-only closure audit (before
+human approval) found that `check` ignored M22's `DecisionEscalation`
+contract's `open` status — a durable canonical human-input signal
+distinct from M42's defect `needs_human` status. The correction (see
+"What changed" above) was validated with `tsc --noEmit`, `eslint`, and the
+full focused/impacted portfolio suite (`tests/unit/portfolio-*.test.ts`,
+`tests/integration/portfolio-*.test.ts`, 10 files / 77 tests, all green)
+— the full local `pnpm test` suite was deliberately not re-run for this
+narrow, additive change, per the instruction not to chase the known
+structural-review load-flake by re-running until lucky. `pnpm typecheck`/
+`pnpm lint`/`pnpm build` were re-run and pass; no package/schema version
+was changed. GitHub's `Validate` ran once, authoritatively, on the
+resulting PR HEAD.
+
 ## Known limitations
 
 - Member status classification does not attempt to derive `needs_input`
@@ -120,10 +141,15 @@ two-most-recent-completed-milestones window (`milestone-protocol.md` Sec
   `aiqt review`/`aiqt manage` do — `status`'s classification vocabulary is
   intentionally the narrower `healthy`/`blocked`/`unavailable`/
   `invalid_state`/`not_aiqt_managed` set from bounded reads; `check` is
-  where human-input signals (currently: open `needs_human` defects) are
-  aggregated. A future milestone could widen the signal set `check`
-  reads (e.g. open review findings, evidence-gate advisories) without
-  changing the portfolio manifest or its ownership model.
+  where human-input signals are aggregated. As of the WU46-05 closure
+  reconciliation below, `check` aggregates two durable canonical
+  human-input signals: M42 defects with status `needs_human`, and M22
+  `DecisionEscalation` records with status `open` (`state.evidence.decisionEscalations`,
+  read via the existing `getDecisionEscalations()` accessor — no
+  duplicated/redefined contract). A future milestone could widen the
+  signal set further (e.g. open review findings, evidence-gate
+  advisories) without changing the portfolio manifest or its ownership
+  model.
 - `check`'s maintenance-due detection reports whether a schedule is
   currently due; it does not report *how* overdue, since that requires no
   new computation beyond what `selectDueSchedule()` already returns and

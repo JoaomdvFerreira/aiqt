@@ -262,7 +262,7 @@ export function runPortfolioCheck(_ctx: CommandContext, portfolioId: string): Co
   const summaryText =
     summary.totalMembers === 0
       ? `Portfolio "${portfolioId}" has no registered members.`
-      : `Portfolio "${portfolioId}": ${summary.membersNeedingAttention}/${summary.totalMembers} member(s) need attention (${summary.membersNeedingHumanInput} need human input, ${summary.totalOpenDefects} open defect(s), ${summary.membersWithMaintenanceDue} with maintenance due).`;
+      : `Portfolio "${portfolioId}": ${summary.membersNeedingAttention}/${summary.totalMembers} member(s) need attention (${summary.membersNeedingHumanInput} need human input, ${summary.totalOpenDefects} open defect(s), ${summary.totalOpenDecisionEscalations} open decision escalation(s), ${summary.membersWithMaintenanceDue} with maintenance due).`;
 
   return makeResult({
     status: needsHumanInput ? "needs_input" : needsAttention ? "warning" : "passed",

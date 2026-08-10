@@ -53,6 +53,23 @@ function buildDefect(defectId: string, status: string) {
   };
 }
 
+function buildEscalation(escalationId: string, status: "open" | "resolved" | "withdrawn") {
+  return {
+    escalationId,
+    escalationKey: `key-${escalationId}`,
+    category: "product",
+    status,
+    question: "Sample escalation question?",
+    rationale: "Sample escalation rationale.",
+    relatedWorkUnitIds: [],
+    relatedMilestoneIds: [],
+    evidenceIds: [],
+    resolution: status === "open" ? null : { answer: "Decided.", resolvedAt: NOW, resolvedBy: "human" },
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+}
+
 function readState(root: string) {
   return JSON.parse(readFileSync(join(root, ".aiqt", "state.json"), "utf8"));
 }
@@ -156,5 +173,102 @@ describe("buildPortfolioGovernanceReport (M46-WU04, build spec Sec 6)", () => {
     expect(report.summary.membersWithMaintenanceDue).toBe(1);
     // No execution side effect: the member's own state file is never rewritten by this read-only check.
     expect(readState(root).maintenanceActiveOccurrence).toBeUndefined();
+  });
+
+  describe("open decision escalations (WU46-05 closure reconciliation: M22 durable human-input signal)", () => {
+    it("a member with no needs_human defects but one open decision escalation is surfaced as requiring human input", () => {
+      const root = tempDir();
+      runInit(contextFor(root), normalizeInitOptions({}));
+      const state = readState(root);
+      state.evidence = { records: [], decisionEscalations: [buildEscalation("ESC-001", "open")] };
+      writeState(root, state);
+
+      const report = buildPortfolioGovernanceReport(manifest([member({ root })]), NOW);
+      const m = report.members[0];
+      expect(m.needsHumanDefectCount).toBe(0);
+      expect(m.openDecisionEscalationCount).toBe(1);
+      expect(m.requiresHumanInput).toBe(true);
+      expect(m.requiresAttention).toBe(true);
+      expect(report.summary.membersNeedingHumanInput).toBe(1);
+      expect(report.summary.totalOpenDecisionEscalations).toBe(1);
+    });
+
+    it("a resolved decision escalation does not count as an active human-input requirement", () => {
+      const root = tempDir();
+      runInit(contextFor(root), normalizeInitOptions({}));
+      const state = readState(root);
+      state.evidence = { records: [], decisionEscalations: [buildEscalation("ESC-001", "resolved")] };
+      writeState(root, state);
+
+      const report = buildPortfolioGovernanceReport(manifest([member({ root })]), NOW);
+      const m = report.members[0];
+      expect(m.openDecisionEscalationCount).toBe(0);
+      expect(m.requiresHumanInput).toBe(false);
+      expect(m.requiresAttention).toBe(false);
+      expect(report.summary.totalOpenDecisionEscalations).toBe(0);
+    });
+
+    it("a withdrawn decision escalation does not count as an active human-input requirement", () => {
+      const root = tempDir();
+      runInit(contextFor(root), normalizeInitOptions({}));
+      const state = readState(root);
+      state.evidence = { records: [], decisionEscalations: [buildEscalation("ESC-001", "withdrawn")] };
+      writeState(root, state);
+
+      const report = buildPortfolioGovernanceReport(manifest([member({ root })]), NOW);
+      const m = report.members[0];
+      expect(m.openDecisionEscalationCount).toBe(0);
+      expect(m.requiresHumanInput).toBe(false);
+      expect(report.summary.totalOpenDecisionEscalations).toBe(0);
+    });
+
+    it("an open defect's needs_human status and an open decision escalation aggregate together without double-counting each other", () => {
+      const root = tempDir();
+      runInit(contextFor(root), normalizeInitOptions({}));
+      const state = readState(root);
+      state.defects = [buildDefect("DEF-001", "needs_human"), buildDefect("DEF-002", "queued")];
+      state.evidence = { records: [], decisionEscalations: [buildEscalation("ESC-001", "open"), buildEscalation("ESC-002", "resolved")] };
+      writeState(root, state);
+
+      const report = buildPortfolioGovernanceReport(manifest([member({ root })]), NOW);
+      const m = report.members[0];
+      expect(m.needsHumanDefectCount).toBe(1);
+      expect(m.openDefectCount).toBe(2);
+      expect(m.openDecisionEscalationCount).toBe(1);
+      expect(m.requiresHumanInput).toBe(true);
+      expect(m.blockingIssues).toHaveLength(2); // one for the needs_human defect, one for the open escalation -- distinct, not merged or duplicated
+      expect(report.summary.totalNeedsHumanDefects).toBe(1);
+      expect(report.summary.totalOpenDecisionEscalations).toBe(1);
+      expect(report.summary.membersNeedingHumanInput).toBe(1); // still one member, not double-counted
+    });
+
+    it("aggregate output (including open decision escalations) is deterministic across repeated builds of the same manifest/state", () => {
+      const rootA = tempDir();
+      const rootB = tempDir();
+      runInit(contextFor(rootA), normalizeInitOptions({}));
+      runInit(contextFor(rootB), normalizeInitOptions({}));
+      const stateA = readState(rootA);
+      stateA.evidence = { records: [], decisionEscalations: [buildEscalation("ESC-001", "open")] };
+      writeState(rootA, stateA);
+      const stateB = readState(rootB);
+      stateB.defects = [buildDefect("DEF-001", "needs_human")];
+      writeState(rootB, stateB);
+
+      const m = manifest([member({ id: "M-001", root: rootA }), member({ id: "M-002", root: rootB })]);
+      const first = buildPortfolioGovernanceReport(m, NOW);
+      const second = buildPortfolioGovernanceReport(m, NOW);
+
+      expect(first).toEqual(second);
+      expect(first.members.map((x) => x.memberId)).toEqual(["M-001", "M-002"]);
+      expect(first.summary).toEqual({
+        totalMembers: 2,
+        membersNeedingAttention: 2,
+        membersNeedingHumanInput: 2,
+        totalOpenDefects: 1,
+        totalNeedsHumanDefects: 1,
+        totalOpenDecisionEscalations: 1,
+        membersWithMaintenanceDue: 0,
+      });
+    });
   });
 });

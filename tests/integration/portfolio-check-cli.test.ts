@@ -31,6 +31,22 @@ function buildDefect(defectId: string, status: string) {
     updatedAt: NOW,
   };
 }
+function buildEscalation(escalationId: string, status: "open" | "resolved" | "withdrawn") {
+  return {
+    escalationId,
+    escalationKey: `key-${escalationId}`,
+    category: "product",
+    status,
+    question: "Sample escalation question?",
+    rationale: "Sample escalation rationale.",
+    relatedWorkUnitIds: [],
+    relatedMilestoneIds: [],
+    evidenceIds: [],
+    resolution: status === "open" ? null : { answer: "Decided.", resolvedAt: NOW, resolvedBy: "human" },
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+}
 
 /** M46-WU04: `aiqt portfolio check` CLI, mirroring the status CLI test's disposable-fixture pattern. */
 describe("aiqt portfolio check CLI", () => {
@@ -103,5 +119,37 @@ describe("aiqt portfolio check CLI", () => {
     expect(check.exitCode).toBe(10);
     expect(check.status).toBe("needs_input");
     expect(check.requiresHumanInput).toBe(true);
+  });
+
+  it("reports needs_input status (exit 10) for a member with an open decision escalation and no needs_human defects (closure reconciliation)", () => {
+    runPortfolioCreate(anyCtx(), "Acme");
+    const memberRepo = freshDir("aiqt-member-escalation-");
+    runInit(contextFor(memberRepo), normalizeInitOptions({}));
+    const state = readState(memberRepo);
+    state.evidence = { records: [], decisionEscalations: [buildEscalation("ESC-001", "open")] };
+    writeState(memberRepo, state);
+    runPortfolioAdd(anyCtx(), "acme", memberRepo, {});
+
+    const check = runPortfolioCheck(anyCtx(), "acme");
+    expect(check.exitCode).toBe(10);
+    expect(check.status).toBe("needs_input");
+    expect(check.requiresHumanInput).toBe(true);
+    const report = (check.data as { report: PortfolioGovernanceReport }).report;
+    expect(report.summary.totalOpenDecisionEscalations).toBe(1);
+    expect(readState(memberRepo).evidence.decisionEscalations).toHaveLength(1); // untouched
+  });
+
+  it("does not treat a resolved decision escalation as an active human-input requirement", () => {
+    runPortfolioCreate(anyCtx(), "Acme");
+    const memberRepo = freshDir("aiqt-member-escalation-resolved-");
+    runInit(contextFor(memberRepo), normalizeInitOptions({}));
+    const state = readState(memberRepo);
+    state.evidence = { records: [], decisionEscalations: [buildEscalation("ESC-001", "resolved")] };
+    writeState(memberRepo, state);
+    runPortfolioAdd(anyCtx(), "acme", memberRepo, {});
+
+    const check = runPortfolioCheck(anyCtx(), "acme");
+    expect(check.exitCode).toBe(0);
+    expect(check.status).toBe("passed");
   });
 });
