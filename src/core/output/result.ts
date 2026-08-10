@@ -37,7 +37,8 @@ export type WorkflowAction =
   | "validation"
   | "defects"
   | "maintenance"
-  | "portfolio";
+  | "portfolio"
+  | "pr";
 
 export interface CommandResult<TData = unknown> {
   status: CommandStatus;

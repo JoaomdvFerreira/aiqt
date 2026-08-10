@@ -82,4 +82,4 @@ describe("M33-WU05: CLI contract matrix -- every actionable command exposes --js
 // `run-due`/`cancel`) -- distinct from the *.command.ts file count (some
 // files export multiple registered commands, e.g. workspace.command.ts
 // covers prepare/status/release/recover).
-const EXPECTED_COMMAND_COUNT = 106; // M46: +7 (portfolio create/list/inspect/add/remove/status/check)
+const EXPECTED_COMMAND_COUNT = 112; // M47: +6 (pr prepare/inspect/push/create/status/validate)

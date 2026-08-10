@@ -90,6 +90,12 @@ import {
   type RawPortfolioRemoveOptions,
   type RawPortfolioStatusOptions,
   type RawPortfolioCheckOptions,
+  type RawPrPrepareOptions,
+  type RawPrInspectOptions,
+  type RawPrPushOptions,
+  type RawPrCreateOptions,
+  type RawPrStatusOptions,
+  type RawPrValidateOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -214,6 +220,10 @@ import {
   runPortfolioStatus,
   runPortfolioCheck,
 } from "./commands/portfolio.command.js";
+import { runPrPrepare, runPrInspect } from "./commands/pr-prepare.command.js";
+import { runPrPush } from "./commands/pr-push.command.js";
+import { runPrCreate } from "./commands/pr-create.command.js";
+import { runPrStatus, runPrValidate } from "./commands/pr-status.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman, renderResultFooter } from "../core/output/human-output.js";
@@ -2228,6 +2238,111 @@ export function buildProgram(): Command {
     .action((portfolio: string, raw: RawPortfolioCheckOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runPortfolioCheck(ctx, portfolio);
+      emit(result, ctx.json);
+    });
+
+  // ---------------------------------------------------------------------
+  // M47: aiqt pr ... (controlled Pull Request integration). Every remote
+  // side effect is its own explicit subcommand -- nothing here ever runs
+  // as a consequence of another workflow completing, and no subcommand
+  // approves, merges, deploys, or publishes anything.
+  // ---------------------------------------------------------------------
+  const prCommand = program
+    .command("pr")
+    .description("Prepare, push, and open exactly one Pull Request for one AIQT-managed external repository (M47) -- never approves, merges, deploys, or releases");
+
+  prCommand
+    .command("prepare")
+    .description("Read-only: bind an exact repository/remote/base/source/SHA into an integration plan and run the full preflight (writes nothing to the target repository)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--repository <path>", "target repository root (defaults to the current directory)")
+    .option("--remote <name>", "remote name (defaults to origin)")
+    .requiredOption("--base <branch>", "base branch the Pull Request will target")
+    .option("--source <branch>", "source branch to push (defaults to the currently checked-out branch)")
+    .option("--title <title>", "Pull Request title (required unless --from-run is used)")
+    .option("--body-file <path>", "file containing the Pull Request body")
+    .option("--from-run <runId>", "reuse an M37 autonomous run's generated Pull Request draft as the title and body")
+    .option("--evidence-dir <path>", "directory holding autonomous run records (for --from-run)")
+    .option("--config-path <path>", "autonomous operator configuration file (for --from-run)")
+    .option("--reviewer <login>", "explicitly request one reviewer (repeatable)", (value: string, previous: string[] = []) => [...previous, value])
+    .option("--ready", "open a ready-for-review Pull Request instead of the default draft", false)
+    .option("--require-protected-base", "refuse to create unless the base branch is verifiably protected", false)
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token (defaults to GITHUB_TOKEN)")
+    .option("--portfolio <id>", "select the target repository from an M46 portfolio (requires --member)")
+    .option("--member <id>", "portfolio member id identifying exactly one repository")
+    .action(async (raw: RawPrPrepareOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runPrPrepare(ctx, {
+        repository: raw.repository,
+        remote: raw.remote,
+        base: raw.base,
+        source: raw.source,
+        title: raw.title,
+        bodyFile: raw.bodyFile,
+        fromRun: raw.fromRun,
+        evidenceDir: raw.evidenceDir,
+        configPath: raw.configPath,
+        reviewer: raw.reviewer,
+        ready: raw.ready,
+        requireProtectedBase: raw.requireProtectedBase,
+        tokenEnv: raw.tokenEnv,
+        portfolio: raw.portfolio,
+        member: raw.member,
+      });
+      emit(result, ctx.json);
+    });
+
+  prCommand
+    .command("inspect <integration-id>")
+    .description("Read-only: show a persisted integration plan, its recorded remote side effects, and what it is currently permitted to do")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((integrationId: string, raw: RawPrInspectOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runPrInspect(ctx, integrationId);
+      emit(result, ctx.json);
+    });
+
+  prCommand
+    .command("push <integration-id>")
+    .description("Push exactly the plan's bound commit to exactly its source branch -- non-force, single ref, verified by re-reading the remote afterwards")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token (defaults to GITHUB_TOKEN)")
+    .action(async (integrationId: string, raw: RawPrPushOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runPrPush(ctx, integrationId, { tokenEnv: raw.tokenEnv });
+      emit(result, ctx.json);
+    });
+
+  prCommand
+    .command("create <integration-id>")
+    .description("Create or reconcile exactly one Pull Request for the plan (draft unless the plan recorded explicit ready intent) and request its explicit reviewers -- never approves or merges")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token (defaults to GITHUB_TOKEN)")
+    .action(async (integrationId: string, raw: RawPrCreateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runPrCreate(ctx, integrationId, { tokenEnv: raw.tokenEnv });
+      emit(result, ctx.json);
+    });
+
+  prCommand
+    .command("status <integration-id>")
+    .description("Read-only: reconcile the plan against real remote state and report push/Pull-Request/reviewer outcomes -- never approves, merges, or publishes")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token (defaults to GITHUB_TOKEN)")
+    .action(async (integrationId: string, raw: RawPrStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runPrStatus(ctx, integrationId, { tokenEnv: raw.tokenEnv });
+      emit(result, ctx.json);
+    });
+
+  prCommand
+    .command("validate <integration-id>")
+    .description("Read-only: re-run every freshness, preflight, and policy gate and report whether push/create would be permitted -- writes nothing at all")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token (defaults to GITHUB_TOKEN)")
+    .action(async (integrationId: string, raw: RawPrValidateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runPrValidate(ctx, integrationId, { tokenEnv: raw.tokenEnv });
       emit(result, ctx.json);
     });
 

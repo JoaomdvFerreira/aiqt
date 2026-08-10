@@ -41,3 +41,22 @@ export const SPAWNING_SUITE_TEST_TIMEOUT_MS = 15000;
  * correction's 15000ms over a 6.2s worst case, ~2.4x).
  */
 export const HEAVY_SPAWNING_TEST_TIMEOUT_MS = 25000;
+
+/**
+ * M47-WU06: the live-remote class -- a suite whose every step is a real
+ * network round-trip to GitHub (`git push`/`ls-remote` over HTTPS plus
+ * REST calls), not a local subprocess. Only
+ * tests/integration/pr-live-dogfood.test.ts uses it, and only when an
+ * operator has explicitly nominated a disposable target repository.
+ *
+ * Sized from this milestone's own measurement rather than by guess: at
+ * SPAWNING_SUITE_TEST_TIMEOUT_MS (15000) six of eight dogfood scenarios
+ * timed out, while the file as a whole completed in ~110s -- each scenario
+ * performs roughly six to twelve sequential remote round-trips, so the
+ * per-test floor is tens of seconds and varies with real network latency
+ * in a way no local suite does. 120000ms gives several times the observed
+ * worst case, which is appropriate for a suite that never runs in CI and
+ * whose failure mode must be "the boundary was violated", never "the
+ * network was slow today".
+ */
+export const LIVE_REMOTE_SUITE_TEST_TIMEOUT_MS = 120000;

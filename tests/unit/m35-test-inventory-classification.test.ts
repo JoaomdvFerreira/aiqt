@@ -68,7 +68,7 @@ describe("M35-WU01: every test file receives a full classification", () => {
     ).toEqual([]);
   });
 
-  it("the confirmed post-M38-WU05 baseline has exactly three skipped/conditional files, deliberately", () => {
+  it("the confirmed post-M47-WU06 baseline has exactly four skipped/conditional files, deliberately", () => {
     // M38-WU02 (build spec: "Implement one real backend...") was the
     // first deliberate departure from the WU35-01 "zero skipped tests"
     // baseline: tests/integration/sandbox-docker-backend.test.ts's
@@ -86,13 +86,28 @@ describe("M35-WU01: every test file receives a full classification", () => {
     // when Docker is unavailable (never silently pass, never fail the
     // whole run) -- see docs/engineering/m35-test-suite-inventory.md
     // Sec 3 for the deliberate update recording this.
+    //
+    // M47-WU06 adds a fourth of exactly the same reviewed shape:
+    // tests/integration/pr-live-dogfood.test.ts performs a REAL `git
+    // push` and opens a REAL Pull Request against an operator-nominated
+    // DISPOSABLE GitHub repository. Its external dependency is not a
+    // local daemon but a live remote plus a credential, so it runs only
+    // when AIQT_PR_DOGFOOD_REPOSITORY and AIQT_PR_DOGFOOD_TOKEN are both
+    // set, and warns loudly (never silently passing) when they are not --
+    // this suite creates externally visible artifacts and must never run
+    // by accident on a developer machine or in ordinary CI.
     const skipped = rows.filter((r) => r.hasSkippedOrConditional);
     expect(
       skipped.map((r) => r.path).sort(),
       "A test file now uses it.skip/describe.skip/it.todo/skipIf beyond the three reviewed M38 " +
         "exceptions. If this is intentional, update docs/engineering/m35-test-suite-inventory.md Sec 3 " +
         "deliberately -- it must not drift silently.",
-    ).toEqual(["tests/integration/sandbox-docker-backend.test.ts", "tests/integration/sandbox-escape-testing.test.ts", "tests/integration/sandbox-live-execution.test.ts"]);
+    ).toEqual([
+      "tests/integration/pr-live-dogfood.test.ts",
+      "tests/integration/sandbox-docker-backend.test.ts",
+      "tests/integration/sandbox-escape-testing.test.ts",
+      "tests/integration/sandbox-live-execution.test.ts",
+    ]);
   });
 
   it("the confirmed post-M46-WU05 baseline's four platform-guarded files are unchanged", () => {
