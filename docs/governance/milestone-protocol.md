@@ -1,4 +1,4 @@
-# AIQT Lean Milestone Protocol v0.3
+# AIQT Lean Milestone Protocol v0.4
 
 Shared governance for future AIQT milestones. This document defines how a
 milestone is classified, scoped, validated, and reported. It is referenced
@@ -53,6 +53,45 @@ validation:
 
 A milestone is classified by its riskiest Work Unit, not its average. A
 milestone with one high-risk Work Unit and four small ones is `high_risk`.
+
+#### High-risk planning fields
+
+A `high_risk` build specification states the following before implementation
+starts, so far as they are actually resolvable at planning time. Each field
+is a fact or a decision the specification records, not a new document: it
+lives in the existing build spec, alongside the Work Unit table and threat
+model this class already requires.
+
+- **Existing owners** — the live-verified owner-map entries this milestone
+  reuses (see §3), confirmed against current source, not assumed from the
+  map alone.
+- **Resolved decisions** — architecture/ownership questions a planning pass
+  could answer by reading a schema or existing contract once (e.g. "does an
+  existing record safely own this milestone's new state, or does it need its
+  own"), recorded as a conclusion rather than left to be re-derived during a
+  Work Unit.
+- **Mutation boundaries** — the exact allowed write operation(s), stated as a
+  fixed shape (what is inexpressible, not only what is checked).
+- **Persistence/schema decision** — what is new canonical state, what is a
+  separate schema/version domain, and what must be re-suppliable verbatim
+  versus digested at resumption.
+- **Failure/idempotency semantics** — a state-retention/idempotency table:
+  which recorded outcomes are irreplaceable, which may be superseded, and
+  what an ambiguous or partial outcome resolves to.
+- **Validation matrix** — already covered by this class's threat-model table;
+  no separate artifact.
+- **Unresolved decisions** — questions planning could not resolve in
+  advance, named explicitly so the executing session knows it is making a
+  live call rather than missing one.
+- **Baseline execution profile** — this milestone's baseline
+  capability/effort per §12.
+- **Escalation triggers** — the specific, pre-named conditions under which
+  this milestone's baseline may escalate, per §12.
+
+A field that planning genuinely cannot resolve (because it depends on
+measurement, live external behavior, or a decision that can only be made
+once an earlier Work Unit's code exists) belongs under "Unresolved
+decisions," not left unstated.
 
 ### Milestone class vs implementation risk
 
@@ -190,3 +229,61 @@ future milestone, not a per-milestone decision to re-derive:
   that passed stays within §6's reporting limits; a failure, exception, or
   deviation gets the detail needed to be independently reviewable,
   regardless of the word-count guidance.
+
+## 12. Milestone execution profile
+
+Informed by the M47 Execution-Efficiency Postmortem: a milestone's actual
+reasoning-heavy work concentrates in a small number of specific decisions
+(new ownership/architecture calls, irreversible-mutation edge cases,
+external idempotency/partial-side-effect semantics), not evenly across every
+Work Unit. Execution-capability policy is provider-neutral: it names
+capability/effort semantics, never a specific vendor's model name, so a
+tool-specific prompt template can map it to whatever is actually available.
+
+- **One stable milestone-level baseline.** Prefer a single baseline
+  capability/effort profile for the whole milestone over switching
+  capability/effort per Work Unit by default. Frequent switching discards
+  retained session context at each boundary; M47's self-caught corrections
+  (a plan-blocking-scope error, a state-retention-rule error) were each
+  caught by a test written within the same Work Unit that introduced the
+  gap, which depends on that context surviving Work Unit boundaries.
+- **Bounded escalation, not routing.** Escalation to a stronger
+  capability/effort tier is an exception within the same continuous
+  session, not a per-Work-Unit routing decision. A build spec states its
+  baseline once and names, in advance, the specific triggers under which it
+  may escalate for a bounded portion of a Work Unit.
+- **Provider-neutral semantics.** State profiles using generic terms, e.g.:
+
+  ```yaml
+  baselineCapability: balanced
+  baselineEffort: high
+  escalationCapability: deep_reasoning
+  ```
+
+  A Claude Code (or other tool-specific) prompt template maps these to an
+  actual available model/effort setting; the mapping is advisory
+  configuration, never a canonical governance concept (see Product
+  Specification §15, Provider Neutrality).
+- **Escalation triggers are narrow and pre-named**, not discovered mid-run.
+  Valid triggers name a *reasoning* difficulty, not a risk score by itself:
+
+  - an unresolved architecture or ownership decision;
+  - ambiguous irreversible-mutation semantics;
+  - an unresolved security boundary;
+  - idempotency / partial-side-effect ambiguity;
+  - conflicting canonical owners;
+  - a repeated failed implementation approach.
+
+  `implementation risk >= 50` by itself is **not** an escalation trigger.
+  Risk (impact/reversibility of a mutation) and reasoning difficulty (how
+  hard the decision is to get right) are different dimensions; a Work Unit
+  reaching risk 50 already stops for human review under §1/§11 regardless
+  of execution profile, which is a separate, existing control.
+- **Context preservation is a cost.** When a natural session/context
+  boundary is reached mid-milestone, prefer a compact continuation capsule
+  (owners, resolved decisions, open corrections) over broad
+  reinvestigation — not a reason to switch capability/effort tier.
+- **Validation discipline is unaffected.** §4's focused-per-Work-Unit /
+  full-at-closure split, and full authoritative validation at closure,
+  apply identically regardless of execution profile. Execution-efficiency
+  work never weakens a test or a validation boundary.
