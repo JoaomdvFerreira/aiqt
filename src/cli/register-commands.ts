@@ -88,6 +88,7 @@ import {
   type RawPortfolioInspectOptions,
   type RawPortfolioAddOptions,
   type RawPortfolioRemoveOptions,
+  type RawPortfolioStatusOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -209,6 +210,7 @@ import {
   runPortfolioInspect,
   runPortfolioAdd,
   runPortfolioRemove,
+  runPortfolioStatus,
 } from "./commands/portfolio.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
@@ -2204,6 +2206,16 @@ export function buildProgram(): Command {
     .action((portfolio: string, member: string, raw: RawPortfolioRemoveOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runPortfolioRemove(ctx, portfolio, member);
+      emit(result, ctx.json);
+    });
+
+  portfolioCommand
+    .command("status <portfolio>")
+    .description("Load member state and return a compact deterministic portfolio snapshot -- never mutates a member repository")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((portfolio: string, raw: RawPortfolioStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runPortfolioStatus(ctx, portfolio);
       emit(result, ctx.json);
     });
 

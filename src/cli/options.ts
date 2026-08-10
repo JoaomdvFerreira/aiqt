@@ -648,3 +648,7 @@ export interface RawPortfolioAddOptions {
 export interface RawPortfolioRemoveOptions {
   json?: boolean;
 }
+
+export interface RawPortfolioStatusOptions {
+  json?: boolean;
+}

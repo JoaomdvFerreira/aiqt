@@ -17,6 +17,7 @@ import {
   addPortfolioMember,
   removePortfolioMember,
 } from "../../services/portfolio-service.js";
+import { buildPortfolioSnapshot } from "../../workflow/portfolio-snapshot.js";
 
 /**
  * `aiqt portfolio create|list|inspect|add|remove` (M46-WU02, build spec Sec
@@ -197,4 +198,37 @@ export function runPortfolioRemove(_ctx: CommandContext, portfolioId: string, me
   } catch (err) {
     return portfolioFailure(err instanceof Error ? err.message : String(err), ExitCode.InvalidInput, "PORTFOLIO-REMOVE-UNEXPECTED-ERROR");
   }
+}
+
+// ---------------------------------------------------------------------------
+// status (M46-WU03)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build spec Sec 4 "status": "Loads member state and returns a compact
+ * deterministic portfolio snapshot." Read-only -- never mutates a member
+ * repository's own .aiqt/ state, and never mutates the portfolio manifest.
+ */
+export function runPortfolioStatus(_ctx: CommandContext, portfolioId: string): CommandResult {
+  const home = resolvePortfolioHome();
+  const readResult = readPortfolioManifest(home, portfolioId);
+  if (!readResult.ok) {
+    return portfolioFailure(readResult.reason, ExitCode.InvalidInput, "PORTFOLIO-STATUS-NOT-FOUND");
+  }
+
+  const now = new Date().toISOString();
+  const snapshot = buildPortfolioSnapshot(readResult.manifest, now);
+  const { summary } = snapshot;
+  const hasAttention = summary.blocked + summary.unavailable + summary.invalidState + summary.notAiqtManaged > 0;
+
+  return makeResult({
+    status: hasAttention ? "warning" : "passed",
+    action: "portfolio",
+    summary:
+      summary.totalMembers === 0
+        ? `Portfolio "${portfolioId}" has no registered members.`
+        : `Portfolio "${portfolioId}": ${summary.healthy}/${summary.totalMembers} healthy, ${summary.blocked} blocked, ${summary.unavailable} unavailable, ${summary.invalidState} invalid, ${summary.notAiqtManaged} not AIQT-managed.`,
+    exitCode: ExitCode.Success,
+    data: { snapshot },
+  });
 }
