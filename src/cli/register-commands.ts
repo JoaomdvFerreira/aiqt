@@ -13,6 +13,9 @@ import {
   type RawImportOptions,
   type RawReviewOptions,
   type RawReviewAcknowledgeOptions,
+  type RawReviewNightTargetOptions,
+  type RawReviewNightRunOptions,
+  type RawReviewNightSubmitOptions,
   type RawNextOptions,
   type RawManageOptions,
   type RawSkillsPlanOptions,
@@ -111,6 +114,7 @@ import { runReviewCommand } from "./commands/review.command.js";
 import { runReviewStructural } from "./commands/review-structural.command.js";
 import { runReviewStructuralExplain } from "./commands/review-structural-explain.command.js";
 import { runReviewAcknowledge } from "./commands/review-acknowledge.command.js";
+import { runReviewNightRun, runReviewNightSubmit, runReviewNightStatus, runReviewNightCancel, runReviewNightCoverage } from "./commands/night-audit.command.js";
 import { runExport } from "./commands/export.command.js";
 import { runStart } from "./commands/start.command.js";
 import { runContinue } from "./commands/continue.command.js";
@@ -567,6 +571,107 @@ export function buildProgram(): Command {
     .action((findingKey: string, raw: RawReviewAcknowledgeOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runReviewAcknowledge(ctx, { findingKey, reason: raw.reason });
+      emit(result, ctx.json);
+    });
+
+  // ---------------------------------------------------------------------
+  // M48: aiqt review night ... (bounded overnight project review & Issue
+  // generation). Never modifies project source, creates a commit/Pull
+  // Request, merges, or deploys. The only external mutation (a GitHub
+  // Issue) happens inside `submit`, behind lookup-before-create dedup.
+  // ---------------------------------------------------------------------
+  const reviewNightCommand = reviewCommand.command("night").description("Bounded, resumable Night Audit review session (M48): small ReviewTasks, a quality gate, and evidence-backed GitHub Issue publication -- never modifies source or opens a Pull Request");
+
+  reviewNightCommand
+    .command("run")
+    .description("Start (if none active) or advance the Night Audit session for this project, returning the next bounded ReviewTask or a stop reason")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--repository <path>", "target repository root (defaults to the current directory)")
+    .option("--portfolio <id>", "select the target repository from an M46 portfolio (requires --member)")
+    .option("--member <id>", "portfolio member id identifying exactly one repository")
+    .option("--target-duration-minutes <n>", "soft session duration target (default 120)", (v) => Number.parseInt(v, 10))
+    .option("--hard-stop-minutes <n>", "absolute session ceiling (default 180)", (v) => Number.parseInt(v, 10))
+    .option("--max-review-tasks <n>", "maximum ReviewTasks for this session (default 40)", (v) => Number.parseInt(v, 10))
+    .option("--max-new-issues <n>", "maximum new GitHub Issues for this session (default 10)", (v) => Number.parseInt(v, 10))
+    .option("--max-open-audit-issue-backlog <n>", "suppress new Issue publication once this many audit issues are already open (default 25)", (v) => Number.parseInt(v, 10))
+    .action((raw: RawReviewNightRunOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runReviewNightRun(ctx, {
+        repository: raw.repository,
+        portfolio: raw.portfolio,
+        member: raw.member,
+        targetDurationMinutes: raw.targetDurationMinutes,
+        hardStopMinutes: raw.hardStopMinutes,
+        maxReviewTasks: raw.maxReviewTasks,
+        maxNewIssues: raw.maxNewIssues,
+        maxOpenAuditIssueBacklog: raw.maxOpenAuditIssueBacklog,
+      });
+      emit(result, ctx.json);
+    });
+
+  reviewNightCommand
+    .command("submit <task-id>")
+    .description("Report bounded findings for a ReviewTask returned by `run` -- quality-gates, deduplicates, intakes into the M42 defect queue, and publishes a GitHub Issue where warranted")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--repository <path>", "target repository root (defaults to the current directory)")
+    .option("--portfolio <id>", "select the target repository from an M46 portfolio (requires --member)")
+    .option("--member <id>", "portfolio member id identifying exactly one repository")
+    .requiredOption("--domain <domain>", "the ReviewTask's exact domain, as returned by `run`")
+    .requiredOption("--scope <scope>", "the ReviewTask's exact scope, as returned by `run`")
+    .requiredOption("--commit <sha>", "the ReviewTask's exact repositoryCommit, as returned by `run`")
+    .requiredOption("--from-file <path>", "bounded JSON file: { taskId, findings: [...] }")
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token (defaults to GITHUB_TOKEN)")
+    .action(async (taskId: string, raw: RawReviewNightSubmitOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runReviewNightSubmit(ctx, taskId, {
+        repository: raw.repository,
+        portfolio: raw.portfolio,
+        member: raw.member,
+        domain: raw.domain,
+        scope: raw.scope,
+        commit: raw.commit,
+        fromFile: raw.fromFile,
+        tokenEnv: raw.tokenEnv,
+      });
+      emit(result, ctx.json);
+    });
+
+  reviewNightCommand
+    .command("status")
+    .description("Read-only: show the active Night Audit session, or the most recent finished session's result")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--repository <path>", "target repository root (defaults to the current directory)")
+    .option("--portfolio <id>", "select the target repository from an M46 portfolio (requires --member)")
+    .option("--member <id>", "portfolio member id identifying exactly one repository")
+    .action((raw: RawReviewNightTargetOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runReviewNightStatus(ctx, { repository: raw.repository, portfolio: raw.portfolio, member: raw.member });
+      emit(result, ctx.json);
+    });
+
+  reviewNightCommand
+    .command("cancel")
+    .description("Cancel the active Night Audit session (bookkeeping only -- no live process is signaled)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--repository <path>", "target repository root (defaults to the current directory)")
+    .option("--portfolio <id>", "select the target repository from an M46 portfolio (requires --member)")
+    .option("--member <id>", "portfolio member id identifying exactly one repository")
+    .action((raw: RawReviewNightTargetOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runReviewNightCancel(ctx, { repository: raw.repository, portfolio: raw.portfolio, member: raw.member });
+      emit(result, ctx.json);
+    });
+
+  reviewNightCommand
+    .command("coverage")
+    .description("Read-only: list the Night Audit coverage ledger (what has been reviewed, at which commit, when)")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--repository <path>", "target repository root (defaults to the current directory)")
+    .option("--portfolio <id>", "select the target repository from an M46 portfolio (requires --member)")
+    .option("--member <id>", "portfolio member id identifying exactly one repository")
+    .action((raw: RawReviewNightTargetOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runReviewNightCoverage(ctx, { repository: raw.repository, portfolio: raw.portfolio, member: raw.member });
       emit(result, ctx.json);
     });
 

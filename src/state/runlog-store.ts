@@ -1896,6 +1896,121 @@ export function buildMaintenanceRunCancelledEvent(input: { id: string; timestamp
   return buildMaintenanceRunFinishedEvent("maintenance.run_cancelled", input);
 }
 
+/**
+ * M48-WU05 (build spec Sec 4/14): Night Audit session history. Completed-
+ * session history lives here, never re-persisted verbatim into canonical
+ * StateModel (mirrors the maintenance-occurrence precedent above) --
+ * `aiqt review night status` reads the most recent `night_audit.session_*`
+ * event when no session is currently active.
+ */
+export interface NightAuditSessionStartedEventData {
+  sessionId: string;
+  repositoryRoot: string;
+  budget: Record<string, unknown>;
+}
+
+export function buildNightAuditSessionStartedEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: NightAuditSessionStartedEventData }): RunlogEvent {
+  return {
+    id: input.id,
+    type: "night_audit.session_started",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Started Night Audit session ${input.data.sessionId} for ${input.data.repositoryRoot}.`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface NightAuditSessionFinishedEventData {
+  sessionId: string;
+  stopReason: string;
+  result: Record<string, unknown>;
+}
+
+function buildNightAuditSessionFinishedEvent(
+  type: "night_audit.session_completed" | "night_audit.session_interrupted" | "night_audit.session_cancelled",
+  input: { id: string; timestamp: string; relatedIds: string[]; data: NightAuditSessionFinishedEventData },
+): RunlogEvent {
+  return {
+    id: input.id,
+    type,
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Night Audit session ${input.data.sessionId} finished: ${input.data.stopReason}.`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export function buildNightAuditSessionCompletedEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: NightAuditSessionFinishedEventData }): RunlogEvent {
+  return buildNightAuditSessionFinishedEvent("night_audit.session_completed", input);
+}
+export function buildNightAuditSessionInterruptedEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: NightAuditSessionFinishedEventData }): RunlogEvent {
+  return buildNightAuditSessionFinishedEvent("night_audit.session_interrupted", input);
+}
+export function buildNightAuditSessionCancelledEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: NightAuditSessionFinishedEventData }): RunlogEvent {
+  return buildNightAuditSessionFinishedEvent("night_audit.session_cancelled", input);
+}
+
+export interface NightAuditFindingEventData {
+  sessionId: string;
+  taskId: string;
+  findingKey: string;
+  domain: string;
+  /** M48 closure correction (build spec Sec 15): provider-independent per-ReviewTask telemetry -- required, always known at submit time, never fabricated. */
+  scope: string;
+  contextItemCount: number;
+  executionProfile: { agentClass: string; reasoningEffort: string };
+  /** Honest wall-clock duration since the ReviewTask was assigned by `run`; omitted (never zero-filled or fabricated) when no assignment timestamp was recorded. */
+  taskDurationMs?: number;
+  [key: string]: unknown;
+}
+
+export function buildNightAuditFindingAcceptedEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: NightAuditFindingEventData }): RunlogEvent {
+  return {
+    id: input.id,
+    type: "night_audit.finding_accepted",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Finding ${input.data.findingKey} (${input.data.domain}) accepted by the quality gate for task ${input.data.taskId}.`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export function buildNightAuditFindingRejectedEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: NightAuditFindingEventData }): RunlogEvent {
+  return {
+    id: input.id,
+    type: "night_audit.finding_rejected",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Finding (${input.data.domain}) rejected by the quality gate for task ${input.data.taskId}.`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
+export interface NightAuditIssuePublishedEventData {
+  sessionId: string;
+  defectId: string;
+  findingKey: string;
+  outcome: string;
+  issueNumber?: number;
+  issueUrl?: string;
+}
+
+export function buildNightAuditIssuePublishedEvent(input: { id: string; timestamp: string; relatedIds: string[]; data: NightAuditIssuePublishedEventData }): RunlogEvent {
+  return {
+    id: input.id,
+    type: "night_audit.issue_publication",
+    timestamp: input.timestamp,
+    actor: "cli",
+    summary: `Issue publication for defect ${input.data.defectId} (finding ${input.data.findingKey}): ${input.data.outcome}${input.data.issueNumber ? ` (#${input.data.issueNumber})` : ""}.`,
+    relatedIds: input.relatedIds,
+    data: { ...input.data },
+  };
+}
+
 export function runlogHealthWarning(health: RunlogHealth): Issue | null {
   if (health.malformedLines === 0) return null;
   return {
