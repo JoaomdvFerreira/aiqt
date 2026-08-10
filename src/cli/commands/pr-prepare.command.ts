@@ -157,9 +157,14 @@ export async function runPrPrepare(ctx: CommandContext, options: PrPrepareOption
     });
   }
 
-  let plan = createIntegrationPlan({ id: generatePrIntegrationId(), now: at, facts, title: options.title.trim(), portfolioRef });
+  let plan = createIntegrationPlan({ id: generatePrIntegrationId(), now: at, facts, title: options.title.trim(), body: body.body, portfolioRef });
   plan = recordBaseProtection(plan, { evidence: obs.baseProtection, checkedAt: at, detail: `Base protection evidence collected during prepare.` }, at);
-  if (preflight.blocking.length > 0) {
+  // Only a PUSH-phase failure makes the plan itself terminal. A create-phase
+  // finding (an unmet base-protection requirement, too many reviewers) is
+  // reported now but must not kill a plan whose branch push is still
+  // perfectly safe -- `pr create` re-evaluates the same gate against
+  // current reality and blocks there.
+  if (!preflight.pushAllowed) {
     plan = markPlanBlocked(plan, at, preflight.blocking.map((f) => `${f.id}: ${f.message}`).join(" | "));
   }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { realGithubPullRequestReadClient, redactToken } from "../../src/services/github-pull-request-client.js";
+import { realGithubPullRequestReadClient, realGithubPullRequestClient, redactToken } from "../../src/services/github-pull-request-client.js";
 
 const TOKEN = "ghp_SECRETVALUE";
 
@@ -154,5 +154,95 @@ describe("M47-WU02 redaction helper", () => {
   it("replaces every occurrence and is a no-op for an empty token", () => {
     expect(redactToken(`a ${TOKEN} b ${TOKEN}`, TOKEN)).toBe("a [REDACTED] b [REDACTED]");
     expect(redactToken("unchanged", "")).toBe("unchanged");
+  });
+});
+
+/**
+ * M47-WU04: the write half of the provider. Same stubbed-fetch discipline
+ * as the read half above -- these assert the exact requests the client is
+ * allowed to make, and that a token never reaches a URL or a message.
+ */
+describe("M47-WU04 GitHub write client: Pull Request creation", () => {
+  it("POSTs to /pulls with the plan's title, body, head, base, and draft flag", async () => {
+    const { calls } = stubFetch([
+      { status: 201, body: { number: 7, html_url: "https://github.com/acme/widget/pull/7", state: "open", draft: true, head: { sha: "a".repeat(40), ref: "feature/x" }, base: { ref: "main" } } },
+    ]);
+    const result = await realGithubPullRequestClient.createPullRequest(
+      "acme",
+      "widget",
+      { title: "T", body: "B", headBranch: "feature/x", baseBranch: "main", draft: true },
+      TOKEN,
+    );
+    expect(result.ok).toBe(true);
+    expect(calls[0]!.url).toBe("https://api.github.com/repos/acme/widget/pulls");
+    expect(calls[0]!.init.method).toBe("POST");
+    expect(JSON.parse(calls[0]!.init.body as string)).toEqual({ title: "T", body: "B", head: "feature/x", base: "main", draft: true });
+  });
+
+  it("passes draft: false only when the caller explicitly asks for a ready Pull Request", async () => {
+    const { calls } = stubFetch([
+      { status: 201, body: { number: 7, html_url: "u", state: "open", draft: false, head: { sha: "a".repeat(40), ref: "feature/x" }, base: { ref: "main" } } },
+    ]);
+    await realGithubPullRequestClient.createPullRequest("acme", "widget", { title: "T", body: "B", headBranch: "feature/x", baseBranch: "main", draft: false }, TOKEN);
+    expect(JSON.parse(calls[0]!.init.body as string).draft).toBe(false);
+  });
+
+  it("never sends a cross-fork owner:branch head -- one plan is always one repository", async () => {
+    const { calls } = stubFetch([
+      { status: 201, body: { number: 7, html_url: "u", state: "open", draft: true, head: { sha: "a".repeat(40), ref: "feature/x" }, base: { ref: "main" } } },
+    ]);
+    await realGithubPullRequestClient.createPullRequest("acme", "widget", { title: "T", body: "B", headBranch: "feature/x", baseBranch: "main", draft: true }, TOKEN);
+    expect(JSON.parse(calls[0]!.init.body as string).head).toBe("feature/x");
+  });
+
+  it("reports an unparseable create response as a failure, so the caller looks up rather than assuming nothing happened", async () => {
+    stubFetch([{ status: 201, body: { unexpected: true } }]);
+    const result = await realGithubPullRequestClient.createPullRequest("acme", "widget", { title: "T", body: "B", headBranch: "f", baseBranch: "main", draft: true }, TOKEN);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).toMatch(/could not be parsed/);
+  });
+
+  it("never leaks the token on a create failure", async () => {
+    stubFetch([{ status: 0, throws: new Error(`boom ${TOKEN}`) }]);
+    const result = await realGithubPullRequestClient.createPullRequest("acme", "widget", { title: "T", body: "B", headBranch: "f", baseBranch: "main", draft: true }, TOKEN);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).not.toContain(TOKEN);
+  });
+});
+
+describe("M47-WU04 GitHub write client: reviewer requests are explicit only", () => {
+  it("POSTs exactly the requested logins to requested_reviewers, and never team_reviewers", async () => {
+    const { calls } = stubFetch([{ status: 201, body: { requested_reviewers: [{ login: "alice" }, { login: "bob" }] } }]);
+    const result = await realGithubPullRequestClient.requestReviewers("acme", "widget", 7, ["alice", "bob"], TOKEN);
+    expect(result).toEqual({ ok: true, value: ["alice", "bob"] });
+    expect(calls[0]!.url).toBe("https://api.github.com/repos/acme/widget/pulls/7/requested_reviewers");
+    const body = JSON.parse(calls[0]!.init.body as string) as Record<string, unknown>;
+    expect(Object.keys(body)).toEqual(["reviewers"]);
+    expect(body.team_reviewers).toBeUndefined();
+  });
+
+  it("returns an empty confirmation list rather than inventing one when the response has no reviewers", async () => {
+    stubFetch([{ status: 201, body: {} }]);
+    const result = await realGithubPullRequestClient.requestReviewers("acme", "widget", 7, ["alice"], TOKEN);
+    expect(result).toEqual({ ok: true, value: [] });
+  });
+
+  it("maps a rejection to a typed failure", async () => {
+    stubFetch([{ status: 403, body: {} }]);
+    const result = await realGithubPullRequestClient.requestReviewers("acme", "widget", 7, ["alice"], TOKEN);
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("M47-WU04 GitHub write client: single Pull Request lookup", () => {
+  it("distinguishes a genuine 404 from a failure", async () => {
+    stubFetch([{ status: 404, body: {} }]);
+    expect(await realGithubPullRequestClient.getPullRequest("acme", "widget", 7, TOKEN)).toEqual({ ok: true, value: null });
+
+    stubFetch([{ status: 500, body: {} }]);
+    const failure = await realGithubPullRequestClient.getPullRequest("acme", "widget", 7, TOKEN);
+    expect(failure.ok).toBe(false);
   });
 });

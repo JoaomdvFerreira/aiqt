@@ -685,3 +685,8 @@ export interface RawPrPushOptions {
   json?: boolean;
   tokenEnv?: string;
 }
+
+export interface RawPrCreateOptions {
+  json?: boolean;
+  tokenEnv?: string;
+}

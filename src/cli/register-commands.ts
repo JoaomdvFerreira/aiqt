@@ -93,6 +93,7 @@ import {
   type RawPrPrepareOptions,
   type RawPrInspectOptions,
   type RawPrPushOptions,
+  type RawPrCreateOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -219,6 +220,7 @@ import {
 } from "./commands/portfolio.command.js";
 import { runPrPrepare, runPrInspect } from "./commands/pr-prepare.command.js";
 import { runPrPush } from "./commands/pr-push.command.js";
+import { runPrCreate } from "./commands/pr-create.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman, renderResultFooter } from "../core/output/human-output.js";
@@ -2299,6 +2301,17 @@ export function buildProgram(): Command {
     .action(async (integrationId: string, raw: RawPrPushOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = await runPrPush(ctx, integrationId, { tokenEnv: raw.tokenEnv });
+      emit(result, ctx.json);
+    });
+
+  prCommand
+    .command("create <integration-id>")
+    .description("Create or reconcile exactly one Pull Request for the plan (draft unless the plan recorded explicit ready intent) and request its explicit reviewers -- never approves or merges")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token (defaults to GITHUB_TOKEN)")
+    .action(async (integrationId: string, raw: RawPrCreateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runPrCreate(ctx, integrationId, { tokenEnv: raw.tokenEnv });
       emit(result, ctx.json);
     });
 

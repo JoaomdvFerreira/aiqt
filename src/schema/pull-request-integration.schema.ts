@@ -244,7 +244,16 @@ export const PullRequestIntegrationPlanSchema = z
     /** The exact 40-hex local HEAD commit bound at prepare time -- the only commit this plan may ever push. */
     sourceHeadSha: z.string().min(1),
     title: z.string().min(1).max(MAX_PR_TITLE_CHARS),
-    /** sha256 digest over the exact title+body that will be sent. The body text itself is not persisted here; the digest is what freshness is decided on. */
+    /**
+     * M47-WU04: the exact body that will be sent, persisted so that
+     * `pr create` can complete or resume without the operator re-supplying
+     * byte-identical text. Requiring re-supply would make resumption
+     * fragile in exactly the situation resumption exists for: a body that
+     * differed by a single newline would read as staleness and force a new
+     * plan even when a Pull Request may already exist.
+     */
+    body: z.string().max(MAX_PR_BODY_CHARS),
+    /** sha256 digest over the exact title+body that will be sent -- the value freshness is decided on. */
     metadataDigest: z.string().min(1),
     /** Normalized (trimmed, de-duplicated case-insensitively, sorted) explicit reviewer logins. */
     reviewers: z.array(z.string().min(1)).max(MAX_PR_REVIEWERS),

@@ -47,6 +47,8 @@ export interface CreatePlanInput {
   now: string;
   facts: PullRequestWriteBindingFacts;
   title: string;
+  /** The exact body text the plan's metadataDigest was computed over. */
+  body: string;
   portfolioRef: PullRequestIntegrationPlan["portfolioRef"];
 }
 
@@ -70,6 +72,7 @@ export function createIntegrationPlan(input: CreatePlanInput): PullRequestIntegr
     sourceBranch: input.facts.sourceBranch,
     sourceHeadSha: input.facts.sourceHeadSha,
     title: input.title,
+    body: input.body,
     metadataDigest: input.facts.metadataDigest,
     reviewers: [...input.facts.reviewers],
     createMode: input.facts.createMode,

@@ -121,6 +121,30 @@ function normalizePullRequest(raw: unknown): GithubExistingPullRequest | null {
 /** Exported for the WU47-04 write client, which parses the same PR payload shape from its create response. */
 export const parseGithubPullRequest = normalizePullRequest;
 
+export interface CreatePullRequestParams {
+  title: string;
+  body: string;
+  /** Source branch name only -- never an "owner:branch" cross-fork head. One plan is always one repository. */
+  headBranch: string;
+  baseBranch: string;
+  draft: boolean;
+}
+
+/**
+ * M47-WU04: the write half. Deliberately a SEPARATE interface that extends
+ * the read half, so a boundary scan can state, per Work Unit, exactly which
+ * write surfaces exist. There are exactly three operations here, and none
+ * of them can approve, merge, label, close, or publish anything: GitHub's
+ * merge (`PUT /pulls/{n}/merge`) and review (`POST /pulls/{n}/reviews`)
+ * endpoints appear nowhere in this repository.
+ */
+export interface PullRequestProviderClient extends PullRequestProviderReadClient {
+  createPullRequest(owner: string, repo: string, params: CreatePullRequestParams, token: string): Promise<GithubApiOutcome<GithubExistingPullRequest>>;
+  /** Explicit reviewers only -- the caller supplies the exact logins; there is no discovery, suggestion, or team-expansion path. */
+  requestReviewers(owner: string, repo: string, pullNumber: number, reviewers: readonly string[], token: string): Promise<GithubApiOutcome<string[]>>;
+  getPullRequest(owner: string, repo: string, pullNumber: number, token: string): Promise<GithubApiOutcome<GithubExistingPullRequest | null>>;
+}
+
 export const realGithubPullRequestReadClient: PullRequestProviderReadClient = {
   async getRepository(owner, repo, token) {
     try {
@@ -197,6 +221,87 @@ export const realGithubPullRequestReadClient: PullRequestProviderReadClient = {
         if (pr !== null) parsed.push(pr);
       }
       return { ok: true, value: parsed };
+    } catch (err) {
+      return { ok: false, status: null, message: redactToken(`Network error contacting GitHub: ${(err as Error).message}`, token) };
+    }
+  },
+};
+
+/**
+ * M47-WU04: the real client, read operations reused verbatim from the
+ * read client above plus exactly three write/lookup operations.
+ *
+ * `draft` is passed through from the caller rather than hardcoded, because
+ * M47's contract is "draft by default, ready only on explicit operator
+ * intent" -- the default lives in the schema and the CLI, and the plan's
+ * createMode is a write-relevant fact that staleness protects. (This
+ * differs from M40's release client, where `draft: true` is hardcoded
+ * because there is no legitimate "publish" intent at all.)
+ */
+export const realGithubPullRequestClient: PullRequestProviderClient = {
+  ...realGithubPullRequestReadClient,
+
+  async createPullRequest(owner, repo, params, token) {
+    try {
+      const res = await githubFetch(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls`, token, {
+        method: "POST",
+        body: JSON.stringify({
+          title: params.title,
+          body: params.body,
+          head: params.headBranch,
+          base: params.baseBranch,
+          draft: params.draft,
+        }),
+      });
+      if (!res.ok) {
+        return { ok: false, status: res.status, message: redactToken(`GitHub API returned ${res.status} creating the Pull Request.`, token) };
+      }
+      const pr = normalizePullRequest(res.body);
+      if (pr === null) {
+        // The PR may well have been created; the caller must look it up
+        // rather than retry blindly, so this is reported as a failure with a
+        // status, never as "nothing happened".
+        return { ok: false, status: res.status, message: "GitHub API create-Pull-Request response could not be parsed." };
+      }
+      return { ok: true, value: pr };
+    } catch (err) {
+      return { ok: false, status: null, message: redactToken(`Network error contacting GitHub: ${(err as Error).message}`, token) };
+    }
+  },
+
+  async requestReviewers(owner, repo, pullNumber, reviewers, token) {
+    try {
+      const res = await githubFetch(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}/requested_reviewers`, token, {
+        method: "POST",
+        // `reviewers` only -- never `team_reviewers`, which would expand an
+        // explicit request into an organization-scoped one.
+        body: JSON.stringify({ reviewers: [...reviewers] }),
+      });
+      if (!res.ok) {
+        return { ok: false, status: res.status, message: redactToken(`GitHub API returned ${res.status} requesting reviewers.`, token) };
+      }
+      const body = res.body as { requested_reviewers?: unknown };
+      const confirmed = Array.isArray(body?.requested_reviewers)
+        ? body.requested_reviewers.map((r) => (r as { login?: unknown })?.login).filter((l): l is string => typeof l === "string")
+        : [];
+      return { ok: true, value: confirmed };
+    } catch (err) {
+      return { ok: false, status: null, message: redactToken(`Network error contacting GitHub: ${(err as Error).message}`, token) };
+    }
+  },
+
+  async getPullRequest(owner, repo, pullNumber, token) {
+    try {
+      const res = await githubFetch(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}`, token);
+      if (res.status === 404) return { ok: true, value: null };
+      if (!res.ok) {
+        return { ok: false, status: res.status, message: redactToken(`GitHub API returned ${res.status} reading the Pull Request.`, token) };
+      }
+      const pr = normalizePullRequest(res.body);
+      if (pr === null) {
+        return { ok: false, status: res.status, message: "GitHub API Pull-Request response could not be parsed." };
+      }
+      return { ok: true, value: pr };
     } catch (err) {
       return { ok: false, status: null, message: redactToken(`Network error contacting GitHub: ${(err as Error).message}`, token) };
     }

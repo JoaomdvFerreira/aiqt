@@ -178,12 +178,21 @@ describe("M47-WU02 boundary scan: preflight and prepare are read-only", () => {
     }
   });
 
-  it("the GitHub Pull Request client makes only GET requests -- no create, update, merge, or review endpoint exists in it", () => {
+  // "the Pull Request client makes only GET requests" and "no
+  // requested_reviewers endpoint exists yet" were true, deliberately
+  // asserted WU47-02 invariants. WU47-04 explicitly lifts both (build spec
+  // Sec 10 gives it PR creation and reviewer assignment). They are replaced
+  // here by the narrower invariant that still holds after WU47-04 -- the
+  // READ client's own operations remain read-only -- rather than being left
+  // to fail silently. The full post-WU47-04 write surface is pinned by the
+  // M47-WU04 section below.
+  it("the read client's own operations issue no request body and no non-GET method", () => {
     const text = codeOnly(readFileSync(join(repoRoot, "src", "services", "github-pull-request-client.ts"), "utf8"));
-    expect(text, "no non-GET method should be issued by the read client").not.toMatch(/method:\s*["'](POST|PUT|PATCH|DELETE)["']/);
-    expect(text, "no merge endpoint").not.toMatch(/\/merge\b/);
-    expect(text, "no review/approval endpoint").not.toMatch(/\/reviews\b|["'`]APPROVE["'`]/);
-    expect(text, "no requested_reviewers endpoint yet (WU47-04 owns reviewer assignment)").not.toMatch(/requested_reviewers/);
+    const readSection = text.slice(text.indexOf("realGithubPullRequestReadClient: PullRequestProviderReadClient"), text.indexOf("realGithubPullRequestClient: PullRequestProviderClient"));
+    expect(readSection.length).toBeGreaterThan(0);
+    expect(readSection, "no non-GET method should be issued by the read client").not.toMatch(/method:\s*["'](POST|PUT|PATCH|DELETE)["']/);
+    expect(readSection, "no merge endpoint").not.toMatch(/\/merge\b/);
+    expect(readSection, "no review/approval endpoint").not.toMatch(/\/reviews\b|["'`]APPROVE["'`]/);
   });
 
   it("only the pull-request client and the release client may contact the network at all", () => {
@@ -320,6 +329,86 @@ describe("M47-WU03 boundary scan: the remote-write capability is exactly one non
   });
 
   it("the AIQT repository root still has no .aiqt/ directory now that a real remote-write path exists", () => {
+    expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
+  });
+});
+
+/**
+ * M47-WU04 boundary scan (build spec Sec 10, threat model T11/T13/T14/T21):
+ * Pull Request creation is the second and last remote-write capability.
+ * These guards prove the write surface is exactly three provider
+ * operations, that none of them can approve or merge, and that a create is
+ * never issued without a preceding lookup.
+ */
+const M47_WU04_FILES = ["src/services/pr-create-service.ts", "src/cli/commands/pr-create.command.ts", "src/services/github-pull-request-client.ts"];
+
+describe("M47-WU04 boundary scan: creation cannot approve, merge, or duplicate", () => {
+  const clientPath = join(repoRoot, "src", "services", "github-pull-request-client.ts");
+
+  it("the provider client contains exactly three non-GET requests, all POST", () => {
+    const text = codeOnly(readFileSync(clientPath, "utf8"));
+    const methods = text.match(/method:\s*"(POST|PUT|PATCH|DELETE)"/g) ?? [];
+    expect(methods).toEqual(['method: "POST"', 'method: "POST"']);
+    // (create and requestReviewers; getPullRequest and every read are GET.)
+    expect(text).not.toMatch(/method:\s*"(PUT|PATCH|DELETE)"/);
+  });
+
+  it("no GitHub merge, review/approval, label, or close endpoint appears anywhere in src/", () => {
+    const text = codeOnly(readFileSync(clientPath, "utf8"));
+    for (const forbidden of ["/merge", "/reviews", "/labels", '"APPROVE"', "merge_method", "state: \"closed\""]) {
+      expect(text.includes(forbidden), `github-pull-request-client.ts must not reference ${forbidden}`).toBe(false);
+    }
+    const releaseClient = codeOnly(readFileSync(join(repoRoot, "src", "services", "github-release-client.ts"), "utf8"));
+    expect(releaseClient.includes("/merge")).toBe(false);
+  });
+
+  it("reviewer requests can never expand into a team or organization request", () => {
+    const text = codeOnly(readFileSync(clientPath, "utf8"));
+    expect(text).toMatch(/requested_reviewers/);
+    expect(text.includes("team_reviewers"), "team_reviewers would turn an explicit request into an org-scoped one").toBe(false);
+  });
+
+  it("the create service always looks up before it creates", () => {
+    const text = codeOnly(readFileSync(join(repoRoot, "src", "services", "pr-create-service.ts"), "utf8"));
+    const firstLookup = text.indexOf("client.findOpenPullRequests(");
+    const create = text.indexOf("client.createPullRequest(");
+    expect(firstLookup).toBeGreaterThan(-1);
+    expect(create).toBeGreaterThan(firstLookup);
+    // And a failed create is followed by another lookup, never a retry.
+    expect((text.match(/client\.findOpenPullRequests\(/g) ?? []).length).toBe(2);
+    expect((text.match(/client\.createPullRequest\(/g) ?? []).length).toBe(1);
+  });
+
+  it("the create command refuses to create a second Pull Request for a plan that already has one", () => {
+    const text = codeOnly(readFileSync(join(repoRoot, "src", "cli", "commands", "pr-create.command.ts"), "utf8"));
+    const guard = text.indexOf("if (plan.pullRequest !== null)");
+    const create = text.indexOf("createOrReconcilePullRequest(");
+    expect(guard).toBeGreaterThan(-1);
+    expect(create).toBeGreaterThan(guard);
+  });
+
+  it("draft is the default: only an explicit ready createMode produces draft: false", () => {
+    const text = codeOnly(readFileSync(join(repoRoot, "src", "cli", "commands", "pr-create.command.ts"), "utf8"));
+    const service = codeOnly(readFileSync(join(repoRoot, "src", "services", "pr-create-service.ts"), "utf8"));
+    expect(service).toMatch(/draft: plan\.createMode === "draft"/);
+    expect(text + service, "no unconditional draft: false may exist").not.toMatch(/draft:\s*false/);
+  });
+
+  it("no WU47-04 file can merge, approve, deploy, publish, delete a ref, or force-push", () => {
+    for (const relPath of M47_WU04_FILES) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(text, `${relPath} should not invoke a forbidden operation`).not.toMatch(
+        /\bmergePullRequest\b|\bapprovePullRequest\b|\bsubmitReview\b|\bdeploy\(|\bpublishRelease\b|--force|\bdeleteRef\b|\bgitPushExactCommitToBranch\b/i,
+      );
+    }
+  });
+
+  it("package.json still declares no new runtime dependency for M47-WU04", () => {
+    const packageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { dependencies: Record<string, string> };
+    expect(Object.keys(packageJson.dependencies).sort()).toEqual(["@inquirer/prompts", "commander", "zod"]);
+  });
+
+  it("the AIQT repository root still has no .aiqt/ directory", () => {
     expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
   });
 });
