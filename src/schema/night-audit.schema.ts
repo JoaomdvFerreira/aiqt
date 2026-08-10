@@ -108,6 +108,17 @@ export const NightAuditActiveSessionRecordSchema = z
     budget: NightAuditSessionBudgetSchema,
     usage: NightAuditSessionUsageSchema,
     portfolioRef: NightAuditPortfolioRefSchema.nullable(),
+    /**
+     * M48 closure correction: the ISO timestamp a ReviewTask was actually
+     * assigned by `run` -- present only while a task is outstanding
+     * (cleared, i.e. key absent, once `submit` processes it), so
+     * `submit` can compute honest per-task wall-clock duration without
+     * fabrication. Absent on a freshly started session and after every
+     * completed submission; a repeated `run` that returns the same
+     * still-pending task (no intervening `submit`) never overwrites an
+     * already-set value.
+     */
+    currentTaskAssignedAt: z.string().optional(),
   })
   .strict();
 export type NightAuditActiveSessionRecord = z.infer<typeof NightAuditActiveSessionRecordSchema>;

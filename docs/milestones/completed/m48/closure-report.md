@@ -11,7 +11,7 @@
 | Package version | `0.44.2 → 0.45.0` |
 | Canonical schema version | `0.7.0 → 0.8.0` |
 | Work Units | 6, each with one detailed commit and one annotated tag |
-| Overall implementation risk | **orange** (see §12) |
+| Overall implementation risk | **60/100 🟠 orange** (see §12) |
 
 ## 1. What M48 added
 
@@ -107,7 +107,7 @@ Proven live:
 | Zero project-source mutation | ✅ `git status --porcelain`/`git log` unchanged throughout; only `.aiqt/` ever appears untracked |
 | Zero PR/merge/release | ✅ none created |
 
-Not separately re-exercised live: `budget_exhausted` stop (covered in the automated integration suite with `maxReviewTasks=1`, to keep the live run within scope); per-ReviewTask telemetry (see §11, not implemented this pass).
+Not separately re-exercised live: `budget_exhausted` stop (covered in the automated integration suite with `maxReviewTasks=1`, to keep the live run within scope); provider-independent per-ReviewTask telemetry, implemented and covered by the automated integration suite in the closure-reconciliation correction below (§10 item 6), but not re-exercised against the external dogfood repository in this pass.
 
 ## 9. Validation
 
@@ -122,12 +122,14 @@ Not separately re-exercised live: `budget_exhausted` stop (covered in the automa
 2. **`reviewTasksAttempted`/`Completed` merged to increment at `submit` time** (§5) — avoids a double-count edge case from repeated no-submit `run` calls.
 3. **`NightAuditStopReasonSchema` extended with `interrupted`** (WU48-05) — WU48-01's original five stop reasons did not cover a reconciled-abandoned session; added additively, no consumer depended on the exhaustive set.
 4. **Milestone documentation housekeeping caught up** — `docs/milestones/completed/m45/` archived to `docs/archive/milestones/m45/` per the protocol's rolling-two-window rule, which should have run when M48's active/ directory was first created; done now as part of closure rather than left undone.
+5. **Numeric risk score reconciled into the closure report** — the header and §12 previously stated the "orange" band without the accompanying `/100` number the PR body and the M47 closure-report precedent both carry. Reconciled to **60/100 🟠 orange**, consistent throughout.
+6. **Provider-independent per-ReviewTask telemetry implemented** (build spec §15) — a pre-merge audit found the original closure report's claim that telemetry "was never assigned to a specific Work Unit" was factually incorrect: the committed build spec's §16 decomposition table names WU48-06's objective as including "telemetry evidence," and §20 ("Unresolved decisions") declares all of Phase 3 A–M, including telemetry (M), fully resolved with no open questions. WU48-06 had not implemented it. This correction closes that gap for the four provider-independent fields that were missing (`scope`, `contextItemCount`, `executionProfile`, honest per-task wall-clock duration) on the existing `night_audit.finding_accepted`/`finding_rejected` runlog events — `domain` and finding outcome were already captured. A new optional `currentTaskAssignedAt` field on `NightAuditActiveSessionRecord` (additive, folded into the still-unmerged 0.8.0 schema bump, no new bump) lets `submit` compute duration honestly, set only when `run` actually assigns a task and cleared once `submit` resolves it, so repeated no-submit `run` calls never reset it. Provider/model identity and token usage remain correctly unimplemented — no adapter in the shipped handoff execution model reports them, and build spec §15 requires they never be fabricated.
 
 ## 11. Limitations and residual risk
 
 | # | Limitation | Residual |
 |---|---|---|
-| L1 | Per-ReviewTask execution telemetry (build spec §15: context size, execution profile, provider/model, duration, token usage) was resolved architecturally during planning but never assigned to a specific Work Unit in the §16 decomposition table, and was not implemented in this pass. | Accepted — no token/cost figures are fabricated; none are reported. A future milestone should assign this explicitly. |
+| L1 | Provider/model identity and token usage (build spec §15) remain best-effort and provider-dependent — no adapter in the shipped handoff execution model reports them, so they are correctly never persisted or fabricated. `tokens per accepted finding` remains explicit M49 analysis scope and is never computed locally. | Accepted by design — matches build spec §15's own "never fabricated" instruction; nothing to fix. |
 | L2 | Candidate scope derivation (`deriveReviewCandidates`) uses a small, fixed, existence-filtered default domain→area map, not directory discovery. | Accepted for a first pass — real, bounded, not fabricated; expected to evolve with usage. |
 | L3 | `computeRecentDefectSignalScopeKeys` reads `DefectRecord.affectedFiles`, which no existing discovery source in this repository (M42, M43, or M48) currently populates — the "recent defect signal" priority tier is consequently never reachable today. | Low — an honest limitation of an existing, unrelated field, not a bug introduced here; the other five priority tiers are fully functional. |
 | L4 | `budget_exhausted` was proven only in the automated integration suite, not against the live external dogfood repository. | Low — the same code path (`checkNightAuditBudget`) is exercised identically either way. |
@@ -136,7 +138,7 @@ Not separately re-exercised live: `budget_exhausted` stop (covered in the automa
 
 ## 12. Overall risk
 
-**Orange.** M48 introduces the milestone's one genuine new external-mutation authority: real GitHub Issue creation on a real repository. The mitigations are structural rather than procedural, mirroring M47's own reasoning: the disallowed actions (edit, close, reopen, delete, assign, comment, arbitrary label) are inexpressible in `github-issue-client.ts`'s three fixed operations; a lookup always precedes a create and a failed create is resolved by a second lookup rather than retried blind; local defect-fingerprint/`externalIssueRef` dedup is checked before any network call; backlog suppression prevents unbounded Issue accumulation; and no project-source mutation, PR, merge, deploy, or Release capability exists anywhere in the milestone. Per `docs/governance/versioning.md`, this requires human approval before merge — which the repository's manual-merge process already mandates.
+**60/100 🟠 Orange.** M48 introduces the milestone's one genuine new external-mutation authority: real GitHub Issue creation on a real repository. The mitigations are structural rather than procedural, mirroring M47's own reasoning: the disallowed actions (edit, close, reopen, delete, assign, comment, arbitrary label) are inexpressible in `github-issue-client.ts`'s three fixed operations; a lookup always precedes a create and a failed create is resolved by a second lookup rather than retried blind; local defect-fingerprint/`externalIssueRef` dedup is checked before any network call; backlog suppression prevents unbounded Issue accumulation; and no project-source mutation, PR, merge, deploy, or Release capability exists anywhere in the milestone. The score sits below M47's 62/100: M48's external-mutation surface is narrower (one Issue-create operation, versus M47's branch-push plus PR-create plus reviewer-assignment across three call sites). Per `docs/governance/versioning.md`, orange requires human approval before merge — which the repository's manual-merge process already mandates.
 
 ## 13. Definition of Done
 

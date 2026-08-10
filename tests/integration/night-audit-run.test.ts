@@ -17,6 +17,19 @@ function readState(dir: string) {
   return JSON.parse(readFileSync(join(dir, ".aiqt", "state.json"), "utf8"));
 }
 
+function writeState(dir: string, state: unknown) {
+  writeFileSync(join(dir, ".aiqt", "state.json"), JSON.stringify(state, null, 2));
+}
+
+function readRunlogEvents(dir: string): { type: string; data: Record<string, unknown> }[] {
+  const raw = readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8");
+  return raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .map((l) => JSON.parse(l));
+}
+
 /**
  * M48-WU05/WU06: `aiqt review night run|submit|status|cancel|coverage`
  * against a real disposable Git fixture repository -- never against this
@@ -206,5 +219,108 @@ describe("aiqt review night", () => {
     tempDirs.push(dir);
     const result = runReviewNightRun(contextFor(dir), {});
     expect(result.status).toBe("failed");
+  });
+
+  describe("M48 closure correction: provider-independent per-ReviewTask telemetry", () => {
+    it("run stamps currentTaskAssignedAt only when a task is actually assigned", () => {
+      const dir = freshGitDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+
+      expect(readState(dir).nightAuditActiveSession).toBeUndefined();
+      runReviewNightRun(contextFor(dir), {});
+      const assignedAt = readState(dir).nightAuditActiveSession.currentTaskAssignedAt;
+      expect(typeof assignedAt).toBe("string");
+      expect(Number.isNaN(Date.parse(assignedAt))).toBe(false);
+    });
+
+    it("a repeated run with no intervening submit never resets the assignment timestamp", () => {
+      const dir = freshGitDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+
+      runReviewNightRun(contextFor(dir), {});
+      const first = readState(dir).nightAuditActiveSession.currentTaskAssignedAt;
+      runReviewNightRun(contextFor(dir), {});
+      const second = readState(dir).nightAuditActiveSession.currentTaskAssignedAt;
+      expect(second).toBe(first);
+    });
+
+    it("accepted finding event carries scope, contextItemCount, executionProfile, and an honest per-task duration", async () => {
+      const dir = freshGitDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+      const task = (runReviewNightRun(contextFor(dir), {}).data as { task: ReviewTask }).task;
+
+      await runReviewNightSubmit(contextFor(dir), task.taskId, { domain: task.domain, scope: task.scope, commit: task.repositoryCommit, fromFile: submissionFile(task.taskId) });
+
+      const events = readRunlogEvents(dir);
+      const accepted = events.find((e) => e.type === "night_audit.finding_accepted");
+      expect(accepted).toBeDefined();
+      expect(accepted!.data.domain).toBe(task.domain);
+      expect(accepted!.data.scope).toBe(task.scope);
+      expect(typeof accepted!.data.contextItemCount).toBe("number");
+      expect(accepted!.data.contextItemCount as number).toBeGreaterThanOrEqual(0);
+      expect(accepted!.data.executionProfile).toEqual({ agentClass: "balanced", reasoningEffort: "high" });
+      expect(typeof accepted!.data.taskDurationMs).toBe("number");
+      expect(accepted!.data.taskDurationMs as number).toBeGreaterThanOrEqual(0);
+
+      // Resolved: submit clears the assignment so the next task gets its own fresh timestamp.
+      expect(readState(dir).nightAuditActiveSession.currentTaskAssignedAt).toBeUndefined();
+    });
+
+    it("rejected finding event carries the same execution metadata", async () => {
+      const dir = freshGitDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+      const task = (runReviewNightRun(contextFor(dir), {}).data as { task: ReviewTask }).task;
+
+      await runReviewNightSubmit(contextFor(dir), task.taskId, {
+        domain: task.domain,
+        scope: task.scope,
+        commit: task.repositoryCommit,
+        fromFile: submissionFile(task.taskId, { confidence: "weak_signal" }),
+      });
+
+      const events = readRunlogEvents(dir);
+      const rejected = events.find((e) => e.type === "night_audit.finding_rejected");
+      expect(rejected).toBeDefined();
+      expect(rejected!.data.scope).toBe(task.scope);
+      expect(typeof rejected!.data.contextItemCount).toBe("number");
+      expect(rejected!.data.executionProfile).toEqual({ agentClass: "balanced", reasoningEffort: "high" });
+      expect(typeof rejected!.data.taskDurationMs).toBe("number");
+    });
+
+    it("never invents provider/model identity or token usage when unavailable", async () => {
+      const dir = freshGitDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+      const task = (runReviewNightRun(contextFor(dir), {}).data as { task: ReviewTask }).task;
+      await runReviewNightSubmit(contextFor(dir), task.taskId, { domain: task.domain, scope: task.scope, commit: task.repositoryCommit, fromFile: submissionFile(task.taskId) });
+
+      const events = readRunlogEvents(dir);
+      const accepted = events.find((e) => e.type === "night_audit.finding_accepted")!;
+      for (const key of ["providerId", "modelId", "provider", "model", "tokenUsage", "tokensUsed", "tokenCount"]) {
+        expect(accepted.data).not.toHaveProperty(key);
+      }
+    });
+
+    it("a session backdated past hardStopMinutes + grace is reconciled to interrupted, and the fresh session starts with no stale assignment", () => {
+      const dir = freshGitDir();
+      runInit(contextFor(dir), normalizeInitOptions({}));
+      runReviewNightRun(contextFor(dir), { targetDurationMinutes: 30, hardStopMinutes: 60 });
+
+      const state = readState(dir);
+      const old = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(); // 5h ago, past 60min hardStop + 60min grace
+      state.nightAuditActiveSession.startedAt = old;
+      writeState(dir, state);
+
+      const result = runReviewNightRun(contextFor(dir), { targetDurationMinutes: 30, hardStopMinutes: 60 });
+      const data = result.data as { outcome: string; task?: ReviewTask };
+      expect(data.outcome).toBe("task");
+
+      const events = readRunlogEvents(dir);
+      expect(events.some((e) => e.type === "night_audit.session_interrupted")).toBe(true);
+
+      // The freshly started session's own pending-assignment timestamp is set for its own task, never inherited from the interrupted one.
+      const freshSession = readState(dir).nightAuditActiveSession;
+      expect(freshSession.startedAt).not.toBe(old);
+      expect(typeof freshSession.currentTaskAssignedAt).toBe("string");
+    });
   });
 });

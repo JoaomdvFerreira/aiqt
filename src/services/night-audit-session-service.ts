@@ -33,6 +33,7 @@ import { publishAuditFinding, checkAuditIssueBacklog } from "./night-audit-issue
 import { realGithubIssueClient, type GithubIssueClient } from "./github-issue-client.js";
 import type { StateModel } from "../schema/state.schema.js";
 import type { DefectRecord } from "../schema/defect.schema.js";
+import type { AgentClass, ReasoningEffort } from "../schema/execution-guidance.schema.js";
 import type {
   NightAuditSessionBudget,
   NightAuditSessionUsage,
@@ -58,6 +59,21 @@ const NIGHT_AUDIT_LOCK_OPERATION_ID = "night-audit-session";
 /** Build spec Sec 9 (failure/idempotency table): a session whose elapsed time exceeds hardStopMinutes by more than this grace window is reconciled as interrupted, never silently resumed. */
 export const NIGHT_AUDIT_STALE_GRACE_MINUTES = 60;
 export const AUDIT_ISSUE_GITHUB_TOKEN_ENV = "GITHUB_TOKEN";
+
+/**
+ * M48 closure correction (build spec Sec 15/19): the milestone's own
+ * fixed, provider-neutral baseline execution profile
+ * (baselineCapability: balanced, baselineEffort: high), reusing
+ * executionGuidance's existing AgentClass/ReasoningEffort vocabulary
+ * directly rather than inventing a parallel profile schema. M48 never
+ * calls composeExecutionGuidance() itself (a ReviewTask is not a Work
+ * Unit -- see WU48-03's owner-reuse note), so this is recorded as a
+ * fixed constant, not a live guidance decision.
+ */
+export const NIGHT_AUDIT_EXECUTION_PROFILE: { agentClass: AgentClass; reasoningEffort: ReasoningEffort } = {
+  agentClass: "balanced",
+  reasoningEffort: "high",
+};
 
 export type ResolveTargetOutcome = { ok: true; root: string; portfolioRef: NightAuditPortfolioRef | null } | { ok: false; reason: string };
 
@@ -239,6 +255,15 @@ export function runNightAuditStep(options: RunOptions): RunOutcome {
     const packet = buildReviewTaskPacket(task!, manifest);
     const structuralCandidates = runStructuralCallThrough(task!, options.root);
 
+    // Record when this task was actually assigned, but only once: a
+    // repeated `run` with no intervening `submit` deterministically
+    // recomputes the same pending task and must never reset its timing.
+    if (active.currentTaskAssignedAt === undefined) {
+      active = { ...active, currentTaskAssignedAt: now };
+      state = { ...state, nightAuditActiveSession: active };
+      writeStateModel(paths.stateFile, state);
+    }
+
     return { kind: "task", sessionId: active.sessionId, task: task!, packet, structuralCandidates };
   } finally {
     lock.release();
@@ -334,6 +359,15 @@ export async function submitReviewTaskFindings(options: SubmitOptions): Promise<
     const owner = ownerRepoFromRoot(options.root);
     const token = options.githubToken ?? null;
 
+    // Provider-independent per-ReviewTask telemetry (build spec Sec 15,
+    // M48 closure correction): recomputed deterministically from the task
+    // itself -- identical to what `run` computed -- rather than requiring
+    // the CLI to re-transmit it. Duration is honest: computed only from a
+    // real persisted assignment timestamp, never fabricated when absent.
+    const telemetryManifest = buildReviewTaskContextManifest(options.task, [options.task.scope]);
+    const contextItemCount = telemetryManifest.items.length;
+    const taskDurationMs = active.currentTaskAssignedAt !== undefined ? Date.parse(now) - Date.parse(active.currentTaskAssignedAt) : undefined;
+
     let backlogSuppressed = false;
     if (token && owner) {
       const backlog = await checkAuditIssueBacklog(owner.owner, owner.repo, token, active.budget.maxOpenAuditIssueBacklog, client);
@@ -372,7 +406,17 @@ export async function submitReviewTaskFindings(options: SubmitOptions): Promise<
             id: nextEventId(),
             timestamp: now,
             relatedIds: [active.sessionId, options.task.taskId],
-            data: { sessionId: active.sessionId, taskId: options.task.taskId, findingKey, domain: options.task.domain, reasons: gate.reasons },
+            data: {
+              sessionId: active.sessionId,
+              taskId: options.task.taskId,
+              findingKey,
+              domain: options.task.domain,
+              scope: options.task.scope,
+              contextItemCount,
+              executionProfile: NIGHT_AUDIT_EXECUTION_PROFILE,
+              ...(taskDurationMs !== undefined ? { taskDurationMs } : {}),
+              reasons: gate.reasons,
+            },
           }),
         );
         continue;
@@ -391,7 +435,17 @@ export async function submitReviewTaskFindings(options: SubmitOptions): Promise<
           id: nextEventId(),
           timestamp: now,
           relatedIds: [active.sessionId, options.task.taskId, intake.matchedDefect.defectId],
-          data: { sessionId: active.sessionId, taskId: options.task.taskId, findingKey, domain: options.task.domain, defectId: intake.matchedDefect.defectId },
+          data: {
+            sessionId: active.sessionId,
+            taskId: options.task.taskId,
+            findingKey,
+            domain: options.task.domain,
+            scope: options.task.scope,
+            contextItemCount,
+            executionProfile: NIGHT_AUDIT_EXECUTION_PROFILE,
+            ...(taskDurationMs !== undefined ? { taskDurationMs } : {}),
+            defectId: intake.matchedDefect.defectId,
+          },
         }),
       );
 
@@ -454,7 +508,11 @@ export async function submitReviewTaskFindings(options: SubmitOptions): Promise<
       newIssuesCreated: active.usage.newIssuesCreated + newIssuesThisSubmission,
     };
 
-    state = { ...state, defects, nightAuditCoverage: nextCoverage, nightAuditActiveSession: { ...active, usage: nextUsage } };
+    // The pending assignment is now resolved -- clear it (key omitted, per
+    // this repository's explicit-undefined convention) so the next `run`
+    // call knows to stamp a fresh assignment timestamp for whichever task
+    // it computes next, never reusing a stale one.
+    state = { ...state, defects, nightAuditCoverage: nextCoverage, nightAuditActiveSession: { ...active, usage: nextUsage, currentTaskAssignedAt: undefined } };
     writeStateModel(paths.stateFile, state);
 
     return { sessionId: active.sessionId, taskId: options.task.taskId, results, acceptedCount, rejectedCount: results.length - acceptedCount };

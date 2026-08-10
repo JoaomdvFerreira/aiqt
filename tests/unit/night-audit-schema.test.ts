@@ -106,6 +106,30 @@ describe("NightAuditActiveSessionRecordSchema (build spec Sec 9 resumability anc
     });
     expect(parsed.success).toBe(true);
   });
+
+  it("M48 closure correction: round-trips with currentTaskAssignedAt present (a pending ReviewTask assignment)", () => {
+    const parsed = NightAuditActiveSessionRecordSchema.safeParse({
+      sessionId: "session-001",
+      startedAt: NOW,
+      budget: buildBudget(),
+      usage: buildUsage(),
+      portfolioRef: null,
+      currentTaskAssignedAt: NOW,
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("M48 closure correction: still validates with currentTaskAssignedAt absent (no pending assignment / pre-correction state)", () => {
+    const parsed = NightAuditActiveSessionRecordSchema.safeParse({
+      sessionId: "session-001",
+      startedAt: NOW,
+      budget: buildBudget(),
+      usage: buildUsage(),
+      portfolioRef: null,
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.currentTaskAssignedAt).toBeUndefined();
+  });
 });
 
 describe("NightAuditCoverageEntrySchema (build spec Sec 6)", () => {

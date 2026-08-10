@@ -1957,6 +1957,12 @@ export interface NightAuditFindingEventData {
   taskId: string;
   findingKey: string;
   domain: string;
+  /** M48 closure correction (build spec Sec 15): provider-independent per-ReviewTask telemetry -- required, always known at submit time, never fabricated. */
+  scope: string;
+  contextItemCount: number;
+  executionProfile: { agentClass: string; reasoningEffort: string };
+  /** Honest wall-clock duration since the ReviewTask was assigned by `run`; omitted (never zero-filled or fabricated) when no assignment timestamp was recorded. */
+  taskDurationMs?: number;
   [key: string]: unknown;
 }
 
