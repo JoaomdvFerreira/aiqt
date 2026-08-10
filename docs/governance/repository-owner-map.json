@@ -381,7 +381,7 @@
         "src/cli/commands/review-structural.command.ts",
         "src/cli/commands/review-structural-explain.command.ts"
       ],
-      "contractSummary": "`aiqt review structural [--domain]` / `aiqt review structural explain <findingKey>` -- read-only, offline-capable, bounded to 7 deterministic domain rule sets (ownership divergence, dependency cycles, responsibility hotspots, dead structural paths, public-contract drift, test-infrastructure hotspots reusing M35's classifyAllTestFiles, execution-safety-boundary duplication). Never mutates canonical state or appends a runlog event; nested under the existing `reviewCommand`, `aiqt review --mode` semantics unchanged. Full engineering history: docs/milestones/completed/m43/build-spec.md and closure-report.md.",
+      "contractSummary": "`aiqt review structural [--domain]` / `aiqt review structural explain <findingKey>` -- read-only, offline-capable, bounded to 7 deterministic domain rule sets (ownership divergence, dependency cycles, responsibility hotspots, dead structural paths, public-contract drift, test-infrastructure hotspots reusing M35's classifyAllTestFiles, execution-safety-boundary duplication). Never mutates canonical state or appends a runlog event; nested under the existing `reviewCommand`, `aiqt review --mode` semantics unchanged. Full engineering history: docs/archive/milestones/m43/build-spec.md and closure-report.md.",
       "lastVerifiedCommit": "f6b998f949982b16c7ffeadd3d21f64ef88e131a"
     },
     "structuralFindingDefectIntake": {
