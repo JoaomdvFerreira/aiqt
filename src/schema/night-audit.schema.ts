@@ -207,6 +207,41 @@ export const AuditFindingSchema = z
   .strict();
 export type AuditFinding = z.infer<typeof AuditFindingSchema>;
 
+/**
+ * M48-WU03: what an executing agent (or the structural-review call-through)
+ * submits for one ReviewTask -- everything AuditFinding needs EXCEPT
+ * `findingKey` (computed by WU48-04's fingerprint function, never supplied
+ * by the submitter) and `domain`/`reviewCommit`/`scope` (always taken from
+ * the ReviewTask itself, never re-supplied, so a submission cannot claim a
+ * different scope than the task it was issued for).
+ */
+export const AuditFindingCandidateInputSchema = z
+  .object({
+    checkId: z.string().min(1).max(BOUNDED_SHORT),
+    title: z.string().min(1).max(BOUNDED_SHORT),
+    explanation: z.string().min(1).max(BOUNDED_MEDIUM),
+    affectedPaths: z.array(z.string().min(1).max(BOUNDED_LOCATOR)).max(MAX_AFFECTED_PATHS_PER_FINDING),
+    evidence: z.array(AuditFindingEvidenceSchema).min(1).max(MAX_EVIDENCE_ITEMS_PER_FINDING),
+    confidence: AuditFindingConfidenceSchema,
+    significance: AuditFindingSignificanceSchema,
+    disposition: AuditFindingDispositionSchema,
+    recommendedNextAction: z.string().min(1).max(BOUNDED_MEDIUM),
+    validationIdea: z.string().min(1).max(BOUNDED_MEDIUM).optional(),
+  })
+  .strict();
+export type AuditFindingCandidateInput = z.infer<typeof AuditFindingCandidateInputSchema>;
+
+export const MAX_SUBMITTED_FINDINGS_PER_TASK = 20;
+
+/** M48-WU03: the bounded envelope one ReviewTask submission carries -- never an unbounded list, and never raw agent reasoning/log text alongside it. */
+export const ReviewTaskSubmissionSchema = z
+  .object({
+    taskId: z.string().min(1),
+    findings: z.array(AuditFindingCandidateInputSchema).max(MAX_SUBMITTED_FINDINGS_PER_TASK),
+  })
+  .strict();
+export type ReviewTaskSubmission = z.infer<typeof ReviewTaskSubmissionSchema>;
+
 /** Build spec Sec 14: explainable, pre-named stop reasons -- never an opaque "the model decided it was done". */
 export const NightAuditStopReasonSchema = z.enum([
   "budget_exhausted",
