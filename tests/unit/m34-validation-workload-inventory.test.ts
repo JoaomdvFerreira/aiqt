@@ -91,6 +91,20 @@ function hasCliSpawn(text: string): boolean {
  * absorb a new spawning file into "already accounted for".
  */
 const KNOWN_SPAWNING_FILES = [
+  // M47-WU06: the `aiqt pr` suites. Every one drives real `git`
+  // subprocesses against real repositories and a real local bare remote
+  // (pr-cli-contract additionally spawns the built CLI; pr-live-dogfood
+  // pushes to a real GitHub repository when an operator nominates one), so
+  // all seven join the spawning workload class deliberately -- see
+  // docs/engineering/m34-validation-workload-policy.md Sec 6.1.
+  "tests/integration/git-command-runner-pr-reads.test.ts",
+  "tests/integration/pr-cli-contract.test.ts",
+  "tests/integration/pr-create.test.ts",
+  "tests/integration/pr-live-dogfood.test.ts",
+  "tests/integration/pr-prepare.test.ts",
+  "tests/integration/pr-push.test.ts",
+  "tests/integration/pr-status-validate.test.ts",
+
   // Git/worktree integration (7) -- +2 in M36-WU02: both call only the
   // shared initGitFixtureRepo helper (no direct execFileSync("git", ...)
   // of their own), detected via hasGitSpawn's initGitFixtureRepo pattern.

@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -8,6 +9,11 @@ import { runPrPush } from "../../src/cli/commands/pr-push.command.js";
 import { runPrCreate } from "../../src/cli/commands/pr-create.command.js";
 import type { GithubExistingPullRequest, PullRequestProviderClient } from "../../src/services/github-pull-request-client.js";
 import type { PullRequestIntegrationPlan } from "../../src/schema/pull-request-integration.schema.js";
+
+// M34-WU02: this suite spawns real `git` subprocesses against real
+// repositories and a real local bare remote; it belongs to the
+// spawning workload class (docs/engineering/m34-validation-workload-policy.md Sec 6.1).
+vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 
 /**
  * M47-WU04 integration: `aiqt pr create` end to end, on top of a real

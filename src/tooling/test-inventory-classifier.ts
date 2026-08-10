@@ -164,6 +164,14 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   // existing member evidence (defects, maintenance schedules, canonical
   // state) without owning any of those domains itself.
   { pattern: /^portfolio-/, domain: "portfolio-governance", criticality: "High-value" },
+  // M47: controlled Pull Request integration -- the repository's only
+  // remote-write authority (one exact-SHA, non-force branch push and one
+  // Pull Request creation). Critical for the same reason
+  // autonomous-run-safety is: these files are what prove an irreversible
+  // external mutation stays inside its boundary. Placed BEFORE the
+  // /dogfood/ rule so pr-live-dogfood.test.ts classifies with the rest of
+  // the domain it actually guards rather than as generic self-consistency.
+  { pattern: /^pr-|^git-command-runner-pr-/, domain: "pull-request-integration", criticality: "Critical" },
   { pattern: /dogfood/, domain: "self-consistency", criticality: "Normal" },
 ];
 

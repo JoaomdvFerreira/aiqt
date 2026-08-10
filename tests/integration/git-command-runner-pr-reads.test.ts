@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -11,6 +12,11 @@ import {
   gitIsAncestor,
   GitRunnerError,
 } from "../../src/workspaces/git-command-runner.js";
+
+// M34-WU02: this suite spawns real `git` subprocesses against real
+// repositories and a real local bare remote; it belongs to the
+// spawning workload class (docs/engineering/m34-validation-workload-policy.md Sec 6.1).
+vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 
 /**
  * M47-WU02: the real read-only Git additions, exercised against a real

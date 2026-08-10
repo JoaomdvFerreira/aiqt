@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -8,6 +9,11 @@ import type { PullRequestProviderReadClient } from "../../src/services/github-pu
 import type { PullRequestIntegrationPlan } from "../../src/schema/pull-request-integration.schema.js";
 import { resolvePrIntegrationHome } from "../../src/state/pr-integration-home.js";
 import { listPrIntegrationIds } from "../../src/state/pr-integration-store.js";
+
+// M34-WU02: this suite spawns real `git` subprocesses against real
+// repositories and a real local bare remote; it belongs to the
+// spawning workload class (docs/engineering/m34-validation-workload-policy.md Sec 6.1).
+vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
 
 /**
  * M47-WU02 integration: `aiqt pr prepare` / `aiqt pr inspect` against a
@@ -21,7 +27,7 @@ import { listPrIntegrationIds } from "../../src/state/pr-integration-store.js";
  * needed) and the remote-URL resolver (so the remote can be a local bare
  * repository while still presenting a genuine `owner/repo` identity). The
  * real resolver, `git remote get-url`, is covered separately in
- * tests/unit/git-command-runner-pr-reads.test.ts.
+ * tests/integration/git-command-runner-pr-reads.test.ts.
  */
 
 const GITHUB_URL = "https://github.com/acme/widget.git";
