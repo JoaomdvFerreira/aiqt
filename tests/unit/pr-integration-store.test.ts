@@ -54,7 +54,7 @@ function facts(): PullRequestWriteBindingFacts {
 }
 
 function buildPlan(id = ID): PullRequestIntegrationPlan {
-  return createIntegrationPlan({ id, now: NOW, facts: facts(), title: "Add widget", portfolioRef: null });
+  return createIntegrationPlan({ id, now: NOW, facts: facts(), title: "Add widget", body: "Body.", portfolioRef: null });
 }
 
 describe("M47-WU01 store: plans persist outside every repository they act on", () => {

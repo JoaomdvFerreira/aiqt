@@ -667,8 +667,11 @@ export interface RawPrPrepareOptions {
   remote?: string;
   base: string;
   source?: string;
-  title: string;
+  title?: string;
   bodyFile?: string;
+  fromRun?: string;
+  evidenceDir?: string;
+  configPath?: string;
   reviewer?: string[];
   ready?: boolean;
   requireProtectedBase?: boolean;
@@ -687,6 +690,16 @@ export interface RawPrPushOptions {
 }
 
 export interface RawPrCreateOptions {
+  json?: boolean;
+  tokenEnv?: string;
+}
+
+export interface RawPrStatusOptions {
+  json?: boolean;
+  tokenEnv?: string;
+}
+
+export interface RawPrValidateOptions {
   json?: boolean;
   tokenEnv?: string;
 }

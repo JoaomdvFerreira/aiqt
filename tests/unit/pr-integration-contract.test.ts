@@ -64,6 +64,7 @@ function buildPlan(overrides: Partial<PullRequestWriteBindingFacts> = {}): PullR
     now: NOW,
     facts: baseFacts(overrides),
     title: "Add widget",
+    body: "Body.",
     portfolioRef: null,
   });
 }

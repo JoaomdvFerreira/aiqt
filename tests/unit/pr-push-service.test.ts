@@ -27,7 +27,7 @@ function facts(overrides: Partial<PullRequestWriteBindingFacts> = {}): PullReque
 }
 
 function plan(overrides: Partial<PullRequestWriteBindingFacts> = {}): PullRequestIntegrationPlan {
-  return createIntegrationPlan({ id: "pri-1754784000000-0123abcd", now: NOW, facts: facts(overrides), title: "T", portfolioRef: null });
+  return createIntegrationPlan({ id: "pri-1754784000000-0123abcd", now: NOW, facts: facts(overrides), title: "T", body: "B", portfolioRef: null });
 }
 
 interface Recorder {

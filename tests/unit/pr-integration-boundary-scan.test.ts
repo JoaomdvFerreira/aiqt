@@ -412,3 +412,61 @@ describe("M47-WU04 boundary scan: creation cannot approve, merge, or duplicate",
     expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
   });
 });
+
+/**
+ * M47-WU05 boundary scan (build spec Sec 6/12/13, threat model T20):
+ * status and validate are read-only with respect to the remote, and the
+ * cross-owner integrations (M46 selection, M37 handoff) grant no authority.
+ */
+const M47_WU05_FILES = ["src/services/pr-status-service.ts", "src/services/pr-source-resolution-service.ts", "src/cli/commands/pr-status.command.ts"];
+
+describe("M47-WU05 boundary scan: status/validate are read-only, and cross-owner reuse grants no authority", () => {
+  it("no WU47-05 file can push, create, merge, approve, deploy, or publish", () => {
+    for (const relPath of M47_WU05_FILES) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(text, `${relPath} should not reach a write surface`).not.toMatch(
+        /gitPushExactCommitToBranch|createPullRequest|requestReviewers|performExactShaPush|createOrReconcilePullRequest|mergePullRequest|approvePullRequest|publishRelease|\bdeploy\(/,
+      );
+    }
+  });
+
+  it("the status service uses only provider READ operations", () => {
+    const text = codeOnly(readFileSync(join(repoRoot, "src", "services", "pr-status-service.ts"), "utf8"));
+    const clientCalls = [...text.matchAll(/client\.(\w+)\(/g)].map((m) => m[1]);
+    expect([...new Set(clientCalls)].sort()).toEqual(["findOpenPullRequests", "getPullRequest"]);
+  });
+
+  it("validate writes nothing at all -- not even the plan file", () => {
+    const text = readFileSync(join(repoRoot, "src", "cli", "commands", "pr-status.command.ts"), "utf8");
+    const validateSection = text.slice(text.indexOf("export async function runPrValidate"));
+    expect(validateSection.includes("writePrIntegrationPlan"), "runPrValidate must not persist anything").toBe(false);
+  });
+
+  it("reconciliation can only leave `pr_ambiguous` when there is no recorded Pull Request to lose", () => {
+    const text = codeOnly(readFileSync(join(repoRoot, "src", "workflow", "pr-integration-lifecycle.ts"), "utf8"));
+    expect(text).toMatch(/plan\.status !== "pr_ambiguous" \|\| plan\.pullRequest !== null \|\| plan\.push\?\.outcome !== "verified"/);
+  });
+
+  it("M46 member selection resolves exactly one root and has no batch or fan-out surface", () => {
+    const text = codeOnly(readFileSync(join(repoRoot, "src", "services", "pr-source-resolution-service.ts"), "utf8"));
+    expect(text).toMatch(/resolvePortfolioMemberRoot\(portfolioId: string, memberId: string\): MemberResolution/);
+    for (const forbidden of ["forEach", "Promise.all", "members.filter", "members.map"]) {
+      expect(text.includes(forbidden), `member resolution must not fan out over members: ${forbidden}`).toBe(false);
+    }
+  });
+
+  it("the M37 handoff reuses the existing draft generator rather than re-implementing it, and refuses an incomplete run", () => {
+    const text = codeOnly(readFileSync(join(repoRoot, "src", "services", "pr-source-resolution-service.ts"), "utf8"));
+    expect(text).toMatch(/buildAutonomousPrDraft\(record\.candidate, record\.evidencePacket\)/);
+    expect(text).toMatch(/record\.evidencePacket === null/);
+  });
+
+  it("package.json still declares no new runtime dependency for M47-WU05", () => {
+    const packageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { dependencies: Record<string, string> };
+    expect(Object.keys(packageJson.dependencies).sort()).toEqual(["@inquirer/prompts", "commander", "zod"]);
+  });
+
+  it("the AIQT repository root still has no .aiqt/ directory", () => {
+    expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
+  });
+});

@@ -94,6 +94,8 @@ import {
   type RawPrInspectOptions,
   type RawPrPushOptions,
   type RawPrCreateOptions,
+  type RawPrStatusOptions,
+  type RawPrValidateOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -221,6 +223,7 @@ import {
 import { runPrPrepare, runPrInspect } from "./commands/pr-prepare.command.js";
 import { runPrPush } from "./commands/pr-push.command.js";
 import { runPrCreate } from "./commands/pr-create.command.js";
+import { runPrStatus, runPrValidate } from "./commands/pr-status.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman, renderResultFooter } from "../core/output/human-output.js";
@@ -2256,8 +2259,11 @@ export function buildProgram(): Command {
     .option("--remote <name>", "remote name (defaults to origin)")
     .requiredOption("--base <branch>", "base branch the Pull Request will target")
     .option("--source <branch>", "source branch to push (defaults to the currently checked-out branch)")
-    .requiredOption("--title <title>", "Pull Request title")
+    .option("--title <title>", "Pull Request title (required unless --from-run is used)")
     .option("--body-file <path>", "file containing the Pull Request body")
+    .option("--from-run <runId>", "reuse an M37 autonomous run's generated Pull Request draft as the title and body")
+    .option("--evidence-dir <path>", "directory holding autonomous run records (for --from-run)")
+    .option("--config-path <path>", "autonomous operator configuration file (for --from-run)")
     .option("--reviewer <login>", "explicitly request one reviewer (repeatable)", (value: string, previous: string[] = []) => [...previous, value])
     .option("--ready", "open a ready-for-review Pull Request instead of the default draft", false)
     .option("--require-protected-base", "refuse to create unless the base branch is verifiably protected", false)
@@ -2273,6 +2279,9 @@ export function buildProgram(): Command {
         source: raw.source,
         title: raw.title,
         bodyFile: raw.bodyFile,
+        fromRun: raw.fromRun,
+        evidenceDir: raw.evidenceDir,
+        configPath: raw.configPath,
         reviewer: raw.reviewer,
         ready: raw.ready,
         requireProtectedBase: raw.requireProtectedBase,
@@ -2312,6 +2321,28 @@ export function buildProgram(): Command {
     .action(async (integrationId: string, raw: RawPrCreateOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = await runPrCreate(ctx, integrationId, { tokenEnv: raw.tokenEnv });
+      emit(result, ctx.json);
+    });
+
+  prCommand
+    .command("status <integration-id>")
+    .description("Read-only: reconcile the plan against real remote state and report push/Pull-Request/reviewer outcomes -- never approves, merges, or publishes")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token (defaults to GITHUB_TOKEN)")
+    .action(async (integrationId: string, raw: RawPrStatusOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runPrStatus(ctx, integrationId, { tokenEnv: raw.tokenEnv });
+      emit(result, ctx.json);
+    });
+
+  prCommand
+    .command("validate <integration-id>")
+    .description("Read-only: re-run every freshness, preflight, and policy gate and report whether push/create would be permitted -- writes nothing at all")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token (defaults to GITHUB_TOKEN)")
+    .action(async (integrationId: string, raw: RawPrValidateOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runPrValidate(ctx, integrationId, { tokenEnv: raw.tokenEnv });
       emit(result, ctx.json);
     });
 

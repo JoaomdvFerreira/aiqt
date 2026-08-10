@@ -93,24 +93,38 @@ export function hasRecordedRemoteSideEffect(plan: PullRequestIntegrationPlan): b
   return plan.push !== null || plan.pullRequest !== null;
 }
 
-function statusForPushOutcome(outcome: PullRequestPushRecord["outcome"], previous: PullRequestIntegrationStatus): PullRequestIntegrationStatus {
-  if (outcome === "verified") return "push_verified";
-  if (outcome === "ambiguous") return "push_ambiguous";
-  // A `failed` push is one we KNOW did not land (the remote refused it, or
-  // a preflight gate refused before any bytes were sent). The plan returns
-  // to whatever it was, rather than claiming a side effect it does not have.
-  return previous === "prepared" ? "prepared" : previous;
+/**
+ * A `verified` push is the strongest evidence there is that the remote ref
+ * moved, and nothing may overwrite it -- a later failed attempt does not
+ * un-push a commit. Every other recorded outcome may be replaced by a
+ * newer one, which is what lets WU47-05's reconciliation turn a recorded
+ * `ambiguous` into a definite `verified` or `failed` from real remote
+ * evidence. The rule is "never lose certainty", not "never change".
+ */
+function retainedPushRecord(plan: PullRequestIntegrationPlan, record: PullRequestPushRecord): PullRequestPushRecord {
+  return plan.push?.outcome === "verified" && record.outcome !== "verified" ? plan.push : record;
+}
+
+function statusForPushRecord(retained: PullRequestPushRecord): PullRequestIntegrationStatus {
+  if (retained.outcome === "verified") return "push_verified";
+  if (retained.outcome === "ambiguous") return "push_ambiguous";
+  // A `failed` push is one we KNOW did not land (the remote refused it, a
+  // preflight gate refused before any bytes were sent, or reconciliation
+  // established the remote never received it). The plan carries no side
+  // effect, so it returns to `prepared`.
+  return "prepared";
 }
 
 export function recordPushOutcome(plan: PullRequestIntegrationPlan, record: PullRequestPushRecord, at: string): PullRequestIntegrationPlan {
   const event: PullRequestIntegrationEventType =
     record.outcome === "verified" ? "push_verified" : record.outcome === "ambiguous" ? "push_ambiguous" : "push_failed";
+  const retained = retainedPushRecord(plan, record);
   const next: PullRequestIntegrationPlan = {
     ...plan,
-    // A recorded push is never cleared by a later failed attempt: keep the
-    // strongest evidence we have that the remote ref moved.
-    push: record.outcome === "failed" && plan.push !== null ? plan.push : record,
-    status: plan.pullRequest !== null ? plan.status : statusForPushOutcome(record.outcome, plan.status),
+    push: retained,
+    // A plan that already has a Pull Request never has its status rewritten
+    // by a push record -- the Pull Request is the stronger side effect.
+    status: plan.pullRequest !== null ? plan.status : statusForPushRecord(retained),
     updatedAt: at,
   };
   return appendPlanAudit(next, event, at, record.detail);
@@ -140,6 +154,22 @@ export function recordCreateAmbiguity(plan: PullRequestIntegrationPlan, at: stri
     updatedAt: at,
   };
   return appendPlanAudit(next, "pr_create_ambiguous", at, detail);
+}
+
+/**
+ * M47-WU05: reconciliation established, from real provider evidence, that
+ * no Pull Request exists for this plan -- so the earlier ambiguous create
+ * demonstrably did not land. This is the only transition that leaves
+ * `pr_ambiguous`, and it is allowed precisely because it moves the plan
+ * toward MORE certainty while erasing nothing: it applies only when there
+ * is no recorded Pull Request to lose, and it restores the plan to the
+ * state its verified push already earned.
+ */
+export function clearCreateAmbiguity(plan: PullRequestIntegrationPlan, at: string, detail: string): PullRequestIntegrationPlan {
+  if (plan.status !== "pr_ambiguous" || plan.pullRequest !== null || plan.push?.outcome !== "verified") {
+    return appendPlanAudit({ ...plan, updatedAt: at }, "pr_lookup", at, detail);
+  }
+  return appendPlanAudit({ ...plan, status: "push_verified", updatedAt: at }, "pr_lookup", at, detail);
 }
 
 export function recordCreateFailure(plan: PullRequestIntegrationPlan, at: string, detail: string): PullRequestIntegrationPlan {

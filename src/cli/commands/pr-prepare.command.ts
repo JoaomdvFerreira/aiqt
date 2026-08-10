@@ -10,6 +10,8 @@ import { createIntegrationPlan, recordBaseProtection, markPlanBlocked, evaluateP
 import { writePrIntegrationPlan } from "../../state/pr-integration-store.js";
 import { resolvePrIntegrationHome, resolvePrIntegrationFilePath } from "../../state/pr-integration-home.js";
 import type { PullRequestPortfolioRef } from "../../schema/pull-request-integration.schema.js";
+import { resolvePortfolioMemberRoot, resolveAutonomousRunHandoff } from "../../services/pr-source-resolution-service.js";
+import { resolveOperatorConfigOrFail } from "./autonomous-shared.js";
 
 /**
  * `aiqt pr prepare` (build spec Sec 6): READ-ONLY. It binds an exact
@@ -29,8 +31,13 @@ export interface PrPrepareOptions {
   remote?: string;
   base: string;
   source?: string;
-  title: string;
+  title?: string;
   bodyFile?: string;
+  /** M47-WU05: reuse an M37 autonomous run's already-generated PR draft as the title and body. */
+  fromRun?: string;
+  /** Evidence directory holding the M37 run record (defaults to the resolved operator configuration). */
+  evidenceDir?: string;
+  configPath?: string;
   reviewer?: string[];
   ready?: boolean;
   requireProtectedBase?: boolean;
@@ -42,18 +49,49 @@ export interface PrPrepareOptions {
 export interface PrPrepareDeps extends CollectPrPreflightDeps {
   env?: NodeJS.ProcessEnv;
   now?: () => string;
-  /** Resolves an M46 portfolio member to exactly one repository root (WU47-05 wires the real resolver). */
+  /** Resolves an M46 portfolio member to exactly one repository root. Defaults to the real M46 registry reader. */
   resolveMember?: (portfolioId: string, memberId: string) => { ok: true; root: string } | { ok: false; reason: string };
 }
 
 export async function runPrPrepare(ctx: CommandContext, options: PrPrepareOptions, deps: PrPrepareDeps = {}): Promise<CommandResult> {
   const now = deps.now ?? (() => new Date().toISOString());
 
-  const titleError = validateTitle(options.title);
-  if (titleError !== null) return titleError;
+  // --- Title/body: explicit flags, or an M37 autonomous-run handoff ------
+  if (options.fromRun !== undefined && (options.title !== undefined || options.bodyFile !== undefined)) {
+    return prFailure(
+      "Provide either --from-run or --title/--body-file, not both -- the Pull Request text has exactly one source.",
+      ExitCode.InvalidInput,
+      "PR-PREPARE-CONFLICTING-METADATA-SOURCE",
+    );
+  }
 
-  const body = loadPrBody(options.bodyFile);
-  if (!body.ok) return body.result;
+  let title: string;
+  let bodyText: string;
+  if (options.fromRun !== undefined) {
+    const configOutcome = resolveOperatorConfigOrFail({
+      cwd: ctx.cwd,
+      configPath: options.configPath,
+      cliFlags: options.evidenceDir ? { evidenceOutputDir: options.evidenceDir } : {},
+    });
+    if (!configOutcome.ok) return configOutcome.result;
+    const handoff = resolveAutonomousRunHandoff(options.fromRun, configOutcome.config.evidenceOutputDir);
+    if (!handoff.ok) {
+      return prFailure(handoff.reason, ExitCode.InvalidInput, "PR-PREPARE-HANDOFF-UNAVAILABLE");
+    }
+    title = handoff.title;
+    bodyText = handoff.body;
+  } else {
+    if (options.title === undefined) {
+      return prFailure("Provide --title, or --from-run to reuse an autonomous run's Pull Request draft.", ExitCode.InvalidInput, "PR-PREPARE-MISSING-TITLE");
+    }
+    title = options.title;
+    const body = loadPrBody(options.bodyFile);
+    if (!body.ok) return body.result;
+    bodyText = body.body;
+  }
+
+  const titleError = validateTitle(title);
+  if (titleError !== null) return titleError;
 
   if ((options.portfolio === undefined) !== (options.member === undefined)) {
     return prFailure("--portfolio and --member must be provided together.", ExitCode.InvalidInput, "PR-PREPARE-INCOMPLETE-MEMBER-SELECTOR");
@@ -69,14 +107,7 @@ export async function runPrPrepare(ctx: CommandContext, options: PrPrepareOption
   let portfolioRef: PullRequestPortfolioRef | null = null;
   let repositoryRoot: string;
   if (options.portfolio !== undefined && options.member !== undefined) {
-    if (deps.resolveMember === undefined) {
-      return prFailure(
-        "Portfolio member selection is not available in this build.",
-        ExitCode.InvalidInput,
-        "PR-PREPARE-MEMBER-RESOLUTION-UNAVAILABLE",
-      );
-    }
-    const resolved = deps.resolveMember(options.portfolio, options.member);
+    const resolved = (deps.resolveMember ?? resolvePortfolioMemberRoot)(options.portfolio, options.member);
     if (!resolved.ok) {
       return prFailure(resolved.reason, ExitCode.InvalidInput, "PR-PREPARE-MEMBER-NOT-RESOLVED");
     }
@@ -123,7 +154,7 @@ export async function runPrPrepare(ctx: CommandContext, options: PrPrepareOption
     );
   }
 
-  const metadataDigest = computePrMetadataDigest({ title: options.title.trim(), body: body.body });
+  const metadataDigest = computePrMetadataDigest({ title: title.trim(), body: bodyText });
   const facts: PullRequestWriteBindingFacts = {
     provider: "github",
     repositoryRoot,
@@ -157,7 +188,7 @@ export async function runPrPrepare(ctx: CommandContext, options: PrPrepareOption
     });
   }
 
-  let plan = createIntegrationPlan({ id: generatePrIntegrationId(), now: at, facts, title: options.title.trim(), body: body.body, portfolioRef });
+  let plan = createIntegrationPlan({ id: generatePrIntegrationId(), now: at, facts, title: title.trim(), body: bodyText, portfolioRef });
   plan = recordBaseProtection(plan, { evidence: obs.baseProtection, checkedAt: at, detail: `Base protection evidence collected during prepare.` }, at);
   // Only a PUSH-phase failure makes the plan itself terminal. A create-phase
   // finding (an unmet base-protection requirement, too many reviewers) is
