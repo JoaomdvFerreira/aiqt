@@ -122,3 +122,121 @@ describe("M47-WU01: the state boundary is a separate, non-repository-local store
     expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
   });
 });
+
+/**
+ * M47-WU02 boundary scan (build spec Sec 14 WU47-02: "Read-only
+ * repository/remote/base/source/HEAD/protection/provider preflight").
+ * This Work Unit adds the first real repository and network reads, and a
+ * public CLI surface -- these guards prove all of it stays read-only.
+ */
+const M47_WU02_FILES = [
+  "src/workflow/pr-remote-identity.ts",
+  "src/workflow/pr-preflight.ts",
+  "src/services/github-pull-request-client.ts",
+  "src/services/pr-preflight-service.ts",
+  "src/cli/commands/pr-shared.ts",
+  "src/cli/commands/pr-prepare.command.ts",
+];
+
+/** Exactly the git-command-runner exports the preflight service may call -- every one read-only. */
+const ALLOWED_PREFLIGHT_GIT_FUNCTIONS = [
+  "gitIsInsideWorkTree",
+  "gitCurrentBranch",
+  "gitDiffQuietIsClean",
+  "gitLsFilesOthersExcludeStandard",
+  "gitRevParse",
+  "gitRemoteGetUrl",
+  "gitLsRemoteHead",
+  "gitLsRemoteDefaultBranch",
+  "gitCommitExists",
+  "gitIsAncestor",
+  "GitRunnerError",
+];
+
+describe("M47-WU02 boundary scan: preflight and prepare are read-only", () => {
+  it("the preflight service imports only read-only git-command-runner exports", () => {
+    const text = readFileSync(join(repoRoot, "src", "services", "pr-preflight-service.ts"), "utf8");
+    const importMatch = /import\s*\{([^}]*)\}\s*from\s*["'].*git-command-runner\.js["']/.exec(text);
+    expect(importMatch, "pr-preflight-service.ts should import from git-command-runner.js").not.toBeNull();
+    const imported = importMatch![1]!.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+    const unexpected = imported.filter((name) => !ALLOWED_PREFLIGHT_GIT_FUNCTIONS.includes(name));
+    expect(unexpected, `pr-preflight-service.ts imports unexpected git-command-runner exports: ${unexpected.join(", ")}`).toEqual([]);
+  });
+
+  it("no WU47-02 file references a mutating Git surface", () => {
+    const forbidden: { pattern: RegExp; label: string }[] = [
+      { pattern: /\bgitWorktreeAdd\b|\bgitWorktreeRemove\b/, label: "worktree mutation" },
+      { pattern: /\bgitPush\w*\b/, label: "a push function (WU47-03 owns the first write)" },
+      { pattern: /--force|--delete\b|\bpush\s+--tags\b/, label: "force / delete / tag-push arguments" },
+      { pattern: /\bexecFileSync\b|\bspawnSync\b|\bexecFile\b|\bspawn\b|\bexecSync\b/, label: "a direct child_process execution function" },
+    ];
+    for (const relPath of M47_WU02_FILES) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      for (const { pattern, label } of forbidden) {
+        expect(pattern.test(text), `${relPath} unexpectedly matched forbidden pattern: ${label}`).toBe(false);
+      }
+    }
+  });
+
+  it("the GitHub Pull Request client makes only GET requests -- no create, update, merge, or review endpoint exists in it", () => {
+    const text = codeOnly(readFileSync(join(repoRoot, "src", "services", "github-pull-request-client.ts"), "utf8"));
+    expect(text, "no non-GET method should be issued by the read client").not.toMatch(/method:\s*["'](POST|PUT|PATCH|DELETE)["']/);
+    expect(text, "no merge endpoint").not.toMatch(/\/merge\b/);
+    expect(text, "no review/approval endpoint").not.toMatch(/\/reviews\b|["'`]APPROVE["'`]/);
+    expect(text, "no requested_reviewers endpoint yet (WU47-04 owns reviewer assignment)").not.toMatch(/requested_reviewers/);
+  });
+
+  it("only the pull-request client and the release client may contact the network at all", () => {
+    for (const relPath of M47_WU02_FILES) {
+      if (relPath === "src/services/github-pull-request-client.ts") continue;
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(/\bfetch\s*\(/.test(text), `${relPath} should not call fetch directly`).toBe(false);
+    }
+  });
+
+  it("prepare calls the self-management guard before using any repository path", () => {
+    const service = readFileSync(join(repoRoot, "src", "services", "pr-preflight-service.ts"), "utf8");
+    expect(service).toMatch(/isAiqtOwnRepository/);
+  });
+
+  it("no WU47-02 file places a raw remote URL or a token into a result, a plan, or a message", () => {
+    // The remote URL can embed a credential, so it must never be carried
+    // anywhere except through the parser that discards it.
+    const service = codeOnly(readFileSync(join(repoRoot, "src", "services", "pr-preflight-service.ts"), "utf8"));
+    expect(service).toMatch(/parseGitHubRemoteUrl\(remoteUrl\)/);
+    expect(service, "the raw URL must not be returned in the observation set").not.toMatch(/remoteUrl:\s*remoteUrl/);
+
+    const identity = readFileSync(join(repoRoot, "src", "workflow", "pr-remote-identity.ts"), "utf8");
+    expect(identity, "the parse result must not carry a url field").not.toMatch(/^\s*url:/m);
+
+    for (const relPath of M47_WU02_FILES) {
+      // The Authorization header is the one place a token is legitimately
+      // interpolated; anywhere else would be a leak into output or state.
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8")).split("`Bearer ${token}`").join("");
+      expect(text, `${relPath} should not interpolate a token anywhere except the Authorization header`).not.toMatch(/\$\{token\}/);
+    }
+  });
+
+  it("credentials are read only from an operator-named environment variable, never a CLI flag", () => {
+    const shared = readFileSync(join(repoRoot, "src", "cli", "commands", "pr-shared.ts"), "utf8");
+    expect(shared).toMatch(/env\[envName\]/);
+    const register = readFileSync(join(repoRoot, "src", "cli", "register-commands.ts"), "utf8");
+    const prSection = register.slice(register.indexOf('.command("pr")'));
+    expect(prSection).toMatch(/--token-env <name>/);
+    expect(prSection, "no flag may accept a token value directly").not.toMatch(/--token <|--github-token/);
+  });
+
+  it("no WU47-02 file can approve, merge, deploy, or publish (structural check, comments excluded)", () => {
+    for (const relPath of M47_WU02_FILES) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(text, `${relPath} should not invoke a merge/approve/deploy/publish operation`).not.toMatch(
+        /\bgitMerge\b|\bmergePullRequest\b|\bapprovePullRequest\b|\bdeploy\(|\bpublishRelease\b|\bcreateReleaseDraft\b/i,
+      );
+    }
+  });
+
+  it("package.json still declares no new runtime dependency for M47-WU02", () => {
+    const packageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { dependencies: Record<string, string> };
+    expect(Object.keys(packageJson.dependencies).sort()).toEqual(["@inquirer/prompts", "commander", "zod"]);
+  });
+});

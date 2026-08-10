@@ -457,6 +457,11 @@ describe("aiqt CLI entrypoint", () => {
         "release",
         "validation",
         "portfolio",
+        // M47: `aiqt pr ...` -- the controlled Pull Request integration
+        // surface. Deliberately added here rather than left to fail
+        // silently: it is a reviewed, intentional widening of the public
+        // command set, and it is the first one that can write to a remote.
+        "pr",
       ].sort(),
     );
     // A hypothetical M14 command surface (e.g. "design") must not appear.

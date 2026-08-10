@@ -230,10 +230,86 @@ export function gitCommitTimeIso(cwd: string, commit: string): string | null {
   }
 }
 
+/**
+ * M47-WU02: `git remote get-url <name>` -- read-only. Returns the
+ * configured fetch URL for one named remote, or null when the remote does
+ * not exist (which `git` reports as a non-zero exit, a meaningful "no such
+ * remote" result rather than a runner error). The URL may embed a
+ * credential (`https://user:token@host/...`), so callers must never place
+ * this value in a CommandResult, a persisted plan, or an error message --
+ * parse it to an `owner/repo` identity (workflow/pr-remote-identity.ts)
+ * and surface only that.
+ */
+export function gitRemoteGetUrl(cwd: string, remoteName: string): string | null {
+  try {
+    return execGit(["remote", "get-url", remoteName], { cwd }).stdout.trim() || null;
+  } catch (err) {
+    if (err instanceof GitRunnerError) return null;
+    throw err;
+  }
+}
+
+/**
+ * M47-WU02: `git ls-remote --heads <remote> refs/heads/<branch>` -- the
+ * bounded remote branch lookup. This is a NETWORK read (it contacts the
+ * remote), but it is read-only: `ls-remote` has no mutating form.
+ *
+ * The three outcomes are deliberately distinct, because conflating them
+ * is exactly the hazard M47 exists to avoid: a matching line means the
+ * branch exists at that SHA, empty output means the remote authoritatively
+ * has no such branch, and a thrown GitRunnerError means we could not find
+ * out (auth failure, network failure, unreachable host). A caller must
+ * never treat the third as the second -- "absent" authorizes a
+ * create-style push, "unverifiable" must not.
+ */
+export function gitLsRemoteHead(cwd: string, remoteName: string, branch: string): string | null {
+  const out = execGit(["ls-remote", "--heads", remoteName, `refs/heads/${branch}`], { cwd }).stdout;
+  for (const line of out.split("\n")) {
+    const [sha, ref] = line.trim().split("\t");
+    if (sha && ref === `refs/heads/${branch}`) return sha;
+  }
+  return null;
+}
+
+/**
+ * M47-WU02: `git ls-remote --symref <remote> HEAD` -- read-only discovery
+ * of the remote's default branch, so a push can be refused when the source
+ * branch IS the default branch even if the operator named a different
+ * base. Returns null when the remote did not report a symref (older
+ * servers), which is treated as "could not verify", never as "there is no
+ * default branch".
+ */
+export function gitLsRemoteDefaultBranch(cwd: string, remoteName: string): string | null {
+  const out = execGit(["ls-remote", "--symref", remoteName, "HEAD"], { cwd }).stdout;
+  for (const line of out.split("\n")) {
+    const match = /^ref:\s+refs\/heads\/(\S+)\s+HEAD$/.exec(line.trim());
+    if (match) return match[1]!;
+  }
+  return null;
+}
+
+/**
+ * M47-WU02: `git cat-file -e <sha>^{commit}` -- whether this repository
+ * has the given commit object locally. Used before any ancestry check: a
+ * remote SHA that is not present locally cannot be reasoned about, so the
+ * fast-forward decision must fail closed rather than assume. Exit 1 means
+ * "not present", a meaningful result, not a runner error.
+ */
+export function gitCommitExists(cwd: string, sha: string): boolean {
+  try {
+    const result = execGit(["cat-file", "-e", `${sha}^{commit}`], { cwd, allowExitCodeOne: true });
+    return !result.exitedWithCodeOne;
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Mutating allowlist (M25 §8) -- exactly `worktree add` and `worktree
 // remove`, each with a fixed argument template. No caller can supply a
 // raw argument array; branch/path/commit are separate validated strings.
+// M47-WU02 added only read-only entries above; nothing in this section
+// changed.
 // ---------------------------------------------------------------------------
 
 /** Fixed template: `git worktree add -b <branch> <path> <commitSha>`. Never `--force`; never a user-supplied ref beyond the validated full commit SHA. */

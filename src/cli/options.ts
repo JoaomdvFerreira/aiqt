@@ -656,3 +656,27 @@ export interface RawPortfolioStatusOptions {
 export interface RawPortfolioCheckOptions {
   json?: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// M47: `aiqt pr ...` (controlled Pull Request integration).
+// ---------------------------------------------------------------------------
+
+export interface RawPrPrepareOptions {
+  json?: boolean;
+  repository?: string;
+  remote?: string;
+  base: string;
+  source?: string;
+  title: string;
+  bodyFile?: string;
+  reviewer?: string[];
+  ready?: boolean;
+  requireProtectedBase?: boolean;
+  tokenEnv?: string;
+  portfolio?: string;
+  member?: string;
+}
+
+export interface RawPrInspectOptions {
+  json?: boolean;
+}
