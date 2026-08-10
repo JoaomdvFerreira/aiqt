@@ -355,7 +355,38 @@ prevented/reconciled; partial side effects resumable; draft is the safe
 default; reviewer assignment explicit; never approve/merge/deploy/release;
 reuse M37/M40/M44/M46 owners; no portfolio batch writes; no M48.
 
-## 20. Definition of Done
+## 20. Threat model (WU47-01)
+
+M47 is the first milestone in this repository that can mutate a remote
+repository. Hazards are listed with the control that closes them and the
+Work Unit that owns it. Hazards controlled to target carry no narrative
+beyond this table (protocol §6).
+
+| # | Hazard | Control | Owner |
+|---|---|---|---|
+| T1 | AIQT pushes to or opens a PR against its own repository | `isAiqtOwnRepository()` refusal at every command entry point, before any path is used | WU47-02 |
+| T2 | A commit other than the reviewed one is pushed | Exact 40-hex SHA bound at prepare; `isFullCommitSha` rejects refs/abbreviations; local HEAD re-verified immediately before the write | WU47-01/03 |
+| T3 | Plan acted on after the world moved (HEAD, branches, remote, metadata, reviewers, intent, policy) | `evaluatePlanFreshness` — field-by-field comparison plus re-derived `bindingDigest`; stale fails closed | WU47-01 |
+| T4 | Plan file edited in place to authorize a different write | `bindingDigest` re-derived from the plan's own fields on every read; mismatch is staleness | WU47-01 |
+| T5 | History destroyed by force push, ref deletion, or tag push | No such operation exists in the Git write allowlist; the push wrapper is a fixed non-force template; boundary scan asserts the absence | WU47-03 |
+| T6 | Push to the base or default branch | `source != base` and `source != remote default` gates, plus the plan's own source/base binding | WU47-02/03 |
+| T7 | Wildcard/multi-ref or arbitrary-refspec push | One fixed argument template with a single explicit `refs/heads/<source>` destination; no caller-supplied refspec | WU47-03 |
+| T8 | Uncommitted work silently included or lost | Clean-worktree gate (`gitDiffQuietIsClean` + untracked check) before any write | WU47-02/03 |
+| T9 | Push reported as success when the remote did not accept it | Remote source SHA re-read after the write; exact equality required for `verified` | WU47-03 |
+| T10 | Ambiguous network outcome guessed as success or failure | `push_ambiguous`/`pr_ambiguous` first-class states; next invocation must reconcile from real remote state | WU47-01/03/04 |
+| T11 | Duplicate Pull Request from a retry or restart | Open-PR lookup before create; `pr_open` forbids a second create; ambiguous create must look up first | WU47-04 |
+| T12 | A PR created against the wrong repository or base | Repository identity re-verified against the provider immediately before the write; base/source come only from the plan | WU47-02/04 |
+| T13 | A PR opened ready-for-review when the operator expected a draft | `draft` is the schema default; `ready` requires explicit intent and is a write-relevant fact | WU47-01/04 |
+| T14 | Reviewer failure rolled back into a second PR | Reviewer request is a separate typed record on an existing PR; retry completes it without creating anything | WU47-04 |
+| T15 | Permission/API failure reported as "base branch is unprotected" | Four-valued evidence (`protected`/`unprotected`/`unverifiable`/`unsupported`); failure maps only to `unverifiable` | WU47-02/04 |
+| T16 | Credential leakage into output, state, or logs | Token read from an operator-named env var only, never a flag; provider messages redacted; no plan field holds a credential | WU47-04 |
+| T17 | Credential discovery or persistence | No discovery path exists; missing credentials produce an operator action list, never a fabricated token | WU47-04 |
+| T18 | Plan state written into a repository under test, polluting the clean-worktree gate | Plans live in a user-home-scoped store, never in any target repository and never in AIQT's own tree | WU47-01 |
+| T19 | Path traversal via an operator-supplied integration id | Fixed `pri-<ts>-<8hex>` pattern validated before any path is constructed | WU47-01 |
+| T20 | Portfolio membership treated as write authority / fan-out | M46 resolution may select at most one member; one plan is always one repository | WU47-05 |
+| T21 | Approval, merge, deployment, or release publication | No such operation exists in any M47 schema, provider interface, or CLI surface; boundary scans assert the absence | all |
+
+## 21. Definition of Done
 
 M47 closes only when: one managed repo can produce a fresh exact-SHA
 integration plan; unsafe/stale/ambiguous state blocks before writes; one
