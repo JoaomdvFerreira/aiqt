@@ -242,13 +242,21 @@ export const ReviewTaskSubmissionSchema = z
   .strict();
 export type ReviewTaskSubmission = z.infer<typeof ReviewTaskSubmissionSchema>;
 
-/** Build spec Sec 14: explainable, pre-named stop reasons -- never an opaque "the model decided it was done". */
+/**
+ * Build spec Sec 14: explainable, pre-named stop reasons -- never an
+ * opaque "the model decided it was done". `interrupted` (WU48-05): a
+ * session whose recorded elapsed time exceeds its own hardStopMinutes by
+ * more than the reconciliation grace window is reconciled to this
+ * outcome, mirroring maintenance-run-service.ts's stale-occurrence
+ * discipline -- never silently resumed as though still live.
+ */
 export const NightAuditStopReasonSchema = z.enum([
   "budget_exhausted",
   "queue_exhausted",
   "diminishing_returns",
   "hard_stop",
   "cancelled",
+  "interrupted",
 ]);
 export type NightAuditStopReason = z.infer<typeof NightAuditStopReasonSchema>;
 

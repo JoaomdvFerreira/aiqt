@@ -109,6 +109,30 @@ export interface RawReviewAcknowledgeOptions {
   reason?: string;
 }
 
+/** M48: shared `aiqt review night *` target-selection flags. */
+export interface RawReviewNightTargetOptions {
+  json?: boolean;
+  repository?: string;
+  portfolio?: string;
+  member?: string;
+}
+
+export interface RawReviewNightRunOptions extends RawReviewNightTargetOptions {
+  targetDurationMinutes?: number;
+  hardStopMinutes?: number;
+  maxReviewTasks?: number;
+  maxNewIssues?: number;
+  maxOpenAuditIssueBacklog?: number;
+}
+
+export interface RawReviewNightSubmitOptions extends RawReviewNightTargetOptions {
+  domain?: string;
+  scope?: string;
+  commit?: string;
+  fromFile?: string;
+  tokenEnv?: string;
+}
+
 export interface RawNextOptions {
   json?: boolean;
   preview?: boolean;
