@@ -622,3 +622,29 @@ export interface RawMaintenanceHistoryOptions {
   scheduleId?: string;
   limit?: string;
 }
+
+// ---------------------------------------------------------------------------
+// M46-WU02: aiqt portfolio ... (multi-repository portfolio registry CLI surface).
+// ---------------------------------------------------------------------------
+
+export interface RawPortfolioCreateOptions {
+  json?: boolean;
+  name: string;
+}
+
+export interface RawPortfolioListOptions {
+  json?: boolean;
+}
+
+export interface RawPortfolioInspectOptions {
+  json?: boolean;
+}
+
+export interface RawPortfolioAddOptions {
+  json?: boolean;
+  alias?: string;
+}
+
+export interface RawPortfolioRemoveOptions {
+  json?: boolean;
+}
