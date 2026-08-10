@@ -89,6 +89,7 @@ import {
   type RawPortfolioAddOptions,
   type RawPortfolioRemoveOptions,
   type RawPortfolioStatusOptions,
+  type RawPortfolioCheckOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -211,6 +212,7 @@ import {
   runPortfolioAdd,
   runPortfolioRemove,
   runPortfolioStatus,
+  runPortfolioCheck,
 } from "./commands/portfolio.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
@@ -2216,6 +2218,16 @@ export function buildProgram(): Command {
     .action((portfolio: string, raw: RawPortfolioStatusOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runPortfolioStatus(ctx, portfolio);
+      emit(result, ctx.json);
+    });
+
+  portfolioCommand
+    .command("check <portfolio>")
+    .description("Aggregate defect/maintenance/blocker/human-input attention signals across a portfolio -- read-only, never creates remediation authority")
+    .option("--json", "emit machine-readable JSON output", false)
+    .action((portfolio: string, raw: RawPortfolioCheckOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = runPortfolioCheck(ctx, portfolio);
       emit(result, ctx.json);
     });
 

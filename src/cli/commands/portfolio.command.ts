@@ -18,6 +18,7 @@ import {
   removePortfolioMember,
 } from "../../services/portfolio-service.js";
 import { buildPortfolioSnapshot } from "../../workflow/portfolio-snapshot.js";
+import { buildPortfolioGovernanceReport } from "../../workflow/portfolio-governance.js";
 
 /**
  * `aiqt portfolio create|list|inspect|add|remove` (M46-WU02, build spec Sec
@@ -230,5 +231,45 @@ export function runPortfolioStatus(_ctx: CommandContext, portfolioId: string): C
         : `Portfolio "${portfolioId}": ${summary.healthy}/${summary.totalMembers} healthy, ${summary.blocked} blocked, ${summary.unavailable} unavailable, ${summary.invalidState} invalid, ${summary.notAiqtManaged} not AIQT-managed.`,
     exitCode: ExitCode.Success,
     data: { snapshot },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// check (M46-WU04)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build spec Sec 4 "check": "may report defects, maintenance due,
+ * blockers, and human-input requirements, but must not create remediation
+ * authority." Read-only aggregation; the M33 exit-10 invariant
+ * (exitCode === 10 <=> status === "needs_input" && requiresHumanInput)
+ * applies here exactly like any other command.
+ */
+export function runPortfolioCheck(_ctx: CommandContext, portfolioId: string): CommandResult {
+  const home = resolvePortfolioHome();
+  const readResult = readPortfolioManifest(home, portfolioId);
+  if (!readResult.ok) {
+    return portfolioFailure(readResult.reason, ExitCode.InvalidInput, "PORTFOLIO-CHECK-NOT-FOUND");
+  }
+
+  const now = new Date().toISOString();
+  const report = buildPortfolioGovernanceReport(readResult.manifest, now);
+  const { summary } = report;
+
+  const needsHumanInput = summary.membersNeedingHumanInput > 0;
+  const needsAttention = summary.membersNeedingAttention > 0;
+
+  const summaryText =
+    summary.totalMembers === 0
+      ? `Portfolio "${portfolioId}" has no registered members.`
+      : `Portfolio "${portfolioId}": ${summary.membersNeedingAttention}/${summary.totalMembers} member(s) need attention (${summary.membersNeedingHumanInput} need human input, ${summary.totalOpenDefects} open defect(s), ${summary.membersWithMaintenanceDue} with maintenance due).`;
+
+  return makeResult({
+    status: needsHumanInput ? "needs_input" : needsAttention ? "warning" : "passed",
+    action: "portfolio",
+    summary: summaryText,
+    exitCode: needsHumanInput ? ExitCode.HumanInputRequired : ExitCode.Success,
+    requiresHumanInput: needsHumanInput,
+    data: { report },
   });
 }

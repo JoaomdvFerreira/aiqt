@@ -4,6 +4,8 @@ import { readProjectModel } from "../state/project-store.js";
 import { readStateModel } from "../state/workflow-state-store.js";
 import { AiqtError } from "../core/output/aiqt-error.js";
 import type { PortfolioManifest, PortfolioMember } from "../schema/portfolio.schema.js";
+import type { ProjectModel } from "../schema/project.schema.js";
+import type { StateModel } from "../schema/state.schema.js";
 
 /**
  * M46-WU03: bounded, read-only multi-project snapshot aggregation (build
@@ -64,39 +66,55 @@ function baseSnapshot(member: PortfolioMember, status: PortfolioMemberStatus, bl
   };
 }
 
+export type MemberStateLoadResult =
+  | { ok: true; project: ProjectModel; state: StateModel }
+  | { ok: false; status: PortfolioMemberStatus; blockingIssues: string[] };
+
 /**
  * Build spec Sec 2.4: an unreadable/unavailable member is a first-class,
- * typed outcome, never a thrown error and never silently omitted.
+ * typed outcome, never a thrown error. Shared by buildPortfolioMemberSnapshot
+ * (WU46-03) and the governance check (WU46-04) so both aggregations apply
+ * the exact same bounded read/classification rules to a member root.
  */
-export function buildPortfolioMemberSnapshot(member: PortfolioMember): PortfolioMemberSnapshot {
+export function loadPortfolioMemberState(member: PortfolioMember): MemberStateLoadResult {
   if (!isDirectory(member.root)) {
-    return baseSnapshot(member, "unavailable", [`Repository root "${member.root}" does not exist (missing or moved).`]);
+    return { ok: false, status: "unavailable", blockingIssues: [`Repository root "${member.root}" does not exist (missing or moved).`] };
   }
 
   const paths = resolveAiqtPaths(member.root);
   if (!isFile(paths.projectFile)) {
-    return baseSnapshot(member, "not_aiqt_managed", [`No .aiqt/project.json found at "${member.root}".`]);
+    return { ok: false, status: "not_aiqt_managed", blockingIssues: [`No .aiqt/project.json found at "${member.root}".`] };
   }
 
   try {
     const project = readProjectModel(paths.projectFile);
     const state = readStateModel(paths.stateFile);
-    return {
-      memberId: member.id,
-      root: member.root,
-      ...(member.alias !== undefined ? { alias: member.alias } : {}),
-      projectId: project.project.id,
-      projectName: project.project.name,
-      status: state.projectStatus === "blocked" ? "blocked" : "healthy",
-      currentMilestoneId: state.currentMilestoneId,
-      currentWorkUnitId: state.currentWorkUnitId,
-      blockingIssues: [],
-      warnings: [],
-    };
+    return { ok: true, project, state };
   } catch (err) {
     const message = err instanceof AiqtError ? err.message : err instanceof Error ? err.message : String(err);
-    return baseSnapshot(member, "invalid_state", [message]);
+    return { ok: false, status: "invalid_state", blockingIssues: [message] };
   }
+}
+
+export function buildPortfolioMemberSnapshot(member: PortfolioMember): PortfolioMemberSnapshot {
+  const loaded = loadPortfolioMemberState(member);
+  if (!loaded.ok) {
+    return baseSnapshot(member, loaded.status, loaded.blockingIssues);
+  }
+
+  const { project, state } = loaded;
+  return {
+    memberId: member.id,
+    root: member.root,
+    ...(member.alias !== undefined ? { alias: member.alias } : {}),
+    projectId: project.project.id,
+    projectName: project.project.name,
+    status: state.projectStatus === "blocked" ? "blocked" : "healthy",
+    currentMilestoneId: state.currentMilestoneId,
+    currentWorkUnitId: state.currentWorkUnitId,
+    blockingIssues: [],
+    warnings: [],
+  };
 }
 
 function emptySummary(): PortfolioSummary {
