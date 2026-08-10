@@ -92,6 +92,7 @@ import {
   type RawPortfolioCheckOptions,
   type RawPrPrepareOptions,
   type RawPrInspectOptions,
+  type RawPrPushOptions,
 } from "./options.js";
 import { runInit } from "./commands/init.command.js";
 import { runStatus } from "./commands/status.command.js";
@@ -217,6 +218,7 @@ import {
   runPortfolioCheck,
 } from "./commands/portfolio.command.js";
 import { runPrPrepare, runPrInspect } from "./commands/pr-prepare.command.js";
+import { runPrPush } from "./commands/pr-push.command.js";
 import { errorToResult } from "../core/output/result.js";
 import { renderJson } from "../core/output/json-output.js";
 import { renderHuman, renderResultFooter } from "../core/output/human-output.js";
@@ -2286,6 +2288,17 @@ export function buildProgram(): Command {
     .action((integrationId: string, raw: RawPrInspectOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runPrInspect(ctx, integrationId);
+      emit(result, ctx.json);
+    });
+
+  prCommand
+    .command("push <integration-id>")
+    .description("Push exactly the plan's bound commit to exactly its source branch -- non-force, single ref, verified by re-reading the remote afterwards")
+    .option("--json", "emit machine-readable JSON output", false)
+    .option("--token-env <name>", "name of the environment variable holding the GitHub token (defaults to GITHUB_TOKEN)")
+    .action(async (integrationId: string, raw: RawPrPushOptions) => {
+      const ctx = makeContext({ json: Boolean(raw.json) });
+      const result = await runPrPush(ctx, integrationId, { tokenEnv: raw.tokenEnv });
       emit(result, ctx.json);
     });
 

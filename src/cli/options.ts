@@ -680,3 +680,8 @@ export interface RawPrPrepareOptions {
 export interface RawPrInspectOptions {
   json?: boolean;
 }
+
+export interface RawPrPushOptions {
+  json?: boolean;
+  tokenEnv?: string;
+}

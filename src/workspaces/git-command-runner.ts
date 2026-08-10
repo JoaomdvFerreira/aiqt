@@ -305,11 +305,13 @@ export function gitCommitExists(cwd: string, sha: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Mutating allowlist (M25 §8) -- exactly `worktree add` and `worktree
-// remove`, each with a fixed argument template. No caller can supply a
-// raw argument array; branch/path/commit are separate validated strings.
-// M47-WU02 added only read-only entries above; nothing in this section
-// changed.
+// Mutating allowlist (M25 §8, extended once by M47 §8) -- `worktree add`,
+// `worktree remove`, and exactly one non-force, single-ref, exact-commit
+// branch push, each with a fixed argument template. No caller can supply a
+// raw argument array; branch/path/commit/remote are separate validated
+// strings. There is no force, force-with-lease, delete, tag, wildcard, or
+// multi-ref push anywhere in this file, and no way for a caller to
+// construct one.
 // ---------------------------------------------------------------------------
 
 /** Fixed template: `git worktree add -b <branch> <path> <commitSha>`. Never `--force`; never a user-supplied ref beyond the validated full commit SHA. */
@@ -320,4 +322,49 @@ export function gitWorktreeAdd(cwd: string, branchName: string, targetPath: stri
 /** Fixed template: `git worktree remove <path>`. Never `--force`. */
 export function gitWorktreeRemove(cwd: string, targetPath: string): void {
   execGit(["worktree", "remove", targetPath], { cwd });
+}
+
+/**
+ * M47-WU03 (build spec Sec 8): the ONLY remote-write operation in this
+ * repository, and the only entry ever added to this file's mutating
+ * allowlist for a network destination.
+ *
+ * Fixed template: `git push <remote> <sha>:refs/heads/<branch>`.
+ *
+ * What the shape itself guarantees, independent of any caller:
+ * - the source of the push is a resolved commit SHA, never a ref name, so
+ *   what lands is exactly the reviewed commit and cannot drift between
+ *   the decision and the write;
+ * - the destination is one fully-qualified `refs/heads/` ref, so no
+ *   wildcard, no `--all`, no `--mirror`, no tag ref, and no second ref can
+ *   ride along;
+ * - the refspec has no leading `+` and no `--force`/`--force-with-lease`
+ *   flag exists anywhere in this template, so a non-fast-forward update is
+ *   rejected by the remote itself -- the guarantee does not depend on
+ *   AIQT's own preflight being correct;
+ * - the source side is never empty, so this can never express a ref
+ *   deletion (`git push <remote> :refs/heads/<branch>`).
+ *
+ * Callers MUST validate `commitSha` as a full 40-hex SHA and `branch` via
+ * gitCheckRefFormatBranch first; both are re-checked here, because this is
+ * the last point before a real remote mutation and a wrong value here
+ * cannot be undone by AIQT (it has no force, delete, or revert capability).
+ *
+ * Throws GitRunnerError on any failure. A thrown error means the push did
+ * not demonstrably succeed -- it does NOT mean nothing happened, since a
+ * connection can drop after the remote has already accepted the update.
+ * Resolving that is the caller's job (pr-push-service.ts re-reads the
+ * remote SHA and records `ambiguous` rather than guessing).
+ */
+export function gitPushExactCommitToBranch(cwd: string, remoteName: string, commitSha: string, branch: string): string {
+  if (!/^[0-9a-f]{40}$/i.test(commitSha)) {
+    throw new GitRunnerError("GIT_PUSH_INVALID_COMMIT", "Refusing to push: the source must be a full 40-character commit SHA.");
+  }
+  if (branch.length === 0 || branch.startsWith("-") || branch.includes(":") || branch.includes("*") || branch.includes("?")) {
+    throw new GitRunnerError("GIT_PUSH_INVALID_BRANCH", "Refusing to push: the destination branch name is not a plain branch name.");
+  }
+  if (remoteName.length === 0 || remoteName.startsWith("-")) {
+    throw new GitRunnerError("GIT_PUSH_INVALID_REMOTE", "Refusing to push: the remote name is not a plain remote name.");
+  }
+  return execGit(["push", "--porcelain", remoteName, `${commitSha}:refs/heads/${branch}`], { cwd }).stdout;
 }

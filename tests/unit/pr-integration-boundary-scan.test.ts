@@ -240,3 +240,86 @@ describe("M47-WU02 boundary scan: preflight and prepare are read-only", () => {
     expect(Object.keys(packageJson.dependencies).sort()).toEqual(["@inquirer/prompts", "commander", "zod"]);
   });
 });
+
+/**
+ * M47-WU03 boundary scan (build spec Sec 8, threat model T5/T6/T7):
+ * this Work Unit adds the first, and only, remote-write capability in the
+ * repository. These guards prove that capability is exactly one non-force,
+ * single-ref, exact-commit branch push and nothing more -- structurally,
+ * not by convention.
+ */
+const M47_WU03_FILES = ["src/services/pr-push-service.ts", "src/cli/commands/pr-push.command.ts"];
+
+describe("M47-WU03 boundary scan: the remote-write capability is exactly one non-force single-ref push", () => {
+  const runnerPath = join(repoRoot, "src", "workspaces", "git-command-runner.ts");
+
+  it("git-command-runner.ts contains exactly one push invocation, with a fixed argument template", () => {
+    const text = codeOnly(readFileSync(runnerPath, "utf8"));
+    const pushInvocations = text.match(/execGit\(\[\s*"push"/g) ?? [];
+    expect(pushInvocations, "exactly one push call site may exist").toHaveLength(1);
+    expect(text).toMatch(/execGit\(\["push", "--porcelain", remoteName, `\$\{commitSha\}:refs\/heads\/\$\{branch\}`\]/);
+  });
+
+  it("no force, force-with-lease, delete, tag, mirror, or wildcard push argument exists anywhere in the Git runner", () => {
+    const text = codeOnly(readFileSync(runnerPath, "utf8"));
+    for (const forbidden of ["--force", "--force-with-lease", "--delete", "--tags", "--mirror", "--all", "--prune", "+refs/"]) {
+      expect(text.includes(forbidden), `git-command-runner.ts must not contain ${forbidden}`).toBe(false);
+    }
+  });
+
+  it("the push refspec can never express a deletion (the source side is always a commit SHA, never empty)", () => {
+    const text = codeOnly(readFileSync(runnerPath, "utf8"));
+    expect(text, "a leading ':' refspec would delete the remote ref").not.toMatch(/`:refs\/heads\//);
+    expect(text).toMatch(/GIT_PUSH_INVALID_COMMIT/);
+    expect(text).toMatch(/GIT_PUSH_INVALID_BRANCH/);
+    expect(text).toMatch(/GIT_PUSH_INVALID_REMOTE/);
+  });
+
+  it("only the push service may call the push runner function -- no command or other service reaches it directly", () => {
+    const callers = ["src/cli/commands/pr-push.command.ts", "src/cli/commands/pr-prepare.command.ts", "src/services/pr-preflight-service.ts", "src/cli/commands/pr-shared.ts"];
+    for (const relPath of callers) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(text.includes("gitPushExactCommitToBranch"), `${relPath} must not call the push runner directly`).toBe(false);
+    }
+    const service = readFileSync(join(repoRoot, "src", "services", "pr-push-service.ts"), "utf8");
+    expect(service).toMatch(/gitPushExactCommitToBranch/);
+  });
+
+  it("the push service verifies the remote after the write on every path -- success is never inferred from the exit code alone", () => {
+    const text = codeOnly(readFileSync(join(repoRoot, "src", "services", "pr-push-service.ts"), "utf8"));
+    // Exactly one verification read, performed after the try/catch, so both
+    // the succeeded and threw paths reach it.
+    expect((text.match(/readRemote\(deps,/g) ?? []).length).toBe(1);
+    expect(text).toMatch(/outcome: "verified"/);
+    expect(text).toMatch(/outcome: "ambiguous"/);
+  });
+
+  it("no WU47-03 file can merge, approve, deploy, publish, or create a Pull Request (creation is WU47-04's own reviewed surface)", () => {
+    for (const relPath of M47_WU03_FILES) {
+      const text = codeOnly(readFileSync(join(repoRoot, relPath), "utf8"));
+      expect(text, `${relPath} should not invoke a merge/approve/deploy/publish operation`).not.toMatch(
+        /\bgitMerge\b|\bmergePullRequest\b|\bapprovePullRequest\b|\bdeploy\(|\bpublishRelease\b|\bcreatePullRequest\b/i,
+      );
+      expect(/\bfetch\s*\(/.test(text), `${relPath} should not call fetch directly`).toBe(false);
+    }
+  });
+
+  it("the push command runs freshness and preflight before the write, in that order", () => {
+    const text = readFileSync(join(repoRoot, "src", "cli", "commands", "pr-push.command.ts"), "utf8");
+    const freshnessAt = text.indexOf("evaluatePlanFreshness(plan, observedFacts)");
+    const preflightAt = text.indexOf("evaluatePrPreflight(obs)");
+    const pushAt = text.indexOf("performExactShaPush(");
+    expect(freshnessAt).toBeGreaterThan(-1);
+    expect(preflightAt).toBeGreaterThan(freshnessAt);
+    expect(pushAt).toBeGreaterThan(preflightAt);
+  });
+
+  it("package.json still declares no new runtime dependency for M47-WU03", () => {
+    const packageJson = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { dependencies: Record<string, string> };
+    expect(Object.keys(packageJson.dependencies).sort()).toEqual(["@inquirer/prompts", "commander", "zod"]);
+  });
+
+  it("the AIQT repository root still has no .aiqt/ directory now that a real remote-write path exists", () => {
+    expect(existsSync(join(repoRoot, ".aiqt"))).toBe(false);
+  });
+});
