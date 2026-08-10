@@ -19,6 +19,7 @@ import { RequiredModeActivationSchema } from "./required-mode-activation.schema.
 import { RequiredEvidenceExceptionSchema, MAX_EXCEPTIONS } from "./required-evidence-exception.schema.js";
 import { DefectRecordSchema, MAX_DEFECTS } from "./defect.schema.js";
 import { MaintenanceScheduleSchema, MaintenanceOccurrenceRecordSchema, MAX_MAINTENANCE_SCHEDULES } from "./maintenance-schedule.schema.js";
+import { NightAuditCoverageEntrySchema, NightAuditActiveSessionRecordSchema, MAX_NIGHT_AUDIT_COVERAGE_ENTRIES } from "./night-audit.schema.js";
 
 export const ProjectStatusSchema = z.enum([
   "draft",
@@ -100,5 +101,20 @@ export const StateModelSchema = z.object({
    * project has run its first occurrence and returned to idle.
    */
   maintenanceActiveOccurrence: MaintenanceOccurrenceRecordSchema.nullable().optional(),
+  /**
+   * M48 build spec Sec 6: optional, additive. Missing entirely on pre-M48
+   * state files. One entry per (domain, scope) pair reviewed at least
+   * once; upserted after each completed ReviewTask -- never rewritten
+   * wholesale.
+   */
+  nightAuditCoverage: z.array(NightAuditCoverageEntrySchema).max(MAX_NIGHT_AUDIT_COVERAGE_ENTRIES).optional(),
+  /**
+   * M48 build spec Sec 6/9: optional, additive. A nullable singleton
+   * (never an array) mirroring maintenanceActiveOccurrence -- "at most one
+   * Night Audit session running" is structural. Absent entirely on
+   * pre-M48 state; explicitly null once a project has run its first
+   * session and returned to idle.
+   */
+  nightAuditActiveSession: NightAuditActiveSessionRecordSchema.nullable().optional(),
 });
 export type StateModel = z.infer<typeof StateModelSchema>;

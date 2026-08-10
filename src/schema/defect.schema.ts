@@ -174,6 +174,28 @@ export const DefectResolutionSchema = z
   .strict();
 export type DefectResolution = z.infer<typeof DefectResolutionSchema>;
 
+/**
+ * M48-WU01 (build spec Sec 6/7): provenance linking a defect record to the
+ * one GitHub Issue published from it. The defect record remains the sole
+ * durable defect/fingerprint authority -- this field never creates a
+ * second tracked-issue list; it is the mechanism by which a defect that
+ * has already been published is never re-published (build spec Sec 9).
+ * `provider` is a fixed enum, mirroring PullRequestProviderSchema's
+ * discipline (a reviewed integration, never operator input).
+ */
+export const DefectExternalIssueProviderSchema = z.enum(["github"]);
+export type DefectExternalIssueProvider = z.infer<typeof DefectExternalIssueProviderSchema>;
+
+export const DefectExternalIssueRefSchema = z
+  .object({
+    provider: DefectExternalIssueProviderSchema,
+    number: z.number().int().positive(),
+    url: z.string().min(1),
+    publishedAt: z.string(),
+  })
+  .strict();
+export type DefectExternalIssueRef = z.infer<typeof DefectExternalIssueRefSchema>;
+
 /** Section 4: the durable defect record. One canonical record per fingerprint. */
 export const DefectRecordSchema = z
   .object({
@@ -197,6 +219,8 @@ export const DefectRecordSchema = z
     resolution: DefectResolutionSchema.optional(),
     duplicateOfDefectId: z.string().min(1).optional(),
     supersedesDefectIds: z.array(z.string().min(1)).max(MAX_DUPLICATE_LINKS).optional(),
+    /** M48-WU01: optional, additive. Absent on every defect no Night Audit session has ever published. */
+    externalIssueRef: DefectExternalIssueRefSchema.optional(),
     createdAt: z.string(),
     updatedAt: z.string(),
   })
