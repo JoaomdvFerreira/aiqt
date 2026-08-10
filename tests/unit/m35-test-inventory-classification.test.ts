@@ -95,9 +95,17 @@ describe("M35-WU01: every test file receives a full classification", () => {
     ).toEqual(["tests/integration/sandbox-docker-backend.test.ts", "tests/integration/sandbox-escape-testing.test.ts", "tests/integration/sandbox-live-execution.test.ts"]);
   });
 
-  it("the confirmed post-M38-WU05 baseline's three platform-guarded files are unchanged", () => {
+  it("the confirmed post-M46-WU05 baseline's four platform-guarded files are unchanged", () => {
     const guarded = rows.filter((r) => r.hasPlatformGuard).map((r) => r.path).sort();
-    expect(guarded).toEqual(["tests/integration/sandbox-docker-backend.test.ts", "tests/integration/sandbox-escape-testing.test.ts", "tests/unit/prompt-out-path.test.ts"]);
+    // M46: tests/unit/portfolio-service.test.ts added a win32/darwin
+    // process.platform branch for isSameRoot()'s case-insensitive root
+    // comparison -- a deliberate, reviewed fourth entry, not drift.
+    expect(guarded).toEqual([
+      "tests/integration/sandbox-docker-backend.test.ts",
+      "tests/integration/sandbox-escape-testing.test.ts",
+      "tests/unit/portfolio-service.test.ts",
+      "tests/unit/prompt-out-path.test.ts",
+    ]);
   });
 
   it("the critical-coverage domains from the build spec's minimum list are all non-empty", () => {
