@@ -4,6 +4,7 @@ import {
   AcceptanceCriteriaResultSchema,
   CheckpointIssueSeveritySchema,
   CheckpointIssueStatusSchema,
+  CheckpointDispositionSchema,
   FinalWorkUnitStatusSchema,
 } from "./checkpoint.schema.js";
 
@@ -51,8 +52,14 @@ export const CheckpointInputSchema = z
     validationCommands: z.array(ValidationCommandResultInputSchema).default([]),
     acceptanceCriteria: z.array(AcceptanceCriterionResultInputSchema).default([]),
     issues: z.array(CheckpointIssueInputSchema).default([]),
+    disposition: CheckpointDispositionSchema.optional(),
     targetStatus: FinalWorkUnitStatusSchema.optional(),
     notes: z.array(z.string().min(1)).default([]),
   })
-  .strict();
+  .strict()
+  .superRefine((input, ctx) => {
+    if (input.disposition === "progress" && input.targetStatus !== undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["targetStatus"], message: "A progress checkpoint cannot declare a terminal targetStatus." });
+    }
+  });
 export type CheckpointInput = z.infer<typeof CheckpointInputSchema>;

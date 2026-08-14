@@ -66,6 +66,15 @@ export type CheckpointIssue = z.infer<typeof CheckpointIssueSchema>;
 export const FinalWorkUnitStatusSchema = z.enum(["done", "needs_review"]);
 export type FinalWorkUnitStatus = z.infer<typeof FinalWorkUnitStatusSchema>;
 
+/**
+ * A checkpoint either records durable progress while its work unit remains
+ * active, or records that work unit's terminal disposition.  Keeping this
+ * separate from FinalWorkUnitStatus prevents an active status from being
+ * misrepresented as a final outcome.
+ */
+export const CheckpointDispositionSchema = z.enum(["progress", "terminal"]);
+export type CheckpointDisposition = z.infer<typeof CheckpointDispositionSchema>;
+
 export const CheckpointSchema = z.object({
   id: z.string(),
   workUnitId: z.string(),
@@ -79,10 +88,23 @@ export const CheckpointSchema = z.object({
   acceptanceCriteriaResult: AcceptanceCriteriaResultSchema,
   validationCommands: z.array(ValidationCommandResultSchema),
   acceptanceCriteria: z.array(AcceptanceCriterionResultSchema),
-  finalWorkUnitStatus: FinalWorkUnitStatusSchema,
+  /**
+   * Null only for a progress checkpoint. Existing terminal checkpoints omit
+   * disposition and continue to carry their final status unchanged.
+   */
+  finalWorkUnitStatus: FinalWorkUnitStatusSchema.nullable(),
+  disposition: CheckpointDispositionSchema.optional(),
   nextRecommendation: z.string(),
   createdAt: z.string(),
   /** M26 §5.1: optional, additive. Advisory-only historical reference to this packet's execution sessions; checkpoint never rewrites session history. */
   executionSessionIds: z.array(z.string()).optional(),
+}).superRefine((checkpoint, ctx) => {
+  const disposition = checkpoint.disposition ?? "terminal";
+  if (disposition === "progress" && checkpoint.finalWorkUnitStatus !== null) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["finalWorkUnitStatus"], message: "Progress checkpoints must have finalWorkUnitStatus null." });
+  }
+  if (disposition === "terminal" && checkpoint.finalWorkUnitStatus === null) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["finalWorkUnitStatus"], message: "Terminal checkpoints must have a finalWorkUnitStatus." });
+  }
 });
 export type Checkpoint = z.infer<typeof CheckpointSchema>;

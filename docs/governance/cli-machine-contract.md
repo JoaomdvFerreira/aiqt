@@ -150,6 +150,19 @@ combined with `--json` rejects with exit code `3` and a dedicated
 `*-EXAMPLE-JSON-CONFLICT` issue id. Used alone (no `--json`), both shapes
 print the raw sample payload and exit `0`.
 
+## Checkpoint dispositions
+
+`aiqt checkpoint` accepts an optional `disposition` in its structured input.
+The default is `terminal`, preserving the existing completion-gate behavior
+and the final `done`/`needs_review` status. `disposition: "progress"` is a
+distinct non-terminal checkpoint: it records the supplied evidence while the
+same Work Unit remains `in_progress`; it cannot carry `targetStatus`, unlock
+dependencies, complete a milestone, or clear `currentWorkUnitId`. Its stored
+checkpoint has `finalWorkUnitStatus: null` and a next recommendation of
+`aiqt continue`. This is an additive canonical schema capability; older
+state remains valid, while older binaries must not rewrite state containing
+progress checkpoints.
+
 ## What this contract does not (yet) guarantee
 
 - **Workflow pointers on failure.** `projectStatus`/`currentMilestoneId`/
