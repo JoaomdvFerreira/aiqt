@@ -1,6 +1,6 @@
 import type { AutonomousExecutionPolicy } from "../schema/autonomous-run.schema.js";
 import type { SandboxResourcePolicy, SandboxTerminationReason } from "../schema/sandbox-backend.schema.js";
-import type { SandboxHandle, SandboxProcessLaunchRequest, SandboxProcessLaunchResult, SandboxCancellationResult } from "./sandbox-backend-contract.js";
+import type { SandboxHandle, SandboxProcessLaunchRequest, SandboxProcessLaunchResult, SandboxCancellationResult, SandboxDiskUsageMeasurement } from "./sandbox-backend-contract.js";
 import { decideCommand } from "./autonomous-run-command-policy.js";
 
 /**
@@ -34,8 +34,8 @@ export interface ProposedSandboxCommand {
 /** The minimal backend surface this loop needs -- `DockerSandboxBackend` (WU38-02/03) satisfies this structurally, as does any test double. */
 export interface SandboxExecutionBackend {
   launchProcess(request: SandboxProcessLaunchRequest): SandboxProcessLaunchResult;
-  cancel(handle: SandboxHandle): SandboxCancellationResult;
-  checkDiskUsageBytes(handle: SandboxHandle): number | null;
+  cancel(handle: SandboxHandle, terminationReason?: SandboxTerminationReason): SandboxCancellationResult;
+  checkDiskUsageBytes(handle: SandboxHandle): SandboxDiskUsageMeasurement;
 }
 
 export interface SandboxCommandLoopResult {
@@ -92,9 +92,13 @@ export function executeSandboxedCommandLoop(
     }
     commandsExecuted.push(commandLine);
 
-    const diskUsage = backend.checkDiskUsageBytes(handle);
-    if (diskUsage !== null && diskUsage > resourcePolicy.maxDiskWriteBytes) {
-      return { terminationReason: "resource_limit_exceeded", commandsExecuted, denialReason: `Disk usage (${diskUsage} bytes) exceeded the maxDiskWriteBytes budget (${resourcePolicy.maxDiskWriteBytes}).` };
+    const diskMeasurement = backend.checkDiskUsageBytes(handle);
+    if (diskMeasurement.status === "unavailable") {
+      backend.cancel(handle, "disk_measurement_unavailable");
+      return { terminationReason: "disk_measurement_unavailable", commandsExecuted, denialReason: `Disk usage measurement was unavailable (${diskMeasurement.reason}); execution stopped because the configured disk budget could not be verified.` };
+    }
+    if (diskMeasurement.bytes > resourcePolicy.maxDiskWriteBytes) {
+      return { terminationReason: "resource_limit_exceeded", commandsExecuted, denialReason: `Disk usage (${diskMeasurement.bytes} bytes) exceeded the maxDiskWriteBytes budget (${resourcePolicy.maxDiskWriteBytes}).` };
     }
   }
 

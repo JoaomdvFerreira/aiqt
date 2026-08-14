@@ -242,9 +242,11 @@ describe.skipIf(!dockerAvailable)("M38-WU05 escape testing (real Docker daemon r
     const before = backend.checkDiskUsageBytes(handle);
     backend.launchProcess({ handle, command: "sh", args: ["-c", "head -c 5000000 /dev/zero > bigfile.bin"] });
     const after = backend.checkDiskUsageBytes(handle);
-    expect(before).not.toBeNull();
-    expect(after).not.toBeNull();
-    expect(after!).toBeGreaterThan(before!);
+    expect(before).toMatchObject({ status: "measured" });
+    expect(after).toMatchObject({ status: "measured" });
+    if (before.status === "measured" && after.status === "measured") {
+      expect(after.bytes).toBeGreaterThan(before.bytes);
+    }
   });
 });
 

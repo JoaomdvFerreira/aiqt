@@ -230,7 +230,7 @@ export function runLiveSandboxedRun(params: RunLiveSandboxedRunParams): RunLiveS
     } else if (mainLoop.terminationReason === "budget_exhausted") {
       resultState = "budget_exhausted";
       denialReason = mainLoop.denialReason;
-    } else if (mainLoop.terminationReason === "policy_denied" || mainLoop.terminationReason === "resource_limit_exceeded") {
+    } else if (mainLoop.terminationReason === "policy_denied" || mainLoop.terminationReason === "resource_limit_exceeded" || mainLoop.terminationReason === "disk_measurement_unavailable") {
       resultState = "blocked";
       denialReason = mainLoop.denialReason;
     } else if (mainLoop.terminationReason !== "completed") {
