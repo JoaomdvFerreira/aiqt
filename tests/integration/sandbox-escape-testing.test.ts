@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest
 import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { execFileSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
+import { homedir } from "node:os";
 import { makeTempDir, removeDir, initGitFixtureRepo } from "../helpers.js";
 import { DockerSandboxBackend } from "../../src/workspaces/sandbox-docker-backend.js";
 import { DEFAULT_SANDBOX_NETWORK_POLICY } from "../../src/schema/sandbox-backend.schema.js";
@@ -117,14 +118,29 @@ describe.skipIf(!dockerAvailable)("M38-WU05 escape testing (real Docker daemon r
   it("host-home read: the operator's real home directory is never mounted -- reading anything under it fails", () => {
     const handle = create();
     const result = backend.launchProcess({ handle, command: "sh", args: ["-c", "cat /root/.ssh/id_rsa 2>&1 || cat ~/.ssh/id_rsa 2>&1"] });
-    // The command itself may exit non-zero (file not found) which this
-    // backend reports as ok:false -- either way, no real host secret
-    // content can appear in the captured output, because the path does
-    // not resolve to anything inside the sandbox.
     const events = backend.streamEvents(handle);
     const output = events.map((e) => e.boundedDetail).join("\n");
+
+    // The structural boundary is stronger than any Docker/image-specific
+    // failure text: this scenario has exactly the approved worktree and
+    // output bind mounts, and neither the operator home nor a child of it
+    // can be a mount source.
+    const mountsJson = execFileSync("docker", ["inspect", "--format", "{{json .Mounts}}", handle.sandboxId], { encoding: "utf8" }).trim();
+    const mounts = JSON.parse(mountsJson) as { Source: string; Destination: string; RW: boolean }[];
+    const operatorHome = resolve(homedir());
+    expect(mounts).toHaveLength(2);
+    expect(mounts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ Destination: "/workspace", RW: true }),
+      expect.objectContaining({ Destination: "/aiqt-output", RW: true }),
+    ]));
+    expect(mounts.some((mount) => mount.Source === operatorHome || mount.Source.startsWith(`${operatorHome}${sep}`))).toBe(false);
+
+    // A real process was attempted but cannot read host-home material. Its
+    // non-success is paired with the mount proof above, not accepted as a
+    // generic failure signal.
+    expect(result.processHandle).not.toBeNull();
+    expect(result.ok).toBe(false);
     expect(output).not.toMatch(/BEGIN (RSA|OPENSSH|EC) PRIVATE KEY/);
-    expect(result.ok || output.includes("No such file")).toBeTruthy();
   });
 
   it("sibling-worktree access: a second run's own worktree is not visible inside the first run's sandbox", () => {
@@ -226,9 +242,11 @@ describe.skipIf(!dockerAvailable)("M38-WU05 escape testing (real Docker daemon r
     const before = backend.checkDiskUsageBytes(handle);
     backend.launchProcess({ handle, command: "sh", args: ["-c", "head -c 5000000 /dev/zero > bigfile.bin"] });
     const after = backend.checkDiskUsageBytes(handle);
-    expect(before).not.toBeNull();
-    expect(after).not.toBeNull();
-    expect(after!).toBeGreaterThan(before!);
+    expect(before).toMatchObject({ status: "measured" });
+    expect(after).toMatchObject({ status: "measured" });
+    if (before.status === "measured" && after.status === "measured") {
+      expect(after.bytes).toBeGreaterThan(before.bytes);
+    }
   });
 });
 

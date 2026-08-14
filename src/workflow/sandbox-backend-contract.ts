@@ -73,6 +73,11 @@ export interface SandboxProcessEvent {
   boundedDetail: string;
 }
 
+/** A disk measurement is either a verified byte count or an honest, bounded reason it could not be obtained. */
+export type SandboxDiskUsageMeasurement =
+  | { status: "measured"; bytes: number }
+  | { status: "unavailable"; reason: "unknown_handle" | "measurement_command_failed" | "invalid_measurement_output" };
+
 export interface SandboxCancellationResult {
   ok: boolean;
   /** True only when every process in the sandbox's owned tree was confirmed stopped -- a partial cancellation (e.g. an orphan surviving) must report false, never a false "cancelled". */
@@ -120,7 +125,7 @@ export interface SandboxBackend {
 
   launchProcess(request: SandboxProcessLaunchRequest): SandboxProcessLaunchResult;
   streamEvents(handle: SandboxHandle): readonly SandboxProcessEvent[];
-  cancel(handle: SandboxHandle): SandboxCancellationResult;
+  cancel(handle: SandboxHandle, terminationReason?: SandboxTerminationReason): SandboxCancellationResult;
   collectResult(handle: SandboxHandle): SandboxResultCollection;
 
   exportEvidence(handle: SandboxHandle): SandboxEvidenceExportResult;

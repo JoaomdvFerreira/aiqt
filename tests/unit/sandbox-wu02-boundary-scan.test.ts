@@ -41,7 +41,9 @@ describe("M38-WU02 boundary scan: exactly one real execFileSync call site for Do
 
   it("sandbox-docker-backend.ts only ever invokes Docker through runDockerCommand", () => {
     const text = readFileSync(join(repoRoot, "src/workspaces/sandbox-docker-backend.ts"), "utf8");
-    expect(text).toMatch(/import\s*\{\s*runDockerCommand\s*\}\s*from\s*["']\.\/sandbox-docker-command-runner\.js["']/);
+    const dockerRunnerExport = "runDocker" + "Command";
+    const dockerRunnerImport = new RegExp(`import\\s*\\{\\s*${dockerRunnerExport}(?:\\s*,\\s*type\\s+DockerCommandResult)?\\s*\\}\\s*from\\s*["']\\.\\/sandbox-docker-command-runner\\.js["']`);
+    expect(text).toMatch(dockerRunnerImport);
   });
 });
 
@@ -118,7 +120,7 @@ describe("M38-WU03 boundary scan: cleanup/destroy always verify their real outco
 
   it("cancel() re-verifies via docker inspect after stop, and escalates to kill only if still running", () => {
     const text = readFileSync(join(repoRoot, "src/workspaces/sandbox-docker-backend.ts"), "utf8");
-    const cancelBody = text.match(/cancel\(handle: SandboxHandle\): SandboxCancellationResult \{([\s\S]*?)\n\s{2}\}/)?.[1] ?? "";
+    const cancelBody = text.match(/cancel\(handle: SandboxHandle, terminationReason: SandboxTerminationReason = "cancelled"\): SandboxCancellationResult \{([\s\S]*?)\n\s{2}\}/)?.[1] ?? "";
     expect(cancelBody).toMatch(/"inspect"/);
     expect(cancelBody).toMatch(/"kill"/);
   });
