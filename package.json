@@ -1,9 +1,9 @@
 {
   "name": "aiqt",
-  "version": "0.46.0",
+  "version": "0.46.1",
   "type": "module",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=24.0.0"
   },
