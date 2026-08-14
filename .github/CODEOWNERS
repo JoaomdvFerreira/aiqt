@@ -1,0 +1,3 @@
+# Whole-repository ownership. Required for branch-protection CODEOWNERS
+# review enforcement on main (see GOVERNANCE.md).
+* @JoaomdvFerreira
