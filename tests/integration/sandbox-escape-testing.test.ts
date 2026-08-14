@@ -240,10 +240,18 @@ describe.skipIf(!dockerAvailable)("M38-WU05 escape testing (real Docker daemon r
   it("disk exhaustion: checkDiskUsageBytes detects real usage growth, enabling the command loop's detective enforcement", () => {
     const handle = create();
     const before = backend.checkDiskUsageBytes(handle);
-    backend.launchProcess({ handle, command: "sh", args: ["-c", "head -c 5000000 /dev/zero > bigfile.bin"] });
+    const write = backend.launchProcess({ handle, command: "sh", args: ["-c", "head -c 5000000 /dev/zero > bigfile.bin"] });
     const after = backend.checkDiskUsageBytes(handle);
-    expect(before).toMatchObject({ status: "measured" });
-    expect(after).toMatchObject({ status: "measured" });
+    // The bounded `reason` (never raw Docker stderr -- see
+    // SandboxDiskUsageMeasurement) is otherwise dropped from CI output:
+    // vitest's toMatchObject diff only prints keys present in the expected
+    // object, so a hosted-only "unavailable" failure previously surfaced
+    // no way to tell measurement_command_failed apart from
+    // invalid_measurement_output. Surfacing it here, plus whether the
+    // growth write itself succeeded, turns any recurrence into a
+    // self-diagnosing failure instead of a second bisecting run.
+    expect(before.status, before.status === "unavailable" ? `before: unavailable (${before.reason})` : undefined).toBe("measured");
+    expect(after.status, after.status === "unavailable" ? `after: unavailable (${after.reason}); write.ok=${write.ok}` : undefined).toBe("measured");
     if (before.status === "measured" && after.status === "measured") {
       expect(after.bytes).toBeGreaterThan(before.bytes);
     }
