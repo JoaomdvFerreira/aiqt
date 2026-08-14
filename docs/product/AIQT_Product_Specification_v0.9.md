@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Status | Implementation-aligned public-preview baseline |
-| Package baseline | `0.46.0` at reconciliation; public-readiness patch `0.46.1` |
+| Package baseline | `0.46.0` at reconciliation; public-readiness patch `0.46.2` |
 | Canonical schema baseline | `AIQT_SCHEMA_VERSION` `0.9.0` |
 | Supersedes | Product Specification v0.8 |
 
