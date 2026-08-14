@@ -238,6 +238,7 @@ export const SandboxTerminationReasonSchema = z.enum([
   "budget_exhausted",
   "policy_denied",
   "resource_limit_exceeded",
+  "disk_measurement_unavailable",
   "sandbox_creation_failed",
   "cleanup_failed",
   // M38-WU02 addition: honestly distinguishes "no process was ever

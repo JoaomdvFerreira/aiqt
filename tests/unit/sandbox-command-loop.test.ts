@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { executeSandboxedCommandLoop, type SandboxExecutionBackend, type ProposedSandboxCommand } from "../../src/workflow/sandbox-command-loop.js";
 import type { AutonomousExecutionPolicy } from "../../src/schema/autonomous-run.schema.js";
 import type { SandboxResourcePolicy } from "../../src/schema/sandbox-backend.schema.js";
-import type { SandboxProcessLaunchRequest, SandboxProcessLaunchResult, SandboxCancellationResult, SandboxHandle } from "../../src/workflow/sandbox-backend-contract.js";
+import type { SandboxProcessLaunchRequest, SandboxProcessLaunchResult, SandboxCancellationResult, SandboxHandle, SandboxDiskUsageMeasurement } from "../../src/workflow/sandbox-backend-contract.js";
 
 /**
  * M38-WU03: pure tests for the command-mediation/budget loop, using a
@@ -14,7 +14,8 @@ import type { SandboxProcessLaunchRequest, SandboxProcessLaunchResult, SandboxCa
 class FakeSandboxBackend implements SandboxExecutionBackend {
   launched: SandboxProcessLaunchRequest[] = [];
   cancelled = false;
-  diskUsageBytes: number | null = 0;
+  diskMeasurement: SandboxDiskUsageMeasurement = { status: "measured", bytes: 0 };
+  cancellationReason: string | null = null;
   private launchResult: (req: SandboxProcessLaunchRequest) => SandboxProcessLaunchResult;
 
   constructor(launchResult: (req: SandboxProcessLaunchRequest) => SandboxProcessLaunchResult = () => ({ ok: true, processHandle: { sandboxId: "s1", processId: "p1" }, reason: "ok" })) {
@@ -26,13 +27,14 @@ class FakeSandboxBackend implements SandboxExecutionBackend {
     return this.launchResult(request);
   }
 
-  cancel(_handle: SandboxHandle): SandboxCancellationResult {
+  cancel(_handle: SandboxHandle, terminationReason?: string): SandboxCancellationResult {
     this.cancelled = true;
+    this.cancellationReason = terminationReason ?? null;
     return { ok: true, processTreeFullyStopped: true, reason: "cancelled" };
   }
 
-  checkDiskUsageBytes(_handle: SandboxHandle): number | null {
-    return this.diskUsageBytes;
+  checkDiskUsageBytes(_handle: SandboxHandle): SandboxDiskUsageMeasurement {
+    return this.diskMeasurement;
   }
 }
 
@@ -104,17 +106,28 @@ describe("M38-WU03 sandbox-command-loop: budgets", () => {
 
   it("stops with resource_limit_exceeded when disk usage exceeds maxDiskWriteBytes after a command runs", () => {
     const backend = new FakeSandboxBackend();
-    backend.diskUsageBytes = 200 * 1024 * 1024;
+    backend.diskMeasurement = { status: "measured", bytes: 200 * 1024 * 1024 };
     const result = executeSandboxedCommandLoop(backend, handle, commands(["git", ["add", "."]]), permissivePolicy, { ...generousResources, maxDiskWriteBytes: 100 * 1024 * 1024 });
     expect(result.terminationReason).toBe("resource_limit_exceeded");
     expect(result.commandsExecuted).toEqual(["git add ."]);
   });
 
-  it("a null disk-usage reading (check itself failed) never blocks the loop -- absence of a measurement is not treated as exceeding a budget", () => {
+  it("a measured disk usage exactly at the budget continues normally", () => {
     const backend = new FakeSandboxBackend();
-    backend.diskUsageBytes = null;
-    const result = executeSandboxedCommandLoop(backend, handle, commands(["git", ["status"]]), permissivePolicy, generousResources);
+    backend.diskMeasurement = { status: "measured", bytes: 100 };
+    const result = executeSandboxedCommandLoop(backend, handle, commands(["git", ["status"]]), permissivePolicy, { ...generousResources, maxDiskWriteBytes: 100 });
     expect(result.terminationReason).toBe("completed");
+    expect(backend.cancelled).toBe(false);
+  });
+
+  it("a disk-usage measurement unavailable result cancels the sandbox and never reports completed", () => {
+    const backend = new FakeSandboxBackend();
+    backend.diskMeasurement = { status: "unavailable", reason: "measurement_command_failed" };
+    const result = executeSandboxedCommandLoop(backend, handle, commands(["git", ["status"]]), permissivePolicy, generousResources);
+    expect(result.terminationReason).toBe("disk_measurement_unavailable");
+    expect(result.denialReason).toContain("measurement_command_failed");
+    expect(backend.cancelled).toBe(true);
+    expect(backend.cancellationReason).toBe("disk_measurement_unavailable");
   });
 });
 

@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeTempDir, removeDir } from "../helpers.js";
-import { DockerSandboxBackend } from "../../src/workspaces/sandbox-docker-backend.js";
+import { DockerSandboxBackend, interpretDiskUsageMeasurement } from "../../src/workspaces/sandbox-docker-backend.js";
 import { DEFAULT_SANDBOX_NETWORK_POLICY } from "../../src/schema/sandbox-backend.schema.js";
 import type { SandboxCreateRequest, SandboxHandle } from "../../src/workflow/sandbox-backend-contract.js";
 
@@ -272,13 +272,13 @@ describe.skipIf(!dockerAvailable)("M38-WU03 DockerSandboxBackend: real launchPro
     expect(cleanupResult.status).toBe("cleaned");
   });
 
-  it("collectResult reflects a real cancellation", () => {
+  it("collectResult preserves a real typed cancellation reason", () => {
     const created = backend.create(baseRequest());
     expect(created.ok).toBe(true);
     createdHandles.push(created.handle!);
-    backend.cancel(created.handle!);
+    backend.cancel(created.handle!, "disk_measurement_unavailable");
     const result = backend.collectResult(created.handle!);
-    expect(result.terminationReason).toBe("cancelled");
+    expect(result.terminationReason).toBe("disk_measurement_unavailable");
   });
 
   it("checkDiskUsageBytes reports a real, positive byte count for a worktree with real content", () => {
@@ -287,8 +287,8 @@ describe.skipIf(!dockerAvailable)("M38-WU03 DockerSandboxBackend: real launchPro
     createdHandles.push(created.handle!);
     backend.launchProcess({ handle: created.handle!, command: "sh", args: ["-c", "echo hello > file.txt"] });
     const usage = backend.checkDiskUsageBytes(created.handle!);
-    expect(usage).not.toBeNull();
-    expect(usage!).toBeGreaterThan(0);
+    expect(usage).toMatchObject({ status: "measured" });
+    if (usage.status === "measured") expect(usage.bytes).toBeGreaterThan(0);
   });
 
   it("exportEvidence refuses before cleanup() has run, then succeeds after with real, non-fabricated data", () => {
@@ -342,8 +342,16 @@ describe("M38-WU03 DockerSandboxBackend: launchProcess/cancel/exportEvidence aga
     expect(result.evidence).toBeNull();
   });
 
-  it("checkDiskUsageBytes returns null for a handle that was never created (never a fabricated 0)", () => {
-    expect(backend.checkDiskUsageBytes({ sandboxId: "nonexistent" })).toBeNull();
+  it("checkDiskUsageBytes returns a typed unavailable result for a handle that was never created", () => {
+    expect(backend.checkDiskUsageBytes({ sandboxId: "nonexistent" })).toEqual({ status: "unavailable", reason: "unknown_handle" });
+  });
+
+  it("maps a failed Docker measurement command to a typed unavailable result without carrying raw stderr", () => {
+    expect(interpretDiskUsageMeasurement({ ok: false, exitCode: 1, stdout: "", stderr: "/sensitive/path" })).toEqual({ status: "unavailable", reason: "measurement_command_failed" });
+  });
+
+  it("maps malformed Docker measurement output to a typed unavailable result", () => {
+    expect(interpretDiskUsageMeasurement({ ok: true, exitCode: 0, stdout: "not-a-byte-count", stderr: "" })).toEqual({ status: "unavailable", reason: "invalid_measurement_output" });
   });
 });
 
