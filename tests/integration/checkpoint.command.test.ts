@@ -318,6 +318,50 @@ describe("aiqt checkpoint", () => {
     expect(readRunlogLines(dir)).toHaveLength(runlogBefore);
   });
 
+  it("records a progress checkpoint, preserves the active WU, and later permits its terminal checkpoint", async () => {
+    dir = makeTempDir();
+    await makeInProgressProject(dir, "valid-plan-with-dependencies.json");
+
+    const progress = runCheckpoint(contextFor(dir), {
+      input: {
+        summary: "Integrated the first batch.",
+        completed: ["Initial batch"],
+        notCompleted: ["Follow-up batch"],
+        filesChanged: ["src/example.ts"],
+        validationResult: "passed",
+        acceptanceCriteriaResult: "partial",
+        validationCommands: [],
+        acceptanceCriteria: [],
+        issues: [],
+        notes: [],
+        disposition: "progress",
+      },
+    });
+
+    expect(progress.exitCode).toBe(ExitCode.Success);
+    expect(progress.currentWorkUnitId).toBe("WU001");
+    expect(progress.nextRecommendedCommand).toBe("aiqt continue");
+    expect(progress.data).toMatchObject({ disposition: "progress", fromStatus: "in_progress", toStatus: "in_progress" });
+    const afterProgress = readState(dir);
+    expect(afterProgress.currentWorkUnitId).toBe("WU001");
+    expect(afterProgress.workGraph.workUnits[0].status).toBe("in_progress");
+    expect(afterProgress.workGraph.workUnits[1].status).toBe("planned");
+    expect(afterProgress.checkpoints[0]).toMatchObject({ disposition: "progress", finalWorkUnitStatus: null });
+    const progressEvents = readRunlogLines(dir) as Array<{ type: string; data?: { checkpointId?: string; toStatus?: string } }>;
+    expect(progressEvents.filter((event) => event.type === "checkpoint.created" && event.data?.checkpointId === "C001")).toHaveLength(1);
+    expect(progressEvents.some((event) => event.type === "work_unit.status_changed" && event.data?.toStatus === "done")).toBe(false);
+
+    const nextWhileActive = runNext(contextFor(dir));
+    expect(nextWhileActive.exitCode).toBe(ExitCode.WorkflowBlocked);
+
+    const terminal = runCheckpoint(contextFor(dir), { fromFile: join(CHECKPOINT_FIXTURES, "valid-done.json") });
+    expect(terminal.exitCode).toBe(ExitCode.Success);
+    const afterTerminal = readState(dir);
+    expect(afterTerminal.checkpoints).toHaveLength(2);
+    expect(afterTerminal.workGraph.workUnits[0].status).toBe("done");
+    expect(afterTerminal.workGraph.workUnits[1].status).toBe("ready");
+  });
+
   it("surfaces a runlog-gap diagnostic after checkpoint state is written and retry does not duplicate checkpoint state", async () => {
     dir = makeTempDir();
     await makeInProgressProject(dir);

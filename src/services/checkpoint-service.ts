@@ -11,7 +11,7 @@ import type { StateModel } from "../schema/state.schema.js";
 import type { WorkUnit } from "../schema/work-unit.schema.js";
 import type { Milestone } from "../schema/milestone.schema.js";
 import type { ProjectStatus } from "../schema/state.schema.js";
-import type { Checkpoint } from "../schema/checkpoint.schema.js";
+import type { Checkpoint, CheckpointDisposition } from "../schema/checkpoint.schema.js";
 import type { CheckpointInput } from "../schema/checkpoint-input.schema.js";
 
 export interface ApplyCheckpointResult {
@@ -23,6 +23,7 @@ export interface ApplyCheckpointResult {
   newlyReadyWorkUnitIds: string[];
   nextReadyWorkUnitId: string | null;
   nextRecommendedCommand: string;
+  disposition: CheckpointDisposition;
 }
 
 /**
@@ -43,14 +44,12 @@ export function applyCheckpoint(params: {
 }): ApplyCheckpointResult {
   const { project, state, workUnit, input, checkpointId, timestamp, executionSessionIds } = params;
 
-  const finalStatus = deriveFinalWorkUnitStatus(input);
+  const disposition: CheckpointDisposition = input.disposition ?? "terminal";
+  const finalStatus = disposition === "terminal" ? deriveFinalWorkUnitStatus(input) : null;
 
-  let workUnits = applyCheckpointWorkUnitTransition(
-    state.workGraph.workUnits,
-    workUnit.id,
-    finalStatus,
-    timestamp,
-  );
+  let workUnits = disposition === "terminal"
+    ? applyCheckpointWorkUnitTransition(state.workGraph.workUnits, workUnit.id, finalStatus!, timestamp)
+    : state.workGraph.workUnits;
 
   let newlyReadyWorkUnitIds: string[] = [];
   if (finalStatus === "done") {
@@ -63,7 +62,9 @@ export function applyCheckpoint(params: {
     newlyReadyWorkUnitIds = recalculated.newlyReadyWorkUnitIds;
   }
 
-  const milestones = recalculateMilestoneStatuses(workUnits, state.workGraph.milestones);
+  const milestones = disposition === "terminal"
+    ? recalculateMilestoneStatuses(workUnits, state.workGraph.milestones)
+    : state.workGraph.milestones;
 
   const nextReady = selectNextReadyWorkUnit({
     ...state,
@@ -99,21 +100,24 @@ export function applyCheckpoint(params: {
       evidence: c.evidence ?? null,
     })),
     finalWorkUnitStatus: finalStatus,
+    ...(disposition === "progress" ? { disposition } : {}),
     createdAt: timestamp,
     ...(executionSessionIds && executionSessionIds.length > 0 ? { executionSessionIds } : {}),
   };
 
   const candidateState: StateModel = {
     ...state,
-    currentMilestoneId: finalStatus === "needs_review" ? workUnit.milestoneId : (nextReady.milestone?.id ?? null),
-    currentWorkUnitId: null,
+    currentMilestoneId: disposition === "progress"
+      ? state.currentMilestoneId
+      : (finalStatus === "needs_review" ? workUnit.milestoneId : (nextReady.milestone?.id ?? null)),
+    currentWorkUnitId: disposition === "progress" ? workUnit.id : null,
     workGraph: { ...state.workGraph, workUnits, milestones },
-    checkpoints: [...state.checkpoints, { ...checkpointBase, nextRecommendation: "aiqt checkpoint amend" }],
+    checkpoints: [...state.checkpoints, { ...checkpointBase, nextRecommendation: disposition === "progress" ? "aiqt continue" : "aiqt checkpoint amend" }],
   };
   const assessment = assessWorkflow(project, candidateState);
   const projectStatus = assessment.projectStatus;
   const currentMilestoneId = candidateState.currentMilestoneId;
-  const nextRecommendedCommand = assessment.recommendedCommand ?? "aiqt review";
+  const nextRecommendedCommand = disposition === "progress" ? "aiqt continue" : (assessment.recommendedCommand ?? "aiqt review");
 
   const checkpoint: Checkpoint = {
     ...checkpointBase,
@@ -129,5 +133,6 @@ export function applyCheckpoint(params: {
     newlyReadyWorkUnitIds,
     nextReadyWorkUnitId,
     nextRecommendedCommand,
+    disposition,
   };
 }

@@ -407,7 +407,7 @@ export function runCheckpoint(
       ...state,
       projectStatus: applied.projectStatus,
       currentMilestoneId: applied.currentMilestoneId,
-      currentWorkUnitId: null,
+      currentWorkUnitId: applied.disposition === "progress" ? workUnit.id : null,
       workGraph: {
         ...state.workGraph,
         workUnits: applied.workUnits,
@@ -467,15 +467,17 @@ export function runCheckpoint(
           validationResult: applied.checkpoint.validationResult,
           acceptanceCriteriaResult: applied.checkpoint.acceptanceCriteriaResult,
           targetStatus: applied.checkpoint.finalWorkUnitStatus,
+          disposition: applied.disposition,
           nextRecommendedCommand: applied.nextRecommendedCommand,
         },
       }),
     ];
 
-    const selectedEventId = nextId("EVT", eventIds);
-    eventIds = [...eventIds, selectedEventId];
-    runlogEvents.push(
-      buildWorkUnitStatusChangedEvent({
+    if (applied.disposition === "terminal") {
+      const selectedEventId = nextId("EVT", eventIds);
+      eventIds = [...eventIds, selectedEventId];
+      runlogEvents.push(
+        buildWorkUnitStatusChangedEvent({
         id: selectedEventId,
         timestamp,
         relatedIds: [
@@ -487,11 +489,12 @@ export function runCheckpoint(
         data: {
           workUnitId: workUnit.id,
           fromStatus: "in_progress",
-          toStatus: applied.checkpoint.finalWorkUnitStatus,
+          toStatus: applied.checkpoint.finalWorkUnitStatus!,
           reason: "Checkpoint captured.",
         },
-      }),
-    );
+        }),
+      );
+    }
 
     for (const readyId of applied.newlyReadyWorkUnitIds) {
       const readyWorkUnit = applied.workUnits.find((wu) => wu.id === readyId)!;
@@ -598,8 +601,10 @@ export function runCheckpoint(
       action: "checkpoint",
       projectStatus: applied.projectStatus,
       currentMilestoneId: applied.currentMilestoneId,
-      currentWorkUnitId: null,
-      summary: `Checkpoint captured for ${workUnit.id}.`,
+      currentWorkUnitId: applied.disposition === "progress" ? workUnit.id : null,
+      summary: applied.disposition === "progress"
+        ? `Progress checkpoint captured for ${workUnit.id}; it remains in progress.`
+        : `Checkpoint captured for ${workUnit.id}.`,
       completedActions: [
         "Read project.json",
         "Read state.json",
@@ -621,7 +626,8 @@ export function runCheckpoint(
         workUnitId: workUnit.id,
         packetId: applied.checkpoint.packetId,
         fromStatus: "in_progress",
-        toStatus: applied.checkpoint.finalWorkUnitStatus,
+        disposition: applied.disposition,
+        toStatus: applied.disposition === "progress" ? "in_progress" : applied.checkpoint.finalWorkUnitStatus,
         validationResult: applied.checkpoint.validationResult,
         acceptanceCriteriaResult: applied.checkpoint.acceptanceCriteriaResult,
         newlyReadyWorkUnitIds: applied.newlyReadyWorkUnitIds,

@@ -245,6 +245,39 @@ describe("applyCheckpoint: needs_review outcome", () => {
   });
 });
 
+describe("applyCheckpoint: progress disposition", () => {
+  it("records durable progress without changing the active work unit, readiness, or milestone", () => {
+    const workUnits = [
+      wu({ id: "WU001", status: "in_progress" }),
+      wu({ id: "WU002", milestoneId: "M002", status: "planned" }),
+    ];
+    const dependencies: Dependency[] = [
+      { id: "DEP-001", fromId: "WU001", toId: "WU002", type: "blocks", reason: null },
+    ];
+    const milestones = [milestone({ id: "M001" }), milestone({ id: "M002", status: "planned", workUnitIds: ["WU002"] })];
+    const state = stateWith(workUnits, milestones, dependencies, { currentMilestoneId: "M001" });
+
+    const result = applyCheckpoint({
+      project,
+      state,
+      workUnit: workUnits[0],
+      input: baseInput({ disposition: "progress", notCompleted: ["Finish follow-up."] }),
+      checkpointId: "C001",
+      timestamp: T2,
+    });
+
+    expect(result.disposition).toBe("progress");
+    expect(result.checkpoint.finalWorkUnitStatus).toBeNull();
+    expect(result.checkpoint.disposition).toBe("progress");
+    expect(result.workUnits.find((workUnit) => workUnit.id === "WU001")?.status).toBe("in_progress");
+    expect(result.workUnits.find((workUnit) => workUnit.id === "WU002")?.status).toBe("planned");
+    expect(result.newlyReadyWorkUnitIds).toEqual([]);
+    expect(result.currentMilestoneId).toBe("M001");
+    expect(result.projectStatus).toBe("in_progress");
+    expect(result.nextRecommendedCommand).toBe("aiqt continue");
+  });
+});
+
 describe("applyCheckpoint: completion gate propagation", () => {
   it("throws AiqtError (exit 1) for an invalid done claim, before any state is touched", () => {
     const state = stateWith([wu()], [milestone()]);

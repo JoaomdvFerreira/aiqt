@@ -245,7 +245,8 @@ export interface CheckpointCreatedEventData {
   packetId: string | null;
   validationResult: string;
   acceptanceCriteriaResult: string;
-  targetStatus: string;
+  targetStatus: string | null;
+  disposition?: "progress" | "terminal";
   nextRecommendedCommand: string | null;
 }
 
