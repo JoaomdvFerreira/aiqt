@@ -23,6 +23,7 @@ import type {
   SandboxCleanupResult,
   SandboxDestroyResult,
   SandboxHandle,
+  SandboxDiskUsageMeasurement,
 } from "../workflow/sandbox-backend-contract.js";
 import { decideSandboxPlatformSupport } from "../workflow/sandbox-platform-decision.js";
 import { validateSandboxFilesystemPolicy } from "../workflow/sandbox-filesystem-policy.js";
@@ -30,7 +31,7 @@ import { validateSandboxEnvironmentAllowlist } from "../workflow/sandbox-environ
 import { validateSandboxNetworkPolicy } from "../workflow/sandbox-network-policy.js";
 import { validateSandboxProcessPolicy } from "../workflow/sandbox-process-policy.js";
 import { validateSandboxResourcePolicy } from "../workflow/sandbox-resource-policy.js";
-import { runDockerCommand } from "./sandbox-docker-command-runner.js";
+import { runDockerCommand, type DockerCommandResult } from "./sandbox-docker-command-runner.js";
 
 /**
  * M38-WU02/WU03 (build spec: "Implement one real backend with
@@ -132,6 +133,13 @@ function bound(text: string): string {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+/** Maps the bounded Docker command outcome to the disk-measurement contract without exposing Docker stderr. */
+export function interpretDiskUsageMeasurement(result: DockerCommandResult): SandboxDiskUsageMeasurement {
+  if (!result.ok) return { status: "unavailable", reason: "measurement_command_failed" };
+  const match = /^(\d+)/.exec(result.stdout.trim());
+  return match ? { status: "measured", bytes: Number(match[1]) } : { status: "unavailable", reason: "invalid_measurement_output" };
 }
 
 interface SandboxRuntimeState {
@@ -355,7 +363,7 @@ export class DockerSandboxBackend implements SandboxBackend {
   }
 
   /** `docker stop` (graceful), escalating to `docker kill` (forced) if the container is still running afterward, with the real outcome always re-verified via a follow-up `docker inspect` -- never assumed. Because every command this backend ever runs goes through `docker exec` into this one container, stopping/killing it is a real, kernel-enforced guarantee that the entire process tree it ever spawned is gone -- not a per-process tracking exercise. */
-  cancel(handle: SandboxHandle): SandboxCancellationResult {
+  cancel(handle: SandboxHandle, terminationReason: SandboxTerminationReason = "cancelled"): SandboxCancellationResult {
     const state = this.runtimeState.get(handle.sandboxId);
     if (!state) {
       return { ok: false, processTreeFullyStopped: false, reason: `Unknown sandbox handle "${handle.sandboxId}".` };
@@ -372,7 +380,7 @@ export class DockerSandboxBackend implements SandboxBackend {
     }
 
     const fullyStopped = runningCheck.ok && !stillRunning;
-    state.terminationReason = "cancelled";
+    state.terminationReason = terminationReason;
     state.events.push({ processId: handle.sandboxId, at: nowIso(), kind: "terminated", boundedDetail: fullyStopped ? "Sandbox cancelled; process tree confirmed stopped." : "Sandbox cancellation could not be confirmed." });
 
     return {
@@ -480,14 +488,12 @@ export class DockerSandboxBackend implements SandboxBackend {
     return [...files];
   }
 
-  /** Real `docker exec ... du -sb <worktreeSandboxPath>`, returning the reported byte count, or `null` if the check itself could not be performed (never a fabricated 0). Not part of the `SandboxBackend` interface -- an orchestrator-only helper (`sandbox-command-loop.ts`) for the detective disk-limit enforcement documented in this class's own doc comment and the threat model's residual-risk note. */
-  checkDiskUsageBytes(handle: SandboxHandle): number | null {
+  /** Real `docker exec ... du -sb <worktreeSandboxPath>`, returning a verified byte count or a bounded unavailable reason (never a fabricated 0). */
+  checkDiskUsageBytes(handle: SandboxHandle): SandboxDiskUsageMeasurement {
     const state = this.runtimeState.get(handle.sandboxId);
-    if (!state) return null;
+    if (!state) return { status: "unavailable", reason: "unknown_handle" };
     const result = runDockerCommand(["exec", handle.sandboxId, "du", "-sb", state.request.filesystemPolicy.worktreeMount.sandboxPath], { timeoutMs: 10_000 });
-    if (!result.ok) return null;
-    const match = /^(\d+)/.exec(result.stdout.trim());
-    return match ? Number(match[1]) : null;
+    return interpretDiskUsageMeasurement(result);
   }
 
   cleanup(handle: SandboxHandle): SandboxCleanupResult {
