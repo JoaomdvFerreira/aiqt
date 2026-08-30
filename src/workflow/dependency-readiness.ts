@@ -1,5 +1,6 @@
 import type { WorkUnit, WorkUnitStatus } from "../schema/work-unit.schema.js";
 import type { Dependency } from "../schema/dependency.schema.js";
+import { computeEffectiveReadinessForWorkUnits } from "./effective-readiness.js";
 
 export interface DependencyReadinessResult {
   workUnits: WorkUnit[];
@@ -33,22 +34,17 @@ export function recalculateDependencyReadiness(
   dependencies: readonly Dependency[],
   timestamp: string,
 ): DependencyReadinessResult {
-  const statusById = new Map(workUnits.map((wu) => [wu.id, wu.status]));
+  const effectiveReadiness = computeEffectiveReadinessForWorkUnits(workUnits, dependencies);
   const newlyReadyWorkUnitIds: string[] = [];
 
   const updated = workUnits.map((wu) => {
     if (wu.status !== "planned") return wu;
 
-    const incomingBlocking = dependencies.filter(
-      (d) => d.toId === wu.id && (d.type === "blocks" || d.type === "requires"),
-    );
-    if (incomingBlocking.length === 0) return wu;
-
-    const allSourcesDone = incomingBlocking.every((d) => {
-      const status = statusById.get(d.fromId);
-      return status !== undefined && isBlockingSourceSatisfied(status);
-    });
-    if (!allSourcesDone) return wu;
+    const readiness = effectiveReadiness.get(wu.id)!;
+    if (
+      readiness.blockingDependencyIds.length === 0 ||
+      readiness.unsatisfiedDependencyIds.length > 0
+    ) return wu;
 
     newlyReadyWorkUnitIds.push(wu.id);
     return { ...wu, status: "ready" as const, updatedAt: timestamp };

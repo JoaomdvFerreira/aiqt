@@ -1,7 +1,7 @@
 import type { WorkUnit, WorkUnitStatus } from "../schema/work-unit.schema.js";
 import type { Dependency, DependencyType } from "../schema/dependency.schema.js";
 import { findCycle } from "./dependency-graph.js";
-import { isBlockingSourceSatisfied } from "./dependency-readiness.js";
+import { computeEffectiveReadinessForWorkUnits } from "./effective-readiness.js";
 
 /**
  * M12 §8.2/§11: true if changing `dependency` to `newType` would introduce a
@@ -52,35 +52,42 @@ export interface DependencyReadinessRecalculation {
   newlyPlannedWorkUnitIds: string[];
 }
 
+export interface DependencyReadinessRecalculationOptions {
+  /**
+   * Normal dependency mutations retain their historical behavior: a planned
+   * unit with no remaining blockers becomes ready. Graph repair opts out so
+   * it repairs only a persisted state that a blocking relationship can have
+   * made stale, rather than promoting independent planned work speculatively.
+   */
+  promoteWithoutBlockingDependencies?: boolean;
+}
+
 /**
- * M12 §11: bidirectional readiness recalculation for a dependency type
- * change. Unlike `recalculateDependencyReadiness` (M5, one-directional:
- * planned -> ready only, triggered by a work unit becoming done), a
- * dependency update can loosen OR tighten a blocking requirement, so both
- * promotion (planned -> ready) and demotion (ready -> planned) must be
- * considered. Only work units currently "ready" or "planned" are ever
- * touched; done/in_progress/needs_review/cancelled/replanned are left alone.
+ * Reconcile persisted readiness through the canonical effective-readiness
+ * evaluator. Both dependency updates and graph repair use this primitive so
+ * neither path can re-derive blocking or replanned-predecessor semantics.
+ * Only `ready` and `planned` work units are touched.
  */
 export function recalculateReadinessAfterDependencyUpdate(
   workUnits: readonly WorkUnit[],
   dependencies: readonly Dependency[],
   timestamp: string,
+  options: DependencyReadinessRecalculationOptions = {},
 ): DependencyReadinessRecalculation {
-  const statusById = new Map(workUnits.map((wu) => [wu.id, wu.status]));
+  const effectiveReadiness = computeEffectiveReadinessForWorkUnits(workUnits, dependencies);
   const newlyReadyWorkUnitIds: string[] = [];
   const newlyPlannedWorkUnitIds: string[] = [];
 
   const updated = workUnits.map((wu) => {
     if (wu.status !== "ready" && wu.status !== "planned") return wu;
 
-    const incomingBlocking = dependencies.filter(
-      (d) => d.toId === wu.id && (d.type === "blocks" || d.type === "requires"),
-    );
-    const allSourcesDone = incomingBlocking.every((d) => {
-      const status = statusById.get(d.fromId);
-      return status !== undefined && isBlockingSourceSatisfied(status);
-    });
-    const desired: WorkUnitStatus = allSourcesDone ? "ready" : "planned";
+    const readiness = effectiveReadiness.get(wu.id)!;
+    const desired: WorkUnitStatus = wu.status === "ready"
+      ? readiness.unsatisfiedDependencyIds.length > 0 ? "planned" : "ready"
+      : ((options.promoteWithoutBlockingDependencies ?? true) || readiness.blockingDependencyIds.length > 0) &&
+          readiness.unsatisfiedDependencyIds.length === 0
+        ? "ready"
+        : "planned";
     if (desired === wu.status) return wu;
 
     if (desired === "ready") newlyReadyWorkUnitIds.push(wu.id);

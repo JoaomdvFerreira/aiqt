@@ -10,6 +10,7 @@ export interface EffectiveReadinessResult {
   workUnitId: string;
   canonicalStatus: WorkUnitStatus;
   effectivelyReady: boolean;
+  blockingDependencyIds: string[];
   unsatisfiedDependencyIds: string[];
   blockingPredecessorWorkUnitIds: string[];
   reasons: EffectiveReadinessReason[];
@@ -96,6 +97,7 @@ export function computeEffectiveReadiness(
     workUnitId: workUnit.id,
     canonicalStatus: workUnit.status,
     effectivelyReady: workUnit.status === "ready" && unsatisfied.length === 0,
+    blockingDependencyIds: incomingBlocking.map((d) => d.id),
     unsatisfiedDependencyIds: unsatisfied.map((d) => d.id),
     blockingPredecessorWorkUnitIds: [...new Set(unsatisfied.map((d) => d.fromId))],
     reasons,
@@ -106,11 +108,23 @@ export function computeEffectiveReadiness(
 export function computeEffectiveReadinessForState(
   state: StateModel,
 ): Map<string, EffectiveReadinessResult> {
-  const workUnitById = new Map(state.workGraph.workUnits.map((wu) => [wu.id, wu]));
+  return computeEffectiveReadinessForWorkUnits(state.workGraph.workUnits, state.workGraph.dependencies);
+}
+
+/**
+ * The state-independent form used by deterministic transition services. It
+ * keeps all persisted-readiness reconciliation on the same evaluator as
+ * selection, diagnostics and graph repair.
+ */
+export function computeEffectiveReadinessForWorkUnits(
+  workUnits: readonly WorkUnit[],
+  dependencies: readonly Dependency[],
+): Map<string, EffectiveReadinessResult> {
+  const workUnitById = new Map(workUnits.map((wu) => [wu.id, wu]));
   return new Map(
-    state.workGraph.workUnits.map((wu) => [
+    workUnits.map((wu) => [
       wu.id,
-      computeEffectiveReadiness(wu, workUnitById, state.workGraph.dependencies),
+      computeEffectiveReadiness(wu, workUnitById, dependencies),
     ]),
   );
 }

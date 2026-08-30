@@ -1,8 +1,8 @@
 import type { StateModel } from "../schema/state.schema.js";
 import type { Milestone } from "../schema/milestone.schema.js";
-import type { WorkUnit } from "../schema/work-unit.schema.js";
 import type { GraphValidationResult } from "./graph-validation-service.js";
-import { findStaleReadyWorkUnits } from "../workflow/effective-readiness.js";
+import { computeEffectiveReadinessForState } from "../workflow/effective-readiness.js";
+import { recalculateReadinessAfterDependencyUpdate } from "../workflow/dependency-update-transition.js";
 import { recalculateMilestoneStatuses } from "../workflow/checkpoint-status-transitions.js";
 
 export interface GraphRepairSuggestion {
@@ -12,11 +12,11 @@ export interface GraphRepairSuggestion {
   confidence: "high" | "medium" | "low";
 }
 
-/** M18 §11.1: one deterministic ready -> planned repair candidate. */
+/** One deterministic persisted-readiness reconciliation candidate. */
 export interface StaleReadinessRepairProposal {
   workUnitId: string;
-  currentStatus: "ready";
-  proposedStatus: "planned";
+  currentStatus: "ready" | "planned";
+  proposedStatus: "ready" | "planned";
   unsatisfiedDependencyIds: string[];
   blockingPredecessorWorkUnitIds: string[];
   reason: string;
@@ -42,24 +42,43 @@ export interface GraphRepairPlan {
 }
 
 /**
- * M18 §6/§11.1: deterministic `ready -> planned` repair proposals for every
- * canonically-ready-but-not-effectively-ready work unit, computed directly
- * from state via the single centralized effective-readiness engine (not
- * re-derived from graph-validate warnings) so dry-run, apply, and the
- * stale-readiness finding can never disagree about which units qualify.
+ * Deterministic persisted-readiness reconciliation proposals, computed from
+ * the single centralized effective-readiness engine. A persisted `ready`
+ * with unmet blockers is demoted; a persisted `planned` with every blocker
+ * satisfied is promoted. Terminal and active statuses are never touched.
  */
 export function buildStaleReadinessRepairProposals(
   state: StateModel,
 ): StaleReadinessRepairProposal[] {
-  return findStaleReadyWorkUnits(state).map((r) => ({
-    workUnitId: r.workUnitId,
-    currentStatus: "ready" as const,
-    proposedStatus: "planned" as const,
-    unsatisfiedDependencyIds: r.unsatisfiedDependencyIds,
-    blockingPredecessorWorkUnitIds: r.blockingPredecessorWorkUnitIds,
-    reason: `Work unit "${r.workUnitId}" is canonically "ready" but has an unsatisfied blocking/requires dependency (blocked by: ${r.blockingPredecessorWorkUnitIds.join(", ")}); normalizing to "planned".`,
-    wouldMutate: true as const,
-  }));
+  return [...computeEffectiveReadinessForState(state).values()].flatMap<StaleReadinessRepairProposal>((r) => {
+    if (r.canonicalStatus === "ready" && r.unsatisfiedDependencyIds.length > 0) {
+      return [{
+        workUnitId: r.workUnitId,
+        currentStatus: "ready" as const,
+        proposedStatus: "planned" as const,
+        unsatisfiedDependencyIds: r.unsatisfiedDependencyIds,
+        blockingPredecessorWorkUnitIds: r.blockingPredecessorWorkUnitIds,
+        reason: `Work unit "${r.workUnitId}" is canonically "ready" but has an unsatisfied blocking/requires dependency (blocked by: ${r.blockingPredecessorWorkUnitIds.join(", ")}); normalizing to "planned".`,
+        wouldMutate: true as const,
+      }];
+    }
+    if (
+      r.canonicalStatus === "planned" &&
+      r.blockingDependencyIds.length > 0 &&
+      r.unsatisfiedDependencyIds.length === 0
+    ) {
+      return [{
+        workUnitId: r.workUnitId,
+        currentStatus: "planned" as const,
+        proposedStatus: "ready" as const,
+        unsatisfiedDependencyIds: r.unsatisfiedDependencyIds,
+        blockingPredecessorWorkUnitIds: r.blockingPredecessorWorkUnitIds,
+        reason: `Work unit "${r.workUnitId}" is canonically "planned" but every blocking/requires dependency is satisfied; normalizing to "ready".`,
+        wouldMutate: true as const,
+      }];
+    }
+    return [];
+  });
 }
 
 /**
@@ -133,7 +152,7 @@ export function buildPointerRepairProposals(state: StateModel): PointerRepairPro
 export interface StaleReadinessRepairApplyResult {
   state: StateModel;
   repairedWorkUnitIds: string[];
-  changes: Array<{ workUnitId: string; from: "ready"; to: "planned" }>;
+  changes: Array<{ workUnitId: string; from: "ready" | "planned"; to: "ready" | "planned" }>;
 }
 
 export interface PointerRepairApplyResult {
@@ -143,25 +162,28 @@ export interface PointerRepairApplyResult {
 
 /**
  * M18 §11.2: build the full candidate state for applying every deterministic
- * stale-readiness repair atomically. Pure and side-effect free -- the caller
- * decides whether to persist. Only the identified stale-ready work units'
- * status changes (ready -> planned); every other work unit, and every
- * terminal/history status (done/replanned/cancelled/in_progress/
- * needs_review), is left completely untouched. Milestone statuses are
- * recomputed from the (possibly changed) children exactly as every other
- * status-mutating engine in this codebase already does.
+ * readiness reconciliation atomically. Pure and side-effect free -- the
+ * caller decides whether to persist. The shared dependency transition
+ * primitive is the authority for the actual status changes.
  */
 export function applyStaleReadinessRepair(
   state: StateModel,
   timestamp: string,
 ): StaleReadinessRepairApplyResult {
-  const proposals = buildStaleReadinessRepairProposals(state);
-  const repairWorkUnitIds = new Set(proposals.map((p) => p.workUnitId));
-
-  const workUnits: WorkUnit[] = state.workGraph.workUnits.map((wu) =>
-    repairWorkUnitIds.has(wu.id) ? { ...wu, status: "planned" as const, updatedAt: timestamp } : wu,
+  const reconciled = recalculateReadinessAfterDependencyUpdate(
+    state.workGraph.workUnits,
+    state.workGraph.dependencies,
+    timestamp,
+    { promoteWithoutBlockingDependencies: false },
   );
+  const workUnits = reconciled.workUnits;
   const milestones: Milestone[] = recalculateMilestoneStatuses(workUnits, state.workGraph.milestones);
+  const changes = state.workGraph.workUnits.flatMap((wu) => {
+    const updated = workUnits.find((candidate) => candidate.id === wu.id)!;
+    return wu.status === updated.status
+      ? []
+      : [{ workUnitId: wu.id, from: wu.status as "ready" | "planned", to: updated.status as "ready" | "planned" }];
+  });
 
   return {
     state: {
@@ -169,8 +191,8 @@ export function applyStaleReadinessRepair(
       workGraph: { ...state.workGraph, workUnits, milestones },
       lastUpdatedAt: timestamp,
     },
-    repairedWorkUnitIds: proposals.map((p) => p.workUnitId),
-    changes: proposals.map((p) => ({ workUnitId: p.workUnitId, from: "ready" as const, to: "planned" as const })),
+    repairedWorkUnitIds: changes.map((change) => change.workUnitId),
+    changes,
   };
 }
 

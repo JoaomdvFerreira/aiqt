@@ -7,6 +7,7 @@ import {
   readAgentPacketIds,
   appendRunlogEvent,
   buildGraphRepairedEvent,
+  buildWorkUnitStatusChangedEvent,
   readRunlogEventIds,
 } from "../../state/runlog-store.js";
 import { nextId } from "../../state/ids.js";
@@ -25,8 +26,20 @@ export interface RunGraphRepairOptions {
   apply?: boolean;
 }
 
-function hasBlockingErrorsOutsideDeterministicRepair(validation: ReturnType<typeof validateGraph>): boolean {
-  return validation.blockingErrors.some((error) => error.rule !== "broken-current-work-unit-reference");
+function checkpointPacketDiagnosticFingerprint(validation: ReturnType<typeof validateGraph>): string[] {
+  return validation.blockingErrors
+    .filter((error) => error.rule === "broken-checkpoint-packet-reference")
+    .map((error) => [error.rule, error.workUnitId ?? "", error.dependencyId ?? "", error.message].join("\u0000"))
+    .sort();
+}
+
+function canApplyDeterministicRepair(validation: ReturnType<typeof validateGraph>): boolean {
+  const errors = validation.blockingErrors;
+  const packetDiagnostics = checkpointPacketDiagnosticFingerprint(validation);
+  if (packetDiagnostics.length > 0) {
+    return errors.every((error) => error.rule === "broken-checkpoint-packet-reference");
+  }
+  return errors.every((error) => error.rule === "broken-current-work-unit-reference");
 }
 
 /**
@@ -109,7 +122,7 @@ export function runGraphRepair(
     const validation = validateGraph(project, state, knownPacketIds);
     const plan = buildGraphRepairPlan(validation, state);
 
-    if (options.apply && hasBlockingErrorsOutsideDeterministicRepair(validation)) {
+    if (options.apply && !canApplyDeterministicRepair(validation)) {
       const message =
         "aiqt graph repair --apply cannot safely execute: the graph has blocking structural errors. Run aiqt graph validate first.";
       return makeResult({
@@ -169,6 +182,7 @@ export function runGraphRepair(
       });
     }
 
+    const toleratedPacketDiagnostics = checkpointPacketDiagnosticFingerprint(validation);
     const timestamp = new Date().toISOString();
     const pointerRepair = applyPointerRepairs(state, timestamp);
     const repair = applyStaleReadinessRepair(pointerRepair.state, timestamp);
@@ -177,7 +191,9 @@ export function runGraphRepair(
     // fields changed, but this reuses the same shared validator rather than
     // trusting the repair builder's output blindly.
     const candidateValidation = validateGraph(project, repair.state, knownPacketIds);
-    if (candidateValidation.blockingErrors.length > 0) {
+    const candidatePacketDiagnostics = checkpointPacketDiagnosticFingerprint(candidateValidation);
+    const toleratedDiagnosticsChanged = JSON.stringify(candidatePacketDiagnostics) !== JSON.stringify(toleratedPacketDiagnostics);
+    if (!canApplyDeterministicRepair(candidateValidation) || toleratedDiagnosticsChanged) {
       const message = "aiqt graph repair --apply produced an invalid candidate state. No changes were made.";
       return makeResult({
         status: "failed",
@@ -202,7 +218,26 @@ export function runGraphRepair(
     const finalState: StateModel = applyWorkflowAssessmentToState(project, repair.state);
     writeStateModel(paths.stateFile, finalState);
 
-    const eventIds = readRunlogEventIds(paths.runlogFile);
+    let eventIds = readRunlogEventIds(paths.runlogFile);
+    for (const change of repair.changes) {
+      const eventId = nextId("EVT", eventIds);
+      eventIds = [...eventIds, eventId];
+      const workUnit = repair.state.workGraph.workUnits.find((wu) => wu.id === change.workUnitId)!;
+      appendRunlogEvent(
+        paths.runlogFile,
+        buildWorkUnitStatusChangedEvent({
+          id: eventId,
+          timestamp,
+          relatedIds: [change.workUnitId, workUnit.milestoneId],
+          data: {
+            workUnitId: change.workUnitId,
+            fromStatus: change.from,
+            toStatus: change.to,
+            reason: "Deterministic graph readiness reconciliation.",
+          },
+        }),
+      );
+    }
     const eventId = nextId("EVT", eventIds);
     appendRunlogEvent(
       paths.runlogFile,
@@ -225,9 +260,9 @@ export function runGraphRepair(
     const repairedPointerNames = pointerRepair.repairedPointers.map((pointer) => pointer.pointerName);
     const summary =
       repair.repairedWorkUnitIds.length > 0 && repairedPointerNames.length > 0
-        ? `Repaired ${repair.repairedWorkUnitIds.length} stale-ready work unit(s) and cleared ${repairedPointerNames.length} dangling pointer(s).`
+        ? `Reconciled ${repair.repairedWorkUnitIds.length} work unit readiness state(s) and cleared ${repairedPointerNames.length} dangling pointer(s).`
         : repair.repairedWorkUnitIds.length > 0
-          ? `Repaired ${repair.repairedWorkUnitIds.length} stale-ready work unit(s): ${repair.repairedWorkUnitIds.join(", ")}.`
+          ? `Reconciled ${repair.repairedWorkUnitIds.length} work unit readiness state(s): ${repair.repairedWorkUnitIds.join(", ")}.`
           : `Cleared ${repairedPointerNames.length} dangling workflow pointer(s): ${repairedPointerNames.join(", ")}.`;
 
     return makeResult({
@@ -241,7 +276,7 @@ export function runGraphRepair(
         "Read project.json",
         "Read state.json",
         "Computed effective readiness",
-        "Applied deterministic stale-readiness repairs",
+        "Applied deterministic readiness reconciliation",
         "Validated candidate state",
         "Wrote state.json",
         "Appended runlog event",
