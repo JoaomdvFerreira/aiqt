@@ -90,6 +90,46 @@ async function makeMultiStaleProject(dir: string) {
   return state;
 }
 
+/** Plants completed predecessors while leaving their dependent work units stale-planned. */
+async function makeMultiStalePlannedProject(dir: string) {
+  await makeReadyProject(dir);
+  const planPath = join(dir, "plan.json");
+  writeFileSync(
+    planPath,
+    JSON.stringify({
+      milestones: [
+        { clientKey: "m1", title: "Upstream", objective: "Upstream." },
+        { clientKey: "m2", title: "Target 1", objective: "Target 1." },
+        { clientKey: "m3", title: "Target 2", objective: "Target 2." },
+        { clientKey: "m4", title: "Still blocked", objective: "Still blocked." },
+        { clientKey: "m5", title: "Target 3", objective: "Target 3." },
+      ],
+      workUnits: [
+        workUnitInput("wu-done-1", "m1", "Done unit 1"),
+        workUnitInput("wu-done-2", "m1", "Done unit 2"),
+        workUnitInput("wu-target-1", "m2", "Target unit 1"),
+        workUnitInput("wu-target-2", "m3", "Target unit 2"),
+        workUnitInput("wu-blocked", "m4", "Blocked target"),
+        workUnitInput("wu-target-3", "m5", "Target unit 3"),
+      ],
+      dependencies: [
+        { fromClientKey: "wu-done-1", toClientKey: "wu-target-1", type: "blocks" },
+        { fromClientKey: "wu-done-2", toClientKey: "wu-target-2", type: "requires" },
+        { fromClientKey: "wu-blocked", toClientKey: "wu-target-2", type: "blocks" },
+        { fromClientKey: "wu-done-2", toClientKey: "wu-target-3", type: "blocks" },
+      ],
+    }),
+  );
+  expect(runPlan(contextFor(dir), { fromFile: planPath }).exitCode).toBe(ExitCode.Success);
+
+  const state = readState(dir);
+  for (const title of ["Done unit 1", "Done unit 2"]) {
+    state.workGraph.workUnits.find((wu: { title: string }) => wu.title === title).status = "done";
+  }
+  writeState(dir, state);
+  return state;
+}
+
 describe("M18 §11: aiqt graph repair --dry-run for stale readiness", () => {
   let dir: string | null = null;
   afterEach(() => {
@@ -411,5 +451,61 @@ describe("M18 §11.2: aiqt graph repair --apply", () => {
     expect(preview.exitCode).toBe(ExitCode.Success);
     const previewData = preview.data as { selectedWorkUnitId: string };
     expect(previewData.selectedWorkUnitId).toBe(good.id);
+  });
+});
+
+describe("readiness reconciliation: stale planned -> ready", () => {
+  let dir: string | null = null;
+  afterEach(() => {
+    if (dir) removeDir(dir);
+    dir = null;
+  });
+
+  it("proposes and applies every independently satisfied planned work unit while preserving a still-blocked planned unit", async () => {
+    dir = makeTempDir();
+    const state = await makeMultiStalePlannedProject(dir);
+    const target = state.workGraph.workUnits.find((wu: { title: string }) => wu.title === "Target unit 1");
+    const target3 = state.workGraph.workUnits.find((wu: { title: string }) => wu.title === "Target unit 3");
+    const blocked = state.workGraph.workUnits.find((wu: { title: string }) => wu.title === "Target unit 2");
+
+    const dryRun = runGraphRepair(contextFor(dir), { dryRun: true });
+    const proposals = (dryRun.data as { staleReadinessRepairs: Array<{ workUnitId: string; currentStatus: string; proposedStatus: string }> }).staleReadinessRepairs;
+    expect(proposals).toEqual(expect.arrayContaining([
+      expect.objectContaining({ workUnitId: target.id, currentStatus: "planned", proposedStatus: "ready" }),
+      expect.objectContaining({ workUnitId: target3.id, currentStatus: "planned", proposedStatus: "ready" }),
+    ]));
+    expect(proposals.some((proposal) => proposal.workUnitId === blocked.id)).toBe(false);
+
+    const applied = runGraphRepair(contextFor(dir), { apply: true });
+    expect((applied.data as { repairedWorkUnitIds: string[] }).repairedWorkUnitIds).toEqual([target.id, target3.id]);
+    const after = readState(dir);
+    expect(after.workGraph.workUnits.find((wu: { id: string }) => wu.id === target.id).status).toBe("ready");
+    expect(after.workGraph.workUnits.find((wu: { id: string }) => wu.id === target3.id).status).toBe("ready");
+    expect(after.workGraph.workUnits.find((wu: { id: string }) => wu.id === blocked.id).status).toBe("planned");
+
+    const statusEvents = readRunlogLines(dir).filter((line) => line.type === "work_unit.status_changed");
+    expect(statusEvents).toEqual(expect.arrayContaining([
+      expect.objectContaining({ data: expect.objectContaining({ workUnitId: target.id, fromStatus: "planned", toStatus: "ready" }) }),
+    ]));
+  });
+
+  it("is idempotent after promotion and leaves next strict but selectable from persisted ready state", async () => {
+    dir = makeTempDir();
+    const state = await makeMultiStalePlannedProject(dir);
+    const target = state.workGraph.workUnits.find((wu: { title: string }) => wu.title === "Target unit 1");
+    const runlogBefore = readRunlogLines(dir).length;
+
+    expect(runGraphRepair(contextFor(dir), { apply: true }).exitCode).toBe(ExitCode.Success);
+    const runlogAfterFirstApply = readRunlogLines(dir).length;
+    expect(runlogAfterFirstApply).toBeGreaterThan(runlogBefore);
+
+    const second = runGraphRepair(contextFor(dir), { apply: true });
+    expect(second.data).toMatchObject({ mutationPerformed: false });
+    expect(readRunlogLines(dir)).toHaveLength(runlogAfterFirstApply);
+
+    const { runNextPreview } = await import("../../src/cli/commands/next-preview.command.js");
+    const preview = runNextPreview(contextFor(dir), { workUnitId: target.id });
+    expect(preview.exitCode).toBe(ExitCode.Success);
+    expect(preview.data).toMatchObject({ selectedWorkUnitId: target.id });
   });
 });
