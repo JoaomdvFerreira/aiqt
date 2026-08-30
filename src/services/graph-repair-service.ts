@@ -174,6 +174,7 @@ export function applyStaleReadinessRepair(
     state.workGraph.workUnits,
     state.workGraph.dependencies,
     timestamp,
+    { promoteWithoutBlockingDependencies: false },
   );
   const workUnits = reconciled.workUnits;
   const milestones: Milestone[] = recalculateMilestoneStatuses(workUnits, state.workGraph.milestones);

@@ -52,6 +52,16 @@ export interface DependencyReadinessRecalculation {
   newlyPlannedWorkUnitIds: string[];
 }
 
+export interface DependencyReadinessRecalculationOptions {
+  /**
+   * Normal dependency mutations retain their historical behavior: a planned
+   * unit with no remaining blockers becomes ready. Graph repair opts out so
+   * it repairs only a persisted state that a blocking relationship can have
+   * made stale, rather than promoting independent planned work speculatively.
+   */
+  promoteWithoutBlockingDependencies?: boolean;
+}
+
 /**
  * Reconcile persisted readiness through the canonical effective-readiness
  * evaluator. Both dependency updates and graph repair use this primitive so
@@ -62,6 +72,7 @@ export function recalculateReadinessAfterDependencyUpdate(
   workUnits: readonly WorkUnit[],
   dependencies: readonly Dependency[],
   timestamp: string,
+  options: DependencyReadinessRecalculationOptions = {},
 ): DependencyReadinessRecalculation {
   const effectiveReadiness = computeEffectiveReadinessForWorkUnits(workUnits, dependencies);
   const newlyReadyWorkUnitIds: string[] = [];
@@ -73,7 +84,8 @@ export function recalculateReadinessAfterDependencyUpdate(
     const readiness = effectiveReadiness.get(wu.id)!;
     const desired: WorkUnitStatus = wu.status === "ready"
       ? readiness.unsatisfiedDependencyIds.length > 0 ? "planned" : "ready"
-      : readiness.blockingDependencyIds.length > 0 && readiness.unsatisfiedDependencyIds.length === 0
+      : ((options.promoteWithoutBlockingDependencies ?? true) || readiness.blockingDependencyIds.length > 0) &&
+          readiness.unsatisfiedDependencyIds.length === 0
         ? "ready"
         : "planned";
     if (desired === wu.status) return wu;
