@@ -3,6 +3,8 @@ import { gitRevParse, GitRunnerError } from "../workspaces/git-command-runner.js
 import { resolveAiqtPaths } from "../core/filesystem/paths.js";
 import { isDirectory } from "../core/filesystem/file-exists.js";
 import { readStateModel } from "../state/workflow-state-store.js";
+import { readProjectModel } from "../state/project-store.js";
+import { deriveProjectProductionReadiness, type ProjectProductionReadiness } from "../workflow/production-qualification.js";
 import { buildReleaseCandidate, type ReleaseIntentInput, type ReleaseIntentMilestoneInput } from "../workflow/release-candidate.js";
 import { buildReleaseProvenance, type ReleaseProvenanceFacts } from "../workflow/release-provenance.js";
 import { assessReleaseReadiness, type ReleaseReadinessFacts } from "../workflow/release-readiness.js";
@@ -65,6 +67,8 @@ export interface ReleaseAssessment {
   candidate: ReleaseCandidate;
   provenance: ReleaseProvenance;
   readiness: ReleaseReadinessAssessment;
+  /** M49: canonical project qualification for the exact release candidate. */
+  qualification: ProjectProductionReadiness | null;
 }
 
 export type ReleaseAssessmentOutcome =
@@ -147,9 +151,39 @@ function buildAssessmentCore(request: ReleaseIntentRequest, facts: ReleaseProven
     declaredNotApplicable: request.declaredNotApplicable ?? [],
     declaredPresent: request.declaredPresent ?? [],
   };
-  const readiness = assessReleaseReadiness(assembly.candidate, provenance, readinessFacts);
+  let readiness = assessReleaseReadiness(assembly.candidate, provenance, readinessFacts);
 
-  return { ok: true, core: { candidate: assembly.candidate, provenance, readiness } };
+  // This is deliberately a derived, best-effort view. A release candidate can
+  // still explain its own existing provenance errors when project state cannot
+  // be read; it must not fabricate qualification in that case.
+  let qualification: ProjectProductionReadiness | null = null;
+  const paths = resolveAiqtPaths(resolve(request.cwd));
+  if (isDirectory(paths.aiqtDir)) {
+    try {
+      qualification = deriveProjectProductionReadiness({
+        project: readProjectModel(paths.projectFile),
+        state: readStateModel(paths.stateFile),
+        revision: assembly.candidate.identity.candidateCommit,
+      });
+    } catch {
+      qualification = null;
+    }
+  }
+
+  // Release readiness remains its own candidate/provenance assessment, but it
+  // cannot advertise a stronger conclusion than the shared M49 qualification.
+  if (qualification?.status === "BLOCKED" || qualification?.status === "UNKNOWN") {
+    const finding: ReleaseBlockingFinding = qualification.status === "BLOCKED"
+      ? { id: "RELEASE-QUALIFICATION-BLOCKED", area: "qualification", message: "Canonical change qualification is blocked for this candidate revision.", evidenceKey: "qualification" }
+      : { id: "RELEASE-QUALIFICATION-UNKNOWN", area: "qualification", message: "Canonical change qualification is unknown for this candidate revision.", evidenceKey: "qualification" };
+    readiness = {
+      ...readiness,
+      integrity: qualification.status === "BLOCKED" ? "blocked" : readiness.integrity === "blocked" ? "blocked" : "insufficient_evidence",
+      blockingFindings: [...readiness.blockingFindings, finding],
+    };
+  }
+
+  return { ok: true, core: { candidate: assembly.candidate, provenance, readiness, qualification } };
 }
 
 function provenanceFactsFromRequest(request: ReleaseIntentRequest, overrides: Partial<ReleaseProvenanceFacts> = {}): ReleaseProvenanceFacts {

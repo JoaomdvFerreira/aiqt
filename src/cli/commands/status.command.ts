@@ -23,6 +23,7 @@ import { assessWorkflow } from "../../workflow/workflow-assessment.js";
 import { readAgentPacketIds } from "../../state/runlog-store.js";
 import { runReview } from "../../services/review-service.js";
 import { classifyFindings } from "../../services/manage-service.js";
+import { deriveProjectProductionReadiness } from "../../workflow/production-qualification.js";
 
 export interface RunStatusOptions {
   /** M24 §11: read-only advisory eligibility/batch reporting -- never mutates state or runlog. */
@@ -145,11 +146,12 @@ export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): 
 
     const review = runReview(project, state, readAgentPacketIds(paths.runlogFile, state.lastAgentPacket));
     const classification = classifyFindings(project, state, review);
+    const productionReadiness = deriveProjectProductionReadiness({ project, state, revision: null, reviewFindings: review.findings });
     const allWorkUnitStatusesDone =
       state.workGraph.workUnits.length > 0 &&
       state.workGraph.workUnits.every((wu) => wu.status === "done");
     const assessment = assessWorkflow(project, state, {
-      productionReady: allWorkUnitStatusesDone ? classification.productionReady : null,
+      productionReady: allWorkUnitStatusesDone ? productionReadiness.status === "QUALIFIED" : null,
     });
     const next = {
       nextRecommendedCommand: assessment.recommendedCommand,
@@ -240,6 +242,8 @@ export function runStatus(ctx: CommandContext, options: RunStatusOptions = {}): 
         currentWorkUnitId: state.currentWorkUnitId,
         nextActionReason: next.reason,
         runlogHealth,
+        productionReadiness,
+        legacyProductionReady: classification.productionReady,
         roots,
         ...(evidenceGateSummary ? { evidenceGate: evidenceGateSummary } : {}),
         // M30 §10.3: one centralized required-evidence projection, shared

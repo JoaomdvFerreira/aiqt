@@ -297,14 +297,16 @@ describe("buildManageReport", () => {
     expect(report.reason).toBe("Development is complete but production readiness still has release blockers or gaps.");
   });
 
-  it("recommends aiqt export all once fully production ready", () => {
+  it("keeps legacy finding completion distinct from canonical production qualification", () => {
     const project = baseProject();
     const state = baseState({ checkpoints: [checkpoint({ acceptanceCriteriaResult: "passed" })] });
     const review = reviewFor(project, state);
     const report = buildManageReport(project, state, review);
     expect(report.developmentComplete).toBe(true);
-    expect(report.productionReady).toBe(true);
-    expect(report.recommendedCommand).toBe("aiqt export all");
-    expect(report.reason).toBe("Development and production readiness are complete; export/reporting is available.");
+    expect(report.legacyProductionReady).toBe(true);
+    expect(report.productionReady).toBe(false);
+    expect(report.productionReadiness.status).toBe("UNKNOWN");
+    expect(report.recommendedCommand).toBe("aiqt manage");
+    expect(report.reason).toBe("Development is complete but production readiness still has release blockers or gaps.");
   });
 });
