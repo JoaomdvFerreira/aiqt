@@ -16,9 +16,9 @@ import type { GuidanceResultData } from "../schema/guidance-result.schema.js";
 import { assessWorkflow } from "../workflow/workflow-assessment.js";
 import { readAgentPacketIds } from "../state/runlog-store.js";
 import { runReview } from "./review-service.js";
-import { classifyFindings } from "./manage-service.js";
 import { deriveCanonicalHandoff, resolveHandoffRevisionFacts } from "../workflow/canonical-handoff.js";
 import { resolveRoots } from "../workflow/root-resolution.js";
+import { deriveProjectProductionReadiness } from "../workflow/production-qualification.js";
 
 function notInitializedGuidanceData(): GuidanceResultData {
   return {
@@ -99,11 +99,21 @@ export function runGuidanceCommand(
     const { paths, project, state, warnings } = loaded;
     const checkpointInputExists = isFile(join(paths.inputsDir, "checkpoint.json"));
     const review = runReview(project, state, readAgentPacketIds(paths.runlogFile, state.lastAgentPacket));
-    const classification = classifyFindings(project, state, review);
     const allWorkUnitStatusesDone =
       state.workGraph.workUnits.length > 0 &&
       state.workGraph.workUnits.every((wu) => wu.status === "done");
-    const productionReady = allWorkUnitStatusesDone ? classification.productionReady : null;
+    // WU4 owns production qualification.  The legacy manage classification
+    // remains visible to compatibility consumers, but must not send
+    // start/continue to export when the canonical evidence is insufficient.
+    const productionReadiness = deriveProjectProductionReadiness({
+      project,
+      state,
+      revision: null,
+      reviewFindings: review.findings,
+    });
+    const productionReady = allWorkUnitStatusesDone
+      ? productionReadiness.status === "QUALIFIED"
+      : null;
     const assessment = assessWorkflow(project, state, { productionReady });
     const guidance = computeGuidance({ project, state, checkpointInputExists, productionReady });
     const activeHandoff = state.currentWorkUnitId === null ? null : (() => {
@@ -126,7 +136,7 @@ export function runGuidanceCommand(
       warnings,
       nextRecommendedCommand: guidance.recommendedCommand,
       exitCode: ExitCode.Success,
-      data: { ...guidance, canonicalHandoff: activeHandoff },
+      data: { ...guidance, productionReadiness, canonicalHandoff: activeHandoff },
     });
   } catch (err) {
     return errorToResult(action, err);
