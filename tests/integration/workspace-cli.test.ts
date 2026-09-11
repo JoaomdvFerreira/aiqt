@@ -1,16 +1,16 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
+import { HEAVY_SPAWNING_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { spawnSync, execFileSync } from "node:child_process";
 import { writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { makeTempDir, removeDir, initGitFixtureRepo } from "../helpers.js";
 import { BUILT_CLI_ENTRY } from "../cli-runner.js";
 
-// M34-WU02: this file spawns real subprocesses (CLI and/or git); see
-// docs/engineering/m34-validation-workload-policy.md Sec 6.1 for the
-// measured justification. Uses the shared class constant, not a locally
-// hardcoded literal.
-vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
+// M49-WU3: this suite's full workspace lifecycle ran in 4.886s with WU3 and
+// 5.360s on clean WU2 when isolated, yet exceeded the 15s spawning budget
+// under the canonical suite's parallel host load. Its real CLI/git/worktree
+// chain therefore uses the existing, evidence-gated per-file heavy budget.
+vi.setConfig({ testTimeout: HEAVY_SPAWNING_TEST_TIMEOUT_MS });
 
 
 function runCli(args: string[], cwd: string) {

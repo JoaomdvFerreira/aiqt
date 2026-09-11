@@ -97,6 +97,7 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   { pattern: /-schema\.test\.ts$|schema-compatibility/, domain: "schema-compatibility", criticality: "Critical" },
   { pattern: /historical-compatibility|root-backward-compatibility|replanned-invariants|^m22-compatibility/, domain: "schema-compatibility", criticality: "Critical" },
   { pattern: /^runlog\.test\.ts$|runlog-recovery|workspace-recovery/, domain: "persistence-runlog", criticality: "Critical" },
+  { pattern: /project-mutation-guard/, domain: "persistence-runlog", criticality: "Critical" },
   { pattern: /workflow-assessment|workflow-recommendation|effective-readiness|dependency-readiness|dependency-graph|dependency-relation|work-graph-readiness/, domain: "workflow-assessment", criticality: "Critical" },
   { pattern: /graph-repair|repair-work-graph|repair-plan\.command|graph-validat/, domain: "corruption-repair", criticality: "Critical" },
   { pattern: /^git-command-runner|git-worktree|shared-repository-provider/, domain: "git-worktree-safety", criticality: "Critical" },

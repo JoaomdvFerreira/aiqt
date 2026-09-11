@@ -1,7 +1,11 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
-import type { AiqtPaths } from "../core/filesystem/paths.js";
+import {
+  PROJECT_MUTATION_LOCK_FILE_NAME,
+  PROJECT_MUTATION_MARKER_FILE_NAME,
+  type AiqtPaths,
+} from "../core/filesystem/paths.js";
 import type { StateModel } from "../schema/state.schema.js";
 import type { ManagedWorkspace, ManagedWorkspaceAccess } from "../schema/managed-workspace.schema.js";
 import type { WorkspaceBinding } from "../schema/workspace-binding.schema.js";
@@ -34,8 +38,12 @@ import {
  * workspace operation holds it.
  */
 export function untrackedPathsExcludingOperationLock(untracked: readonly string[]): string[] {
-  const lockRelativePath = `.aiqt/${WORKSPACE_OPERATION_LOCK_FILE_NAME}`;
-  return untracked.filter((path) => path !== lockRelativePath);
+  const transientGuardPaths = new Set([
+    `.aiqt/${WORKSPACE_OPERATION_LOCK_FILE_NAME}`,
+    `.aiqt/${PROJECT_MUTATION_LOCK_FILE_NAME}`,
+    `.aiqt/${PROJECT_MUTATION_MARKER_FILE_NAME}`,
+  ]);
+  return untracked.filter((path) => !transientGuardPaths.has(path));
 }
 import {
   planGitWorktreePrepare,
