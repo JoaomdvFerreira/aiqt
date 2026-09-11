@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "vitest";
 import { runInit } from "../src/cli/commands/init.command.js";
@@ -122,7 +122,14 @@ export async function buildExistingGraphRefinementFixture(dir: string): Promise<
   for (let i = 0; i < 14; i++) {
     const nextResult = runNext(contextFor(dir));
     expect(nextResult.exitCode).toBe(ExitCode.Success);
-    const cpResult = runCheckpoint(contextFor(dir), { input: DONE_PAYLOAD });
+    const workUnit = JSON.parse(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).workGraph.workUnits
+      .find((candidate: { id: string }) => candidate.id === `WU${String(i + 1).padStart(3, "0")}`);
+    const cpResult = runCheckpoint(contextFor(dir), {
+      input: {
+        ...DONE_PAYLOAD,
+        acceptanceCriteria: [{ criterion: workUnit.title + " is complete.", result: "passed" }],
+      },
+    });
     expect(cpResult.exitCode).toBe(ExitCode.Success);
   }
 }

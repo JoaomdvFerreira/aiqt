@@ -63,7 +63,11 @@ const DONE_PAYLOAD = {
   validationResult: "passed",
   acceptanceCriteriaResult: "passed",
   validationCommands: [{ command: "pnpm test", result: "passed" }],
-  acceptanceCriteria: [{ criterion: "Works", result: "passed" }],
+  acceptanceCriteria: [
+    { criterion: "Unit 1 works", result: "passed" },
+    { criterion: "Unit 2 works", result: "passed" },
+    { criterion: "Live Clerk verification passes", result: "passed" },
+  ],
   issues: [],
   notes: [],
 };

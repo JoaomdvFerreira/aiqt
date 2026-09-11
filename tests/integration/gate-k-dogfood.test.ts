@@ -125,7 +125,7 @@ function doneCheckpointFixture(dir: string, notes = "done") {
   const path = join(dir, `cp-${notes}.json`);
   writeFileSync(
     path,
-    JSON.stringify({ summary: notes, completed: ["a"], notCompleted: [], filesChanged: [], issues: [], validationResult: "passed", acceptanceCriteriaResult: "passed", validationCommands: [], acceptanceCriteria: [], targetStatus: "done" }),
+    JSON.stringify({ summary: notes, completed: ["a"], notCompleted: [], filesChanged: [], issues: [], validationResult: "passed", acceptanceCriteriaResult: "passed", validationCommands: [{ command: "true", result: "passed" }], acceptanceCriteria: [{ criterion: "a", result: "passed" }], targetStatus: "done" }),
   );
   return path;
 }
@@ -192,7 +192,7 @@ describe("M30-WU07: Gate K dogfood (disposable project activation)", () => {
     const needsReviewFixture = join(dir, "cp-wu5-needs-review.json");
     writeFileSync(
       needsReviewFixture,
-      JSON.stringify({ summary: "partial", completed: ["a"], notCompleted: [], filesChanged: [], issues: [], validationResult: "partial", acceptanceCriteriaResult: "partial", validationCommands: [], acceptanceCriteria: [], targetStatus: "needs_review" }),
+      JSON.stringify({ summary: "partial", completed: ["a"], notCompleted: [], filesChanged: [], issues: [], validationResult: "partial", acceptanceCriteriaResult: "partial", validationCommands: [{ command: "true", result: "passed" }], acceptanceCriteria: [{ criterion: "a", result: "passed" }], targetStatus: "needs_review" }),
     );
     expect(runCheckpoint(contextFor(dir), { fromFile: needsReviewFixture }).exitCode).toBe(ExitCode.Success);
     const amendResult = runCheckpointAmend(contextFor(dir), { checkpointId: "C005", acceptance: "passed", validation: "passed", reason: "Evidence already attached; completing." });
