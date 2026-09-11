@@ -1,6 +1,6 @@
 {
   "name": "aiqt",
-  "version": "0.46.4",
+  "version": "0.46.5",
   "type": "module",
   "private": true,
   "license": "Apache-2.0",

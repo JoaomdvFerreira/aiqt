@@ -39,10 +39,10 @@ function workUnit(overrides: Partial<WorkUnit> = {}): WorkUnit {
     objective: "obj",
     scope: ["s"],
     outOfScope: ["o"],
-    acceptanceCriteria: ["a"],
+    acceptanceCriteria: [],
     agentContextRefs: [],
     suggestedFiles: [],
-    validationCommands: ["pnpm test"],
+    validationCommands: [],
     status: "needs_review" as WorkUnitStatus,
     dependencies: [],
     createdAt: "2026-07-14T00:00:00.000Z",
@@ -243,6 +243,44 @@ describe("applyCheckpointAmendment: needs_review -> done completion gate", () =>
       timestamp: "2026-07-14T01:00:00.000Z",
     });
 
+    expect(result.workUnitStatusAfter).toBe("needs_review");
+  });
+
+  it("uses the same completion predicate and cannot hide unfinished work", () => {
+    const state = baseState({
+      checkpoints: [checkpoint({ notCompleted: ["remaining work"] })],
+    });
+    const result = applyCheckpointAmendment({
+      state,
+      checkpoint: state.checkpoints[0],
+      workUnit: state.workGraph.workUnits[0],
+      acceptanceCriteriaResult: "passed",
+      validationResult: "passed",
+      amendmentId: "AMEND-001",
+      reason: "Aggregate correction.",
+      timestamp: "2026-07-14T01:00:00.000Z",
+    });
+    expect(result.workUnitStatusAfter).toBe("needs_review");
+  });
+
+  it("cannot hide an unresolved blocker or detailed required failure", () => {
+    const state = baseState({
+      workGraph: { ...baseState().workGraph, workUnits: [workUnit({ validationCommands: ["pnpm test"] })] },
+      checkpoints: [checkpoint({
+        issues: [{ title: "blocker", description: null, severity: "high", status: "open", agentCanFix: true }],
+        validationCommands: [{ command: "pnpm test", result: "failed", summary: null }],
+      })],
+    });
+    const result = applyCheckpointAmendment({
+      state,
+      checkpoint: state.checkpoints[0],
+      workUnit: state.workGraph.workUnits[0],
+      acceptanceCriteriaResult: "passed",
+      validationResult: "passed",
+      amendmentId: "AMEND-001",
+      reason: "Aggregate correction.",
+      timestamp: "2026-07-14T01:00:00.000Z",
+    });
     expect(result.workUnitStatusAfter).toBe("needs_review");
   });
 });

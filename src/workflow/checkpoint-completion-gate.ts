@@ -4,9 +4,34 @@ import type {
   CheckpointInput,
   CheckpointIssueInput,
 } from "../schema/checkpoint-input.schema.js";
-import type { FinalWorkUnitStatus } from "../schema/checkpoint.schema.js";
+import type {
+  AcceptanceCriterionResult,
+  AcceptanceCriteriaResult,
+  CheckpointIssue,
+  FinalWorkUnitStatus,
+  ValidationCommandResult,
+  ValidationResult,
+} from "../schema/checkpoint.schema.js";
+import type { WorkUnit } from "../schema/work-unit.schema.js";
 
-function hasOpenHighOrCriticalIssue(issues: readonly CheckpointIssueInput[]): boolean {
+type CompletionIssue = CheckpointIssueInput | CheckpointIssue;
+
+export interface CompletionEvaluationInput {
+  workUnit: Pick<WorkUnit, "validationCommands" | "acceptanceCriteria">;
+  validationResult: ValidationResult;
+  acceptanceCriteriaResult: AcceptanceCriteriaResult;
+  notCompleted: readonly string[];
+  issues: readonly CompletionIssue[];
+  validationCommands: readonly ValidationCommandResult[];
+  acceptanceCriteria: readonly AcceptanceCriterionResult[];
+}
+
+export interface CompletionEvaluation {
+  complete: boolean;
+  reasons: string[];
+}
+
+function hasOpenHighOrCriticalIssue(issues: readonly CompletionIssue[]): boolean {
   return issues.some(
     (issue) =>
       (issue.status ?? "open") === "open" &&
@@ -14,13 +39,54 @@ function hasOpenHighOrCriticalIssue(issues: readonly CheckpointIssueInput[]): bo
   );
 }
 
-function meetsCompletionConditions(input: CheckpointInput): boolean {
-  return (
-    input.validationResult === "passed" &&
-    input.acceptanceCriteriaResult === "passed" &&
-    input.notCompleted.length === 0 &&
-    !hasOpenHighOrCriticalIssue(input.issues)
-  );
+function hasRequiredResult<T extends { result: string }>(
+  required: readonly string[],
+  reported: readonly T[],
+  identity: (entry: T) => string,
+  label: string,
+  reasons: string[],
+): void {
+  for (const requiredItem of required) {
+    const result = reported.find((entry) => identity(entry) === requiredItem);
+    if (!result) {
+      reasons.push(`required ${label} "${requiredItem}" is not assessed`);
+    } else if (result.result !== "passed") {
+      reasons.push(`required ${label} "${requiredItem}" is ${result.result}`);
+    }
+  }
+}
+
+/**
+ * The single implementation-completion predicate for both terminal
+ * checkpoints and needs_review -> done amendment promotion. It intentionally
+ * evaluates only persisted implementation facts: a passed aggregate never
+ * overrides unfinished work, blocking issues, or a missing/failed required
+ * detailed result. Authority decisions are evaluated by their existing
+ * separate gate and never rewrite these technical outcomes.
+ */
+export function evaluateImplementationCompletion(
+  input: CompletionEvaluationInput,
+): CompletionEvaluation {
+  const reasons: string[] = [];
+  if (input.validationResult !== "passed") reasons.push(`validationResult is ${input.validationResult}`);
+  if (input.acceptanceCriteriaResult !== "passed") reasons.push(`acceptanceCriteriaResult is ${input.acceptanceCriteriaResult}`);
+  if (input.notCompleted.length > 0) reasons.push("unfinished work is recorded");
+  if (hasOpenHighOrCriticalIssue(input.issues)) reasons.push("an open high/critical issue exists");
+  hasRequiredResult(input.workUnit.validationCommands, input.validationCommands, (entry) => entry.command, "validation command", reasons);
+  hasRequiredResult(input.workUnit.acceptanceCriteria, input.acceptanceCriteria, (entry) => entry.criterion, "acceptance criterion", reasons);
+  return { complete: reasons.length === 0, reasons };
+}
+
+function evaluateCheckpointInput(workUnit: CompletionEvaluationInput["workUnit"], input: CheckpointInput): CompletionEvaluation {
+  return evaluateImplementationCompletion({
+    workUnit,
+    validationResult: input.validationResult,
+    acceptanceCriteriaResult: input.acceptanceCriteriaResult,
+    notCompleted: input.notCompleted,
+    issues: input.issues,
+    validationCommands: input.validationCommands.map((entry) => ({ ...entry, summary: entry.summary ?? null })),
+    acceptanceCriteria: input.acceptanceCriteria.map((entry) => ({ ...entry, evidence: entry.evidence ?? null })),
+  });
 }
 
 function completionGateError(message: string): AiqtError {
@@ -43,36 +109,20 @@ function completionGateError(message: string): AiqtError {
  * acceptable.
  */
 export function deriveFinalWorkUnitStatus(
+  workUnit: CompletionEvaluationInput["workUnit"],
   input: CheckpointInput,
 ): FinalWorkUnitStatus {
+  const evaluation = evaluateCheckpointInput(workUnit, input);
   if (input.targetStatus === undefined) {
-    return meetsCompletionConditions(input) ? "done" : "needs_review";
+    return evaluation.complete ? "done" : "needs_review";
   }
 
   if (input.targetStatus === "needs_review") {
     return "needs_review";
   }
 
-  // input.targetStatus === "done": must pass the completion gate exactly.
-  if (input.validationResult !== "passed") {
-    throw completionGateError(
-      "Checkpoint targetStatus is done but validationResult is not passed.",
-    );
-  }
-  if (input.acceptanceCriteriaResult !== "passed") {
-    throw completionGateError(
-      "Checkpoint targetStatus is done but acceptanceCriteriaResult is not passed.",
-    );
-  }
-  if (input.notCompleted.length > 0) {
-    throw completionGateError(
-      "Checkpoint targetStatus is done but notCompleted has one or more items.",
-    );
-  }
-  if (hasOpenHighOrCriticalIssue(input.issues)) {
-    throw completionGateError(
-      "Checkpoint targetStatus is done but an open high/critical issue exists.",
-    );
+  if (!evaluation.complete) {
+    throw completionGateError(`Checkpoint targetStatus is done but ${evaluation.reasons[0]}.`);
   }
   return "done";
 }

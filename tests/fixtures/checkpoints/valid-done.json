@@ -13,16 +13,31 @@
   "acceptanceCriteriaResult": "passed",
   "validationCommands": [
     {
-      "command": "pnpm validate",
+      "command": "pnpm test",
       "result": "passed",
       "summary": "Typecheck, lint, and tests passed."
+    },
+    {
+      "command": "pnpm build",
+      "result": "passed",
+      "summary": "Build passed."
     }
   ],
   "acceptanceCriteria": [
     {
-      "criterion": "The command returns deterministic JSON output.",
+      "criterion": "Application starts successfully",
       "result": "passed",
       "evidence": "Covered by integration tests."
+    },
+    {
+      "criterion": "pnpm build passes",
+      "result": "passed",
+      "evidence": "Build passed."
+    },
+    {
+      "criterion": "pnpm test passes",
+      "result": "passed",
+      "evidence": "Tests passed."
     }
   ],
   "issues": [],

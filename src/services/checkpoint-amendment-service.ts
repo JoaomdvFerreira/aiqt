@@ -13,6 +13,7 @@ import {
   recalculateMilestoneStatuses,
   computeProjectStatus,
 } from "../workflow/checkpoint-status-transitions.js";
+import { evaluateImplementationCompletion } from "../workflow/checkpoint-completion-gate.js";
 
 /** M12 §6.1: missing state.checkpointAmendments must be treated as an empty array. */
 export function getCheckpointAmendments(state: StateModel): CheckpointAmendment[] {
@@ -152,8 +153,15 @@ export function applyCheckpointAmendment(
   const completionGatePasses =
     workUnit.status === "needs_review" &&
     isLatestCheckpoint &&
-    newEffectiveValidation === "passed" &&
-    newEffectiveAcceptance === "passed" &&
+    evaluateImplementationCompletion({
+      workUnit,
+      validationResult: newEffectiveValidation,
+      acceptanceCriteriaResult: newEffectiveAcceptance,
+      notCompleted: checkpoint.notCompleted,
+      issues: checkpoint.issues,
+      validationCommands: checkpoint.validationCommands,
+      acceptanceCriteria: checkpoint.acceptanceCriteria,
+    }).complete &&
     state.currentWorkUnitId !== workUnit.id;
 
   let workUnitStatusAfter: WorkUnitStatus = workUnit.status;
