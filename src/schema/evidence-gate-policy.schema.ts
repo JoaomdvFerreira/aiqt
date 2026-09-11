@@ -30,6 +30,12 @@ export type ScopeMatchMode = z.infer<typeof ScopeMatchModeSchema>;
 export const MissingDispositionSchema = z.enum(["fail", "indeterminate"]);
 export type MissingDisposition = z.infer<typeof MissingDispositionSchema>;
 
+/** Presence is the historical/default contract.  A policy opts in to
+ * successful-verification semantics explicitly, rather than making every
+ * artifact reference imply a PASS. */
+export const OutcomeRequirementSchema = z.enum(["presence", "validation_passed"]);
+export type OutcomeRequirement = z.infer<typeof OutcomeRequirementSchema>;
+
 /**
  * M28 §3.2: a fixed, declarative selector -- no script, expression, path
  * query, regex, or template exists anywhere in this shape.
@@ -40,6 +46,7 @@ export const EvidenceSelectorSchema = z
     minimumTrust: TrustLevelSchema,
     scopeMatch: ScopeMatchModeSchema,
     maxAgeSeconds: z.number().int().positive().max(MAX_AGE_SECONDS).optional(),
+    outcomeRequirement: OutcomeRequirementSchema.optional(),
   })
   .strict();
 export type EvidenceSelector = z.infer<typeof EvidenceSelectorSchema>;

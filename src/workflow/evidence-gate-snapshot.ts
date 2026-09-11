@@ -33,7 +33,11 @@ export function normalizeEvidenceRecord(record: EvidenceRecord, projectId: strin
     trust: record.provider.trustLevel,
     scopeRefs: scopeRefsForRecord(record, projectId),
     artifactKinds,
-    freshnessTimestamp: isValidIsoTimestamp(record.recordedAt) ? record.recordedAt : null,
+    // Reprocessing/importing a record must not renew the underlying
+    // observation.  Historical records without this fact remain readable,
+    // but are unknown whenever a rule asks for freshness.
+    freshnessTimestamp: record.observedAt && isValidIsoTimestamp(record.observedAt) ? record.observedAt : null,
+    validationResult: record.results.validationResult,
     referenceValidity,
   };
 }

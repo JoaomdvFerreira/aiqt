@@ -245,6 +245,7 @@ export function buildEvidenceImportCandidate(
     sourceFindings: candidate.sourceFindings,
     decisionEscalationIds: [...linkedDecisionEscalationIds, ...createdDecisionEscalations.map((e) => e.escalationId)],
     artifactReferences: candidate.artifactReferences,
+    observedAt: candidate.capturedAt,
     recordedAt: timestamp,
     importProvenance: {
       adapterId: candidate.adapterId,

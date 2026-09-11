@@ -291,7 +291,7 @@ describe("M42 defect lifecycle dogfood", () => {
     expect(defect.remediationEvidence?.[0].validationOutcome).toBe("failed");
   });
 
-  it("scenario 12: remediation validation success resolves the defect with bound validation evidence", async () => {
+  it("scenario 12: self-reported remediation validation success remains pending human resolution", async () => {
     const dir = freshDir();
     runInit(contextFor(dir), normalizeInitOptions({}));
     const state = readState(dir);
@@ -306,8 +306,9 @@ describe("M42 defect lifecycle dogfood", () => {
     expect(passed.exitCode).toBe(ExitCode.Success);
     const inspected = runDefectsInspect(contextFor(dir), defectId);
     const defect = (inspected.data as { defect: DefectRecord }).defect;
-    expect(defect.status).toBe("resolved");
-    expect(defect.resolution?.evidenceRefs[0].locator).toContain("pnpm test now green");
+    expect(defect.status).toBe("needs_human");
+    expect(defect.resolution).toBeUndefined();
+    expect(defect.remediationEvidence?.[0].evidenceRefs[0].locator).toContain("pnpm test now green");
   });
 
   it("boundary proof: a broad 'possible code smell' with no concrete defect evidence is not discovered -- M43 scope, not M42", async () => {

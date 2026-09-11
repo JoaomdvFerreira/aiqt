@@ -25,9 +25,9 @@ export interface EvidenceBindingCurrentFacts {
  * Rules, in order:
  * 1. current state not inspectable -> unavailable
  * 2. workUnitId/packetId/implementationRootId mismatch -> mismatched
- * 3. no code-binding facts on either side -> unknown
+ * 3. no shared, comparable code-binding fact -> unknown
  * 4. a known, comparable code-state fact changed -> stale
- * 5. otherwise -> current
+ * 5. one or more comparable facts all match -> current
  */
 export function evaluateEvidenceBinding(
   evidence: EvidenceRecord,
@@ -45,20 +45,13 @@ export function evaluateEvidenceBinding(
   }
 
   const cb = evidence.codeBinding;
-  const hasStoredCodeFact = Boolean(cb.commitSha ?? cb.repositoryFingerprint ?? cb.workingTreeFingerprint);
-  const hasCurrentCodeFact = Boolean(
-    current.commitSha ?? current.repositoryFingerprint ?? current.workingTreeFingerprint,
-  );
-  if (!hasStoredCodeFact || !hasCurrentCodeFact) return "unknown";
-
-  const changed =
-    (cb.commitSha !== undefined && current.commitSha !== undefined && cb.commitSha !== current.commitSha) ||
-    (cb.repositoryFingerprint !== undefined &&
-      current.repositoryFingerprint !== undefined &&
-      cb.repositoryFingerprint !== current.repositoryFingerprint) ||
-    (cb.workingTreeFingerprint !== undefined &&
-      current.workingTreeFingerprint !== undefined &&
-      cb.workingTreeFingerprint !== current.workingTreeFingerprint);
+  const comparable = [
+    [cb.commitSha, current.commitSha],
+    [cb.repositoryFingerprint, current.repositoryFingerprint],
+    [cb.workingTreeFingerprint, current.workingTreeFingerprint],
+  ].filter((pair): pair is [string, string] => pair[0] !== undefined && pair[1] !== undefined);
+  if (comparable.length === 0) return "unknown";
+  const changed = comparable.some(([stored, target]) => stored !== target);
   if (changed) return "stale";
 
   return "current";

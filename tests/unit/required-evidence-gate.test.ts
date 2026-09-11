@@ -168,6 +168,32 @@ describe("evaluateRequiredEvidenceGate", () => {
     expect(result.deficiency).toBe("provider_not_accepted");
   });
 
+  it("does not let failed validation satisfy a successful-verification rule", () => {
+    const verificationPolicy = policy({
+      rules: [{ ruleId: "test-results-present", title: "T", appliesTo: ["checkpoint"], evidenceSelector: { artifactKinds: ["test_result"], minimumTrust: "repository_local", scopeMatch: "exact_target", outcomeRequirement: "validation_passed" }, requirement: { minimumCount: 1 }, missingDisposition: "fail" }],
+    } as never);
+    const result = evaluateRequiredEvidenceGate(baseParams({
+      policy: verificationPolicy,
+      state: state([evidence({ results: { reviewResult: "failed", validationResult: "failed", acceptanceCriteriaResult: "failed", summary: "failed" } })]),
+    }));
+    expect(result.outcome).toBe("needs_review");
+    expect(result.deficiency).toBe("failed");
+  });
+
+  it("keeps a WU-scoped exception from satisfying another WU", () => {
+    const exception: RequiredEvidenceException = {
+      protocolVersion: "aiqt-required-evidence-exception@1", exceptionId: "EXC-WU1", activationId: "ACT-1", gate: "checkpoint",
+      scope: { projectId: PROJECT_ID, workUnitId: "WU001" }, policyDigest: POLICY_DIGEST, ruleIds: ["test-results-present"], authorizedBy: "alice", reason: "only WU1", createdAt: T1, expiresAt: "2026-02-01T00:00:00.000Z", usage: { mode: "until_expiry" }, status: "active",
+    };
+    const result = evaluateRequiredEvidenceGate(baseParams({
+      targets: [{ type: "checkpoint", id: "C002", relatedProjectId: PROJECT_ID, relatedWorkUnitId: "WU002" }],
+      bindingContexts: new Map([["C002", { workUnitId: "WU002" }]]),
+      activeExceptions: [exception],
+      gateProfile: gateProfile({ exceptionEligibleRuleIds: ["test-results-present"] }),
+    }));
+    expect(result.outcome).toBe("blocked");
+  });
+
   it("a passing rule whose matched evidence fails binding requirements is downgraded to invalid, bypassing any exception", () => {
     const exception: RequiredEvidenceException = {
       protocolVersion: "aiqt-required-evidence-exception@1",

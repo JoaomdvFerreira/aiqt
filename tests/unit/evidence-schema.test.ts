@@ -275,6 +275,17 @@ describe("evaluateEvidenceBinding (M22-WU04 / spec §5.8)", () => {
     expect(result).toBe("unknown");
   });
 
+  it("returns unknown when code identities exist but none are comparable", () => {
+    const result = evaluateEvidenceBinding(evidence, {
+      workUnitId: "WU001",
+      packetId: "PKT-001",
+      implementationRootId: "ROOT-1",
+      workingTreeFingerprint: "tree-only-on-target",
+      inspectable: true,
+    });
+    expect(result).toBe("unknown");
+  });
+
   it("is deterministic across repeated evaluation of the same inputs", () => {
     const facts = {
       workUnitId: "WU001",

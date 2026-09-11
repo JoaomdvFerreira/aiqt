@@ -26,10 +26,10 @@ export interface RunDefectsRecordValidationOptions {
 /**
  * aiqt defects record-validation <defectId> --outcome <passed|failed>
  * --evidence <locator> [--note] [--preview] [--json] (M42 §3.6/§9
- * WU42-04): validation evidence, never agent assertion, controls
- * resolution. "passed" resolves the defect with bound evidence; "failed"
- * returns it to the queue with the failure evidence preserved -- never
- * silently closed (dogfood scenarios 11/12).
+ * WU42-04): supplied validation is retained as report evidence. A locator
+ * supplied through this CLI is self-reported and therefore cannot by itself
+ * resolve a defect; successful reports go to human review and failures
+ * return to the queue.
  */
 export async function runDefectsRecordValidation(
   ctx: CommandContext,

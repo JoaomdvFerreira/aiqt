@@ -22,6 +22,7 @@ function makeRecord(overrides: Partial<EvidenceRecord> = {}): EvidenceRecord {
     sourceFindings: [],
     decisionEscalationIds: [],
     artifactReferences: [{ artifactId: "ART-1", kind: "test_result", locator: "https://example.test/1" }],
+    observedAt: T1,
     recordedAt: T1,
     ...overrides,
   };
@@ -71,6 +72,22 @@ describe("M28-WU03: evidence snapshot construction", () => {
     const record = makeRecord({ artifactReferences: [] });
     const [entry] = buildEvidenceSnapshotEntries([record], PROJECT_ID);
     expect(entry.referenceValidity).toBe("invalid");
+  });
+
+  it("does not use a new recordedAt to refresh an old observation", () => {
+    const [entry] = buildEvidenceSnapshotEntries([makeRecord({ observedAt: T1, recordedAt: T2 })], PROJECT_ID);
+    expect(entry.freshnessTimestamp).toBe(T1);
+  });
+
+  it("treats legacy evidence without observedAt as freshness unknown", () => {
+    const [entry] = buildEvidenceSnapshotEntries([makeRecord({ observedAt: undefined, recordedAt: T2 })], PROJECT_ID);
+    expect(entry.freshnessTimestamp).toBeNull();
+  });
+
+  it("changes snapshot identity when the evaluated validation outcome changes", () => {
+    const passed = buildEvidenceSnapshotEntries([makeRecord()], PROJECT_ID);
+    const failed = buildEvidenceSnapshotEntries([makeRecord({ results: { reviewResult: "failed", validationResult: "failed", acceptanceCriteriaResult: "failed", summary: "failed" } })], PROJECT_ID);
+    expect(computeEvidenceSnapshotDigest(WORK_UNIT_TARGET, passed)).not.toBe(computeEvidenceSnapshotDigest(WORK_UNIT_TARGET, failed));
   });
 
   it("rejects duplicate evidenceIds as invalid canonical state", () => {
@@ -127,7 +144,7 @@ describe("M28-WU03: rule evaluation outcomes (§5.3)", () => {
     expect(result.result).toBe("not_applicable");
     expect(result.reasonCode).toBe("target_not_applicable");
     expect(result.matchedCount).toBe(0);
-    expect(result.rejectedCandidateCounts).toEqual({ wrongArtifactKind: 0, insufficientTrust: 0, wrongScope: 0, stale: 0, invalidReference: 0 });
+    expect(result.rejectedCandidateCounts).toEqual({ wrongArtifactKind: 0, insufficientTrust: 0, wrongScope: 0, stale: 0, unsuccessfulOutcome: 0, invalidReference: 0 });
   });
 
   it("zero applicable rules produces overall indeterminate", () => {
@@ -269,7 +286,7 @@ describe("M28-WU03: freshness (§5.6)", () => {
   });
 
   it("future-dated evidence never satisfies freshness", () => {
-    const entries = buildEvidenceSnapshotEntries([makeRecord({ recordedAt: T2 })], PROJECT_ID); // recorded "in the future" relative to asOf=T1
+    const entries = buildEvidenceSnapshotEntries([makeRecord({ observedAt: T2, recordedAt: T2 })], PROJECT_ID); // observed "in the future" relative to asOf=T1
     const rule = makeRule({ evidenceSelector: { artifactKinds: ["test_result"], minimumTrust: "unverified", scopeMatch: "exact_target", maxAgeSeconds: 31536000 } });
     const result = evaluateRule(rule, WORK_UNIT_TARGET, entries, T1);
     expect(result.matchedCount).toBe(0);

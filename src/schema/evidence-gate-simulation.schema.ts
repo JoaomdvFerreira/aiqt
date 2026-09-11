@@ -39,6 +39,7 @@ export const RejectedCandidateCountsSchema = z
     insufficientTrust: z.number().int().min(0),
     wrongScope: z.number().int().min(0),
     stale: z.number().int().min(0),
+    unsuccessfulOutcome: z.number().int().min(0),
     invalidReference: z.number().int().min(0),
   })
   .strict();
@@ -87,6 +88,7 @@ export const NormalizedEvidenceSnapshotEntrySchema = z
     scopeRefs: z.array(z.string()),
     artifactKinds: z.array(z.string()),
     freshnessTimestamp: z.string().nullable(),
+    validationResult: z.enum(["passed", "failed", "partial", "not_run", "unknown"]),
     referenceValidity: z.enum(["valid", "invalid"]),
   })
   .strict();

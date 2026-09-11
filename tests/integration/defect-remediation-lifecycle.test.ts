@@ -62,7 +62,7 @@ describe("aiqt defects remediate / record-validation", () => {
     if (dir) removeDir(dir);
   });
 
-  it("low-risk remediation proceeds automatically, then a passed validation resolves the defect (dogfood #9/#12)", async () => {
+  it("low-risk remediation preserves a supplied passed validation for human resolution (dogfood #9/#12)", async () => {
     dir = makeTempDir();
     const defectId = await seedQueuedDefect(dir);
 
@@ -83,8 +83,9 @@ describe("aiqt defects remediate / record-validation", () => {
     expect(validated.exitCode).toBe(ExitCode.Success);
     const inspected = runDefectsInspect(contextFor(dir), defectId);
     const finalDefect = (inspected.data as { defect: DefectRecord }).defect;
-    expect(finalDefect.status).toBe("resolved");
-    expect(finalDefect.resolution?.evidenceRefs.length).toBeGreaterThan(0);
+    expect(finalDefect.status).toBe("needs_human");
+    expect(finalDefect.resolution).toBeUndefined();
+    expect(finalDefect.remediationEvidence?.[0].evidenceRefs[0].sourceKind).toBe("human_reported");
   });
 
   it("high-risk (foundational-path) remediation is blocked without --approved-by, persisting no side effect (dogfood #10)", async () => {
