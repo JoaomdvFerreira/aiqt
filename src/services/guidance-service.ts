@@ -17,6 +17,8 @@ import { assessWorkflow } from "../workflow/workflow-assessment.js";
 import { readAgentPacketIds } from "../state/runlog-store.js";
 import { runReview } from "./review-service.js";
 import { classifyFindings } from "./manage-service.js";
+import { deriveCanonicalHandoff, resolveHandoffRevisionFacts } from "../workflow/canonical-handoff.js";
+import { resolveRoots } from "../workflow/root-resolution.js";
 
 function notInitializedGuidanceData(): GuidanceResultData {
   return {
@@ -104,6 +106,10 @@ export function runGuidanceCommand(
     const productionReady = allWorkUnitStatusesDone ? classification.productionReady : null;
     const assessment = assessWorkflow(project, state, { productionReady });
     const guidance = computeGuidance({ project, state, checkpointInputExists, productionReady });
+    const activeHandoff = state.currentWorkUnitId === null ? null : (() => {
+      const roots = resolveRoots({ controlRoot: paths.root, existingRepositoryPath: project.project.existingRepositoryPath });
+      return deriveCanonicalHandoff({ project, state, workUnitId: state.currentWorkUnitId!, roots, revision: resolveHandoffRevisionFacts(roots), reviewFindings: review.findings });
+    })();
 
     const status: CommandStatus = guidance.stage === "needs_review" ? "warning" : "passed";
 
@@ -120,7 +126,7 @@ export function runGuidanceCommand(
       warnings,
       nextRecommendedCommand: guidance.recommendedCommand,
       exitCode: ExitCode.Success,
-      data: guidance,
+      data: { ...guidance, canonicalHandoff: activeHandoff },
     });
   } catch (err) {
     return errorToResult(action, err);

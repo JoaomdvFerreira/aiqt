@@ -47,6 +47,8 @@ import { applyWorkflowAssessmentToState } from "../../services/workflow-assessme
 import { assessWorkflow } from "../../workflow/workflow-assessment.js";
 import { buildWorkflowIntegrityBlockedResult } from "./workflow-integrity-gate.js";
 import type { AgentPacketMetadata } from "../../schema/agent-packet.schema.js";
+import { deriveCanonicalHandoff, resolveHandoffRevisionFacts } from "../../workflow/canonical-handoff.js";
+import { resolveRoots } from "../../workflow/root-resolution.js";
 
 function blockedOnState(
   state: StateModel,
@@ -156,6 +158,8 @@ export function runNext(ctx: CommandContext, options: RunNextOptions = {}): Comm
     }
     const workUnit = selection.selectedWorkUnit;
     const milestone = selection.selectedMilestone;
+    const roots = resolveRoots({ controlRoot: paths.root, existingRepositoryPath: project.project.existingRepositoryPath });
+    const handoff = deriveCanonicalHandoff({ project, state, workUnitId: workUnit.id, roots, revision: resolveHandoffRevisionFacts(roots) });
 
     try {
       runAgentHandoffGate(workUnit, milestone, state);
@@ -332,7 +336,8 @@ export function runNext(ctx: CommandContext, options: RunNextOptions = {}): Comm
         packetFormat: "markdown" as const,
         contentHash,
         packet: packetBody,
-        executionGuidance: buildExecutionGuidanceForWorkUnit(workUnit, paths.root, state),
+        executionGuidance: buildExecutionGuidanceForWorkUnit(workUnit, paths.root, state, project.project.existingRepositoryPath),
+        canonicalHandoff: handoff,
         ...buildCandidateReportingData(selection),
         statusChanges: [
           { entityType: "workUnit", id: workUnit.id, from: "ready", to: "in_progress" },

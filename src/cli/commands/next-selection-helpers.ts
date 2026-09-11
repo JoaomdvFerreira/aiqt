@@ -16,6 +16,7 @@ import { latestCheckpointForWorkUnit } from "../../services/checkpoint-amendment
 import { buildTestInventory } from "../../workflow/test-inventory.js";
 import { loadValidationFeedbackFromCheckpoints } from "../../workflow/test-impact-feedback.js";
 import type { TestImpactInput } from "../../schema/test-impact.schema.js";
+import { resolveImplementationRoot } from "../../workflow/root-resolution.js";
 
 /**
  * M20 §6/§11: shared CLI-layer plumbing for `aiqt next`'s three selection
@@ -220,7 +221,10 @@ export function buildAlternativeCandidateGuidance(selection: NextSelectionResult
  * dependency with no checkpoint yet contributes nothing to either, rather
  * than failing.
  */
-export function buildExecutionGuidanceForWorkUnit(workUnit: WorkUnit, repoRoot: string, state: StateModel): ExecutionGuidance {
+export function buildExecutionGuidanceForWorkUnit(workUnit: WorkUnit, controlRoot: string, state: StateModel, existingRepositoryPath: string | null = null): ExecutionGuidance {
+  // Context, inventory, and validation facts describe implementation work,
+  // never the control repository that happens to host .aiqt.
+  const repoRoot = resolveImplementationRoot(controlRoot, existingRepositoryPath);
   const profileOutcome = resolveExecutionGuidanceProfileConfig({ cwd: repoRoot });
   const profileConfig = profileOutcome.ok ? profileOutcome.config : null;
   // `workUnit.dependencies` holds dependency-EDGE ids, not prerequisite

@@ -18,6 +18,8 @@ import { buildAdvisoryWarningsSection } from "../../workflow/checkpoint-advisory
 import { evaluateReviewRequiredGate, type ReviewGateKind } from "../../workflow/review-required-evidence-integration.js";
 import { assessWorkflow } from "../../workflow/workflow-assessment.js";
 import { deriveProjectProductionReadiness } from "../../workflow/production-qualification.js";
+import { deriveCanonicalHandoff, resolveHandoffRevisionFacts } from "../../workflow/canonical-handoff.js";
+import { resolveRoots } from "../../workflow/root-resolution.js";
 
 export type ReviewMode = "development" | "release";
 
@@ -104,6 +106,10 @@ export function runReviewCommand(
     const result = runReview(project, state, knownPacketIds);
     const classification = classifyFindings(project, state, result);
     const productionReadiness = deriveProjectProductionReadiness({ project, state, revision: null, reviewFindings: result.findings });
+    const reviewHandoff = state.currentWorkUnitId === null ? null : (() => {
+      const roots = resolveRoots({ controlRoot: paths.root, existingRepositoryPath: project.project.existingRepositoryPath });
+      return deriveCanonicalHandoff({ project, state, workUnitId: state.currentWorkUnitId!, roots, revision: resolveHandoffRevisionFacts(roots), reviewFindings: result.findings });
+    })();
 
     // M9 §8.2: development mode ignores acknowledged blocking findings for
     // pass/fail purposes; release mode ignores acknowledgment entirely, so an
@@ -233,6 +239,7 @@ export function runReviewCommand(
         productionReady: productionReadiness.status === "QUALIFIED",
         legacyProductionReady: classification.productionReady,
         productionReadiness,
+        canonicalHandoff: reviewHandoff,
         findings: result.findings,
         runlogHealth,
         // M29 §4/§6: a separate, non-blocking section -- these warnings

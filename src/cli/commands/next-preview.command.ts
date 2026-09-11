@@ -20,6 +20,8 @@ import {
   type RawSelectionOptions,
 } from "./next-selection-helpers.js";
 import type { StateModel } from "../../schema/state.schema.js";
+import { deriveCanonicalHandoff, resolveHandoffRevisionFacts } from "../../workflow/canonical-handoff.js";
+import { resolveRoots } from "../../workflow/root-resolution.js";
 
 export type RunNextPreviewOptions = RawSelectionOptions;
 
@@ -133,6 +135,8 @@ export function runNextPreview(
     }
     const workUnit = selection.selectedWorkUnit;
     const milestone = selection.selectedMilestone;
+    const roots = resolveRoots({ controlRoot: paths.root, existingRepositoryPath: project.project.existingRepositoryPath });
+    const handoff = deriveCanonicalHandoff({ project, state, workUnitId: workUnit.id, roots, revision: resolveHandoffRevisionFacts(roots) });
 
     let packetGenerationAllowed = true;
     const sequencingWarnings: string[] = [];
@@ -168,7 +172,8 @@ export function runNextPreview(
       exitCode: ExitCode.Success,
       data: {
         mutation: false,
-        executionGuidance: buildExecutionGuidanceForWorkUnit(workUnit, paths.root, state),
+        canonicalHandoff: handoff,
+        executionGuidance: buildExecutionGuidanceForWorkUnit(workUnit, paths.root, state, project.project.existingRepositoryPath),
         ...buildCandidateReportingData(selection),
         selectedMilestoneId: milestone?.id ?? null,
         readinessReason:
