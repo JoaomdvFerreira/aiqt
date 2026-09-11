@@ -4,6 +4,7 @@ import type { StateModel } from "../schema/state.schema.js";
 import type { WorkUnit } from "../schema/work-unit.schema.js";
 import type { Milestone } from "../schema/milestone.schema.js";
 import type { Dependency } from "../schema/dependency.schema.js";
+import type { Requirement, Decision, Risk, Assumption, OpenQuestion } from "../schema/common.schema.js";
 import type { DetectedIntegration } from "./skills-detection-service.js";
 import { shouldIncludeDesignGuidance } from "../workflow/design/design-guidance-rules.js";
 import type { UiHeavyConfidence } from "../workflow/design/ui-heavy-detection.js";
