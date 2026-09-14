@@ -115,7 +115,7 @@ describe("M47-WU01: the state boundary is a separate, non-repository-local store
     // deliberately whenever a later milestone does so (M48: 0.7.0 -> 0.8.0
     // for its own additive StateModel sections, unrelated to M47's files).
     const text = readFileSync(join(repoRoot, "src", "core", "constants", "schema-version.ts"), "utf8");
-    expect(text).toMatch(/AIQT_SCHEMA_VERSION = "0\.9\.0"/);
+    expect(text).toMatch(/AIQT_SCHEMA_VERSION = "0\.10\.0"/);
   });
 
   it("package.json declares no new runtime dependency for M47-WU01 (still exactly @inquirer/prompts, commander, zod)", () => {

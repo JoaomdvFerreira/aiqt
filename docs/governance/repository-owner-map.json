@@ -468,6 +468,30 @@
       "supporting": ["src/cli/commands/night-audit.command.ts", "src/state/runlog-store.ts"],
       "contractSummary": "M48-WU05: `aiqt review night run|submit|status|cancel|coverage`, nested under the existing `review` family. runNightAuditStep() is idempotent (start-or-advance by exactly one bounded step per call); a session's multi-hour span is the sum of many separate `run`/`submit` invocations, never one blocking process -- budget checks compare against the persisted `nightAuditActiveSession.startedAt`. A session whose elapsed time exceeds hardStopMinutes by more than a 60-minute grace window is reconciled to `interrupted` on the next call (live-verified: see nightAuditIssuePublication's evidence reference), mirroring maintenance-run-service.ts's stale-occurrence discipline. reviewTasksAttempted/Completed increment together at `submit` time (a documented simplification -- `run` alone never mutates usage, keeping repeated no-submit `run` calls safely idempotent). The M25 workspace-operation lock guards only the short synchronous decision sequence each call performs, reused via resolveNightAuditTargetRoot()'s M46 resolvePortfolioMemberRoot() reuse for `--portfolio-member` targeting.",
       "lastVerifiedCommit": "m48-night-project-review"
+    },
+    "implementationCompletion": {
+      "primary": "src/workflow/checkpoint-completion-gate.ts",
+      "supporting": ["src/services/checkpoint-service.ts", "src/services/checkpoint-amendment-service.ts"],
+      "contractSummary": "M49-WU1: one effective implementation-completion predicate serves checkpoint and amendment promotion. It preserves validation/acceptance detail, unfinished work, blockers, and applicability/exception decisions; `done` remains a development-dependency state and never implies qualification. Historical `done` is not reopened.",
+      "lastVerifiedCommit": "m49-trustworthy-qualification-core"
+    },
+    "projectMutationBoundary": {
+      "primary": "src/state/project-mutation-guard.ts",
+      "supporting": ["src/cli/register-commands.ts", "src/state/project-store.ts", "src/state/workflow-state-store.ts", "src/state/runlog-store.ts"],
+      "contractSummary": "M49-WU3: supported local canonical mutations are serialized per project and carry an atomic interruption marker bound to initial canonical digests. Surviving markers are reconciled to one idempotent generic audit fact before the next mutation; failed recovery retains the marker. Canonical project/state candidates are schema-validated at their write boundaries. Specialized workspace, maintenance, Night Audit, PR, and other remote/physical reconciliation models remain authoritative for their own side effects.",
+      "lastVerifiedCommit": "m49-trustworthy-qualification-core"
+    },
+    "productionQualification": {
+      "primary": "src/workflow/production-qualification.ts",
+      "supporting": ["src/services/manage-service.ts", "src/cli/commands/review.command.ts", "src/cli/commands/status.command.ts", "src/services/export-templates.ts", "src/services/release-governance-service.ts"],
+      "contractSummary": "M49-WU2/WU4: the sole derived, revision-specific change-qualification and project-readiness evaluator. `done`, `QUALIFIED`, and production verification are separate; evidence outcome, provenance/trust, observation time, comparable revision identity, blockers, and scoped authority decisions remain distinct. Missing proof stays `UNKNOWN`; accepted exceptions never rewrite an underlying FAIL/UNKNOWN. The legacy productionReady boolean is retained only as a compatibility projection.",
+      "lastVerifiedCommit": "m49-trustworthy-qualification-core"
+    },
+    "canonicalHandoff": {
+      "primary": "src/workflow/canonical-handoff.ts",
+      "supporting": ["src/workflow/context-reference-resolution.ts", "src/services/agent-packet-service.ts", "src/services/guidance-service.ts"],
+      "contractSummary": "M49-WU5: derives one review/execution handoff from canonical project/state plus the resolved implementation root and exact Git revision/diff facts. It includes effective checkpoint/amendment state, evidence/trust, unresolved findings, decisions/exceptions, qualification, and next authority without making a rendered packet a second source of truth or depending on prior chat history. Context quantities preserve measured, estimated, and provider-reported provenance.",
+      "lastVerifiedCommit": "m49-trustworthy-qualification-core"
     }
   }
 }

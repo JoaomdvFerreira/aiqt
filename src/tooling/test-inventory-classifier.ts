@@ -180,6 +180,11 @@ const DOMAIN_RULES: { pattern: RegExp; domain: string; criticality: string }[] =
   // idempotency/dedup boundary (lookup-before-create, backlog suppression)
   // holds.
   { pattern: /^night-audit-/, domain: "night-audit-review", criticality: "Critical" },
+  // M49: truthful completion/evidence qualification and the canonical
+  // revision-bound handoff are one correctness boundary. These tests prove
+  // that completion, qualification, production verification, and rendered
+  // context cannot silently collapse into one another.
+  { pattern: /^production-qualification|^canonical-handoff/, domain: "trustworthy-qualification", criticality: "Critical" },
   { pattern: /dogfood/, domain: "self-consistency", criticality: "Normal" },
 ];
 
