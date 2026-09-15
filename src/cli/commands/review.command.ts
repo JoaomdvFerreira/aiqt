@@ -17,6 +17,9 @@ import { readAgentPacketIds } from "../../state/runlog-store.js";
 import { buildAdvisoryWarningsSection } from "../../workflow/checkpoint-advisory-visibility.js";
 import { evaluateReviewRequiredGate, type ReviewGateKind } from "../../workflow/review-required-evidence-integration.js";
 import { assessWorkflow } from "../../workflow/workflow-assessment.js";
+import { deriveProjectProductionReadiness } from "../../workflow/production-qualification.js";
+import { deriveCanonicalHandoff, resolveHandoffRevisionFacts } from "../../workflow/canonical-handoff.js";
+import { resolveRoots } from "../../workflow/root-resolution.js";
 
 export type ReviewMode = "development" | "release";
 
@@ -102,6 +105,11 @@ export function runReviewCommand(
     const knownPacketIds = readAgentPacketIds(paths.runlogFile, state.lastAgentPacket);
     const result = runReview(project, state, knownPacketIds);
     const classification = classifyFindings(project, state, result);
+    const productionReadiness = deriveProjectProductionReadiness({ project, state, revision: null, reviewFindings: result.findings });
+    const reviewHandoff = state.currentWorkUnitId === null ? null : (() => {
+      const roots = resolveRoots({ controlRoot: paths.root, existingRepositoryPath: project.project.existingRepositoryPath });
+      return deriveCanonicalHandoff({ project, state, workUnitId: state.currentWorkUnitId!, roots, revision: resolveHandoffRevisionFacts(roots), reviewFindings: result.findings });
+    })();
 
     // M9 §8.2: development mode ignores acknowledged blocking findings for
     // pass/fail purposes; release mode ignores acknowledgment entirely, so an
@@ -184,7 +192,7 @@ export function runReviewCommand(
       state.workGraph.workUnits.length > 0 &&
       state.workGraph.workUnits.every((wu) => wu.status === "done");
     const assessment = assessWorkflow(project, state, {
-      productionReady: allWorkUnitStatusesDone ? classification.productionReady : null,
+      productionReady: allWorkUnitStatusesDone ? productionReadiness.status === "QUALIFIED" : null,
     });
     const nextRecommendedCommand = assessment.recommendedCommand ?? "aiqt review";
 
@@ -228,7 +236,10 @@ export function runReviewCommand(
         activeFindings: classification.activeFindings,
         acknowledgedFindings: classification.acknowledgedFindings,
         developmentComplete: classification.developmentComplete,
-        productionReady: classification.productionReady,
+        productionReady: productionReadiness.status === "QUALIFIED",
+        legacyProductionReady: classification.productionReady,
+        productionReadiness,
+        canonicalHandoff: reviewHandoff,
         findings: result.findings,
         runlogHealth,
         // M29 §4/§6: a separate, non-blocking section -- these warnings

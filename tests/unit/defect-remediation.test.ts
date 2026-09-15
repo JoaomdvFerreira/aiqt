@@ -145,15 +145,17 @@ describe("recordRemediationValidation", () => {
     expect(outcome.ok).toBe(false);
   });
 
-  it("a passed validation resolves the defect with bound evidence", () => {
+  it("a self-reported passed validation remains visible but needs human resolution", () => {
     const outcome = recordRemediationValidation({ defect: inProgressDefect(), outcome: "passed", evidenceLocator: "pnpm test -- example.test.ts", now: NOW });
     expect(outcome.ok).toBe(true);
     if (outcome.ok) {
-      expect(outcome.defect.status).toBe("resolved");
-      expect(outcome.defect.resolution?.evidenceRefs.length).toBeGreaterThan(0);
+      expect(outcome.defect.status).toBe("needs_human");
+      expect(outcome.defect.resolution).toBeUndefined();
+      expect(outcome.defect.remediationEvidence?.[0].evidenceRefs[0].sourceKind).toBe("human_reported");
       expect(outcome.defect.remediation?.outcome).toBe("validation_passed");
     }
   });
+
 
   it("a failed validation returns the defect to the queue with failure evidence preserved, not silently closed", () => {
     const outcome = recordRemediationValidation({ defect: inProgressDefect(), outcome: "failed", evidenceLocator: "pnpm test -- example.test.ts still failing", now: NOW });

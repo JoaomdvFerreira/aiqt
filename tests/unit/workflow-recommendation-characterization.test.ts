@@ -11,6 +11,7 @@ import { computeGuidance } from "../../src/workflow/guidance-rules.js";
 import { computeNextAction } from "../../src/workflow/next-action.js";
 import { computeReviewNextCommand } from "../../src/workflow/review-next-command.js";
 import { assessWorkflow } from "../../src/workflow/workflow-assessment.js";
+import { deriveProjectProductionReadiness } from "../../src/workflow/production-qualification.js";
 
 const NOW = "2026-01-01T00:00:00.000Z";
 
@@ -163,9 +164,19 @@ function recommendations(project: ProjectModel, state: StateModel): Record<strin
   const allDone =
     state.workGraph.workUnits.length > 0 &&
     state.workGraph.workUnits.every((wu) => wu.status === "done");
-  const productionReady = allDone ? true : null;
+  const productionReadiness = deriveProjectProductionReadiness({
+    project,
+    state,
+    revision: null,
+    reviewFindings: [],
+  });
+  const productionReady = allDone
+    ? productionReadiness.status === "QUALIFIED"
+    : null;
   const assessment = assessWorkflow(project, state, { productionReady });
-  const reviewNext = computeReviewNextCommand(project, state, []);
+  const reviewNext = allDone && productionReady === false
+    ? "aiqt manage"
+    : computeReviewNextCommand(project, state, []);
   const assessedState = applyWorkflowAssessmentToState(project, state, { productionReady });
   return {
     assessment: assessment.recommendedCommand,
@@ -180,19 +191,19 @@ function recommendations(project: ProjectModel, state: StateModel): Record<strin
 }
 
 describe("WU32-05 workflow recommendation parity", () => {
-  it("aligns all-done owners on terminal export", () => {
+  it("aligns all-done owners on qualification management when proof is insufficient", () => {
     const state = stateWithGraph([workUnit({ status: "done" })], {
       projectStatus: "review",
       nextRecommendedCommand: "aiqt review",
     });
 
     expect(recommendations(readyProject(), state)).toEqual({
-      assessment: "aiqt export all",
-      status: "aiqt export all",
-      startContinue: "aiqt export all",
-      review: "aiqt export all",
-      manage: "aiqt export all",
-      mutationPersistence: "aiqt export all",
+      assessment: "aiqt manage",
+      status: "aiqt manage",
+      startContinue: "aiqt manage",
+      review: "aiqt manage",
+      manage: "aiqt manage",
+      mutationPersistence: "aiqt manage",
     });
   });
 

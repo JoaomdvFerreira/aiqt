@@ -70,7 +70,18 @@ export function buildInitialProjectModel(
 
 export function writeProjectModel(path: string, model: ProjectModel): void {
   assertCompatibleVersion(model.version, PROJECT_LABEL);
-  writeJsonFile(path, mergeUnknownTopLevelFields(model));
+  const candidate = mergeUnknownTopLevelFields(model);
+  const parsed = ProjectModelSchema.safeParse(candidate);
+  if (!parsed.success) {
+    throw new AiqtError(
+      `Invalid ${PROJECT_LABEL} candidate: ${parsed.error.issues
+        .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
+        .join("; ")}`,
+      ExitCode.InvalidInput,
+      invalidStateIssue("Refused to write an invalid project.json candidate."),
+    );
+  }
+  writeJsonFile(path, candidate);
 }
 
 function invalidStateIssue(message: string): Issue {

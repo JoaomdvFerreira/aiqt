@@ -160,6 +160,11 @@ export function gitDiffNumstat(cwd: string, baseRef: string): string {
   return execGit(["diff", "--numstat", baseRef], { cwd }).stdout;
 }
 
+/** Read-only, bounded changed-path facts for a committed revision range. */
+export function gitDiffNameStatus(cwd: string, baseRef: string, headRef: string): string {
+  return execGit(["diff", "--name-status", baseRef, headRef], { cwd }).stdout;
+}
+
 /**
  * M37-WU04: `git diff <baseRef> <headRef>` -- the full unified patch
  * text between two refs, read-only. Distinct from gitDiffNumstat (which

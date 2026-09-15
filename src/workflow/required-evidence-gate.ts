@@ -29,6 +29,7 @@ function classifyFailedRule(rule: EvidenceGateRuleResult): RequiredDeficiency {
   if (rc.invalidReference > 0) return "invalid_reference";
   if (rc.insufficientTrust > 0) return "insufficient_trust";
   if (rc.stale > 0) return "stale";
+  if (rc.unsuccessfulOutcome > 0) return "failed";
   // No candidates were even rejected for a specific reason -- nothing exists at all.
   return "missing";
 }
@@ -187,7 +188,7 @@ export function evaluateRequiredEvidenceGate(params: EvaluateRequiredEvidenceGat
         ruleOutcome = "invalid";
       } else if (rd.deficiency === "missing") {
         const matchingException = rd.eligibleForException
-          ? params.activeExceptions.find((e) => e.ruleIds.includes(rd.ruleId) && e.status === "active")
+          ? params.activeExceptions.find((e) => exceptionAppliesToTarget(e, rd.ruleId, evaluation.target))
           : undefined;
         if (matchingException) {
           ruleOutcome = "allow";
@@ -198,7 +199,7 @@ export function evaluateRequiredEvidenceGate(params: EvaluateRequiredEvidenceGat
         }
       } else if (rd.deficiency === "provider_not_accepted" || rd.deficiency === "insufficient_trust" || rd.deficiency === "stale" || rd.deficiency === "failed") {
         const matchingException = rd.eligibleForException
-          ? params.activeExceptions.find((e) => e.ruleIds.includes(rd.ruleId) && e.status === "active")
+          ? params.activeExceptions.find((e) => exceptionAppliesToTarget(e, rd.ruleId, evaluation.target))
           : undefined;
         if (matchingException) {
           ruleOutcome = "allow";
@@ -244,4 +245,12 @@ export function evaluateRequiredEvidenceGate(params: EvaluateRequiredEvidenceGat
     blockingRuleRefs,
     summary,
   };
+}
+
+/** The caller filters activation/project/validity.  Keep target scope here,
+ * next to consumption, so a broad review target cannot consume a WU waiver. */
+function exceptionAppliesToTarget(exception: RequiredEvidenceException, ruleId: string, target: SimulationTarget): boolean {
+  if (exception.status !== "active" || !exception.ruleIds.includes(ruleId)) return false;
+  const targetWorkUnitId = target.relatedWorkUnitId ?? (target.type === "work_unit" ? target.id : undefined);
+  return exception.scope.workUnitId === undefined || exception.scope.workUnitId === targetWorkUnitId;
 }

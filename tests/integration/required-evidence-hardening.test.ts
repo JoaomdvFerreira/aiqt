@@ -153,7 +153,7 @@ describe("M30-WU07: hardening -- runlog-gap repair, boundary scans, historical c
     writeState(dir, state);
 
     const checkpointPath = join(dir, "checkpoint.json");
-    writeFileSync(checkpointPath, JSON.stringify({ summary: "done", completed: ["a"], notCompleted: [], filesChanged: [], issues: [], validationResult: "passed", acceptanceCriteriaResult: "passed", validationCommands: [], acceptanceCriteria: [], targetStatus: "done" }));
+    writeFileSync(checkpointPath, JSON.stringify({ summary: "done", completed: ["a"], notCompleted: [], filesChanged: [], issues: [], validationResult: "passed", acceptanceCriteriaResult: "passed", validationCommands: [{ command: "true", result: "passed" }], acceptanceCriteria: [{ criterion: "a", result: "passed" }], targetStatus: "done" }));
 
     const runlogPath = join(dir, ".aiqt", "runlog.jsonl");
     chmodSync(runlogPath, 0o444);

@@ -69,13 +69,13 @@ export function evaluateRule(rule: EvidenceGateRule, target: SimulationTarget, e
       requiredCount,
       matchedCount: 0,
       matchedEvidenceRefs: [],
-      rejectedCandidateCounts: { wrongArtifactKind: 0, insufficientTrust: 0, wrongScope: 0, stale: 0, invalidReference: 0 },
+      rejectedCandidateCounts: { wrongArtifactKind: 0, insufficientTrust: 0, wrongScope: 0, stale: 0, unsuccessfulOutcome: 0, invalidReference: 0 },
       reasonCode: "target_not_applicable",
       summary: boundedSummary(`Rule "${rule.ruleId}" does not apply to target type "${target.type}".`),
     };
   }
 
-  const rejected = { wrongArtifactKind: 0, insufficientTrust: 0, wrongScope: 0, stale: 0, invalidReference: 0 };
+  const rejected = { wrongArtifactKind: 0, insufficientTrust: 0, wrongScope: 0, stale: 0, unsuccessfulOutcome: 0, invalidReference: 0 };
   const matched: string[] = [];
 
   for (const entry of entries) {
@@ -99,6 +99,10 @@ export function evaluateRule(rule: EvidenceGateRule, target: SimulationTarget, e
     }
     if (rule.evidenceSelector.maxAgeSeconds !== undefined && !satisfiesFreshness(entry.freshnessTimestamp, asOf, rule.evidenceSelector.maxAgeSeconds)) {
       rejected.stale += 1;
+      continue;
+    }
+    if (rule.evidenceSelector.outcomeRequirement === "validation_passed" && entry.validationResult !== "passed") {
+      rejected.unsuccessfulOutcome += 1;
       continue;
     }
     matched.push(entry.evidenceId);

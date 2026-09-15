@@ -208,6 +208,10 @@ export const EvidenceRecordSchema = z
     sourceFindings: z.array(SourceFindingSchema).max(EVIDENCE_MAX_SOURCE_FINDINGS),
     decisionEscalationIds: z.array(z.string()).max(EVIDENCE_MAX_DECISION_ESCALATION_REFS),
     artifactReferences: z.array(ArtifactReferenceSchema).max(EVIDENCE_MAX_ARTIFACT_REFERENCES),
+    /** Time the evidence source says it observed the result.  Deliberately
+     * optional so historical records remain readable; import/record time is
+     * never substituted when this fact is absent. */
+    observedAt: z.string().optional(),
     recordedAt: z.string(),
     importProvenance: ImportProvenanceSchema.optional(),
   })

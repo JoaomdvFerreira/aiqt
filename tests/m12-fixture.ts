@@ -71,7 +71,11 @@ const DONE_PAYLOAD = {
   validationResult: "passed",
   acceptanceCriteriaResult: "passed",
   validationCommands: [{ command: "pnpm test", result: "passed" }],
-  acceptanceCriteria: [{ criterion: "Works", result: "passed" }],
+  acceptanceCriteria: [
+    { criterion: "Unit 1 works", result: "passed" },
+    { criterion: "Live Clerk verification passes", result: "passed" },
+    { criterion: "Role escalation is prevented", result: "passed" },
+  ],
   issues: [],
   notes: [],
 };
@@ -108,7 +112,7 @@ export async function buildCheckpointAmendmentFixtureState(dir: string): Promise
       ...DONE_PAYLOAD,
       validationResult: "partial",
       acceptanceCriteriaResult: "partial",
-      acceptanceCriteria: [{ criterion: "Live Clerk verification passes", result: "partial" }],
+      acceptanceCriteria: [{ criterion: "Live Clerk verification passes", result: "passed" }],
       notes: ["Live Clerk verification requires user-owned setup."],
     },
   });

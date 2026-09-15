@@ -38,7 +38,18 @@ export function buildInitialStateModel(createdAt: string): StateModel {
 
 export function writeStateModel(path: string, model: StateModel): void {
   assertCompatibleVersion(model.version, STATE_LABEL);
-  writeJsonFile(path, mergeUnknownTopLevelFields(model));
+  const candidate = mergeUnknownTopLevelFields(model);
+  const parsed = StateModelSchema.safeParse(candidate);
+  if (!parsed.success) {
+    throw new AiqtError(
+      `Invalid ${STATE_LABEL} candidate: ${parsed.error.issues
+        .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
+        .join("; ")}`,
+      ExitCode.InvalidInput,
+      invalidStateIssue("Refused to write an invalid state.json candidate."),
+    );
+  }
+  writeJsonFile(path, candidate);
 }
 
 function invalidStateIssue(message: string): Issue {

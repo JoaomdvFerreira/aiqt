@@ -35,6 +35,16 @@ export function buildProjectInitializedEvent(input: {
 }
 
 export function appendRunlogEvent(path: string, event: RunlogEvent): void {
+  const parsed = RunlogEventSchema.safeParse(event);
+  if (!parsed.success) {
+    throw new AiqtError(
+      `Invalid runlog event candidate: ${parsed.error.issues
+        .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
+        .join("; ")}`,
+      ExitCode.InvalidInput,
+      invalidRunlogIssue("Refused to append an invalid runlog event candidate."),
+    );
+  }
   appendJsonLine(path, event);
 }
 

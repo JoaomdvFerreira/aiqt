@@ -13,6 +13,7 @@ import {
 import type { IssueOverrideStatus } from "../schema/issue-state.schema.js";
 import { buildExecutionManageSummary, type ExecutionManageSummary } from "../workflow/execution-manage-summary.js";
 import { assessWorkflow } from "../workflow/workflow-assessment.js";
+import { deriveProjectProductionReadiness, type ProjectProductionReadiness } from "../workflow/production-qualification.js";
 
 /** M9 §7.1: missing state.review must be treated as an empty acknowledgment list. */
 export function getAcknowledgedFindings(state: StateModel): AcknowledgedFinding[] {
@@ -231,6 +232,10 @@ export interface ManageReport {
   projectStatus: string;
   developmentComplete: boolean;
   productionReady: boolean;
+  /** M49 compatibility projection. This old boolean is no longer an authority for release progression. */
+  legacyProductionReady: boolean;
+  /** Canonical revision-specific derived view. A null revision intentionally yields UNKNOWN. */
+  productionReadiness: ProjectProductionReadiness;
   recommendedCommand: string;
   reason: string;
   counts: Record<string, number>;
@@ -257,13 +262,13 @@ export interface ManageReport {
  * to exactly one command string; multi-step guidance lives in `reason` only.
  */
 function computeManageRecommendation(
-  classification: FindingClassification,
   project: ProjectModel,
   state: StateModel,
+  productionReady: boolean,
 ): { recommendedCommand: string; reason: string } {
   const allWorkUnitStatusesDone = isAllWorkDone(state);
   const assessment = assessWorkflow(project, state, {
-    productionReady: allWorkUnitStatusesDone ? classification.productionReady : null,
+    productionReady: allWorkUnitStatusesDone ? productionReady : null,
   });
   return {
     recommendedCommand: assessment.recommendedCommand ?? "aiqt review",
@@ -282,16 +287,30 @@ export function buildManageReport(
   review: ReviewResult,
 ): ManageReport {
   const classification = classifyFindings(project, state, review);
+  const productionReadiness = deriveProjectProductionReadiness({
+    project,
+    state,
+    revision: null,
+    reviewFindings: review.findings,
+  });
   const allWorkUnitStatusesDone = isAllWorkDone(state);
   const assessment = assessWorkflow(project, state, {
-    productionReady: allWorkUnitStatusesDone ? classification.productionReady : null,
+    productionReady: allWorkUnitStatusesDone ? productionReadiness.status === "QUALIFIED" : null,
   });
-  const { recommendedCommand, reason } = computeManageRecommendation(classification, project, state);
+  const { recommendedCommand, reason } = computeManageRecommendation(
+    project,
+    state,
+    productionReadiness.status === "QUALIFIED",
+  );
 
   return {
     projectStatus: assessment.projectStatus,
     developmentComplete: classification.developmentComplete,
-    productionReady: classification.productionReady,
+    // The public boolean remains for the transition window but is only a
+    // projection of the canonical view, never the legacy finding classifier.
+    productionReady: productionReadiness.status === "QUALIFIED",
+    legacyProductionReady: classification.productionReady,
+    productionReadiness,
     recommendedCommand,
     reason,
     counts: workUnitCountsByStatus(state),

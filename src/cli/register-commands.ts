@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { resolve } from "node:path";
 import { AIQT_PACKAGE_VERSION } from "../core/constants/package-version.js";
 import { makeContext, argvRequestsJson } from "./command-context.js";
 import {
@@ -115,6 +116,7 @@ import { runReviewStructural } from "./commands/review-structural.command.js";
 import { runReviewStructuralExplain } from "./commands/review-structural-explain.command.js";
 import { runReviewAcknowledge } from "./commands/review-acknowledge.command.js";
 import { runReviewNightRun, runReviewNightSubmit, runReviewNightStatus, runReviewNightCancel, runReviewNightCoverage } from "./commands/night-audit.command.js";
+import { resolveNightAuditTargetRoot } from "../services/night-audit-session-service.js";
 import { runExport } from "./commands/export.command.js";
 import { runStart } from "./commands/start.command.js";
 import { runContinue } from "./commands/continue.command.js";
@@ -236,6 +238,7 @@ import type { ExecutionGuidance } from "../schema/execution-guidance.schema.js";
 import { ExitCode } from "../core/output/exit-codes.js";
 import { AiqtError } from "../core/output/aiqt-error.js";
 import type { CommandResult } from "../core/output/result.js";
+import { acquireProjectMutationGuard, type ProjectMutationGuard } from "../state/project-mutation-guard.js";
 
 /**
  * Emit a CommandResult and set the process exit code.
@@ -258,8 +261,61 @@ function emit(result: CommandResult, json: boolean): void {
   process.exitCode = result.exitCode;
 }
 
+const CANONICAL_MUTATION_COMMANDS = new Set([
+  "init", "next", "next cancel", "update", "plan", "checkpoint", "checkpoint amend",
+  "review acknowledge", "review night run", "review night submit", "review night cancel",
+  "export", "import", "issue update", "issue promote", "dependency update", "graph repair",
+  "evidence import", "evidence gate policy import", "evidence gate policy activate",
+  "evidence gate advisory refresh", "evidence gate advisory feedback",
+  "evidence gate enforcement profile import", "evidence gate enforcement recovery import",
+  "evidence gate enforcement activation prepare", "evidence gate enforcement activation activate",
+  "evidence gate enforcement activation deactivate", "evidence gate exception create", "evidence gate exception revoke",
+  "workspace prepare", "workspace release", "workspace recover", "execution import", "execution stale",
+  "execution adapter claude-code request", "execution adapter claude-code import",
+  "execution external request", "execution external import", "defects discover", "defects triage",
+  "defects transition", "defects remediate", "defects record-validation", "defects intake structural",
+  "maintenance schedule add", "maintenance schedule update", "maintenance schedule enable",
+  "maintenance schedule disable", "maintenance schedule remove", "maintenance run-due", "maintenance cancel",
+]);
+
+function commandPath(command: Command): string {
+  const names: string[] = [];
+  for (let current: Command | null = command; current !== null && current.parent !== null; current = current.parent) {
+    names.push(current.name());
+  }
+  return names.reverse().join(" ");
+}
+
+function commandMutatesCanonicalState(path: string, options: Record<string, unknown>): boolean {
+  if (!CANONICAL_MUTATION_COMMANDS.has(path)) return false;
+  if (path === "init") return true;
+  if (path === "next") return !options.preview;
+  if (path === "plan" || path === "checkpoint") return !options.example;
+  if (path === "export") return !options.dryRun;
+  if (path === "import" || path === "evidence import" || path === "execution import") return !options.preview;
+  if (path === "evidence gate advisory refresh") return !options.preview;
+  if (path === "workspace prepare" || path === "workspace release") return !options.preview;
+  if (path === "workspace recover" || path === "graph repair" || path === "execution stale") return Boolean(options.apply);
+  return true;
+}
+
+function mutationRoot(path: string, options: Record<string, unknown>): string | null {
+  // Night Audit can target another managed repository. Reuse its existing
+  // resolver so portfolio members are locked at their actual project root.
+  if (path.startsWith("review night ")) {
+    const repository = typeof options.repository === "string" ? options.repository : undefined;
+    const portfolio = typeof options.portfolio === "string" && typeof options.member === "string"
+      ? { portfolioId: options.portfolio, memberId: options.member }
+      : undefined;
+    const target = resolveNightAuditTargetRoot(process.cwd(), repository, portfolio);
+    return target.ok ? target.root : null;
+  }
+  return resolve(process.cwd());
+}
+
 export function buildProgram(): Command {
   const program = new Command();
+  const activeMutationGuards = new WeakMap<Command, ProjectMutationGuard>();
 
   program
     .name("aiqt")
@@ -289,6 +345,30 @@ export function buildProgram(): Command {
       process.exitCode = code;
       throw err;
     });
+
+  // M49-WU3: this is the supported project-local mutation boundary. The
+  // hooks surround the action promise, so async remote/physical operations
+  // remain enclosed without replacing their specialized reconciliation.
+  program.hook("preAction", (_thisCommand, actionCommand) => {
+    const path = commandPath(actionCommand);
+    const options = actionCommand.opts() as Record<string, unknown>;
+    if (!commandMutatesCanonicalState(path, options)) return;
+    const root = mutationRoot(path, options);
+    if (root === null) return;
+    try {
+      activeMutationGuards.set(actionCommand, acquireProjectMutationGuard({
+        root,
+        command: path,
+        create: path === "init",
+      }));
+    } catch (err) {
+      emit(errorToResult("manage", err), Boolean(options.json));
+      throw err;
+    }
+  });
+  program.hook("postAction", (_thisCommand, actionCommand) => {
+    activeMutationGuards.get(actionCommand)?.complete();
+  });
 
   program
     .command("init")

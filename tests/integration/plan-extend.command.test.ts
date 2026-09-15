@@ -32,7 +32,7 @@ const DONE_PAYLOAD = {
   validationResult: "passed",
   acceptanceCriteriaResult: "passed",
   validationCommands: [{ command: "pnpm test", result: "passed" }],
-  acceptanceCriteria: [{ criterion: "Works", result: "passed" }],
+  acceptanceCriteria: [{ criterion: "Criterion", result: "passed" }],
   issues: [],
   notes: [],
 };

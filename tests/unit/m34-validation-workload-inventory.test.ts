@@ -119,6 +119,8 @@ const KNOWN_SPAWNING_FILES = [
   "tests/integration/built-binary-smoke.test.ts",
   // Process-spawning CLI integration, general (5)
   "tests/integration/cli.test.ts",
+  // M49-WU03: verifies the built CLI's Commander mutation-dispatch boundary.
+  "tests/integration/project-mutation-guard.test.ts",
   "tests/integration/import-plan-extend.command.test.ts",
   "tests/integration/m33-result-contract-characterization.test.ts",
   "tests/integration/status-parallel-cli.test.ts",

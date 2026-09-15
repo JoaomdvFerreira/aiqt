@@ -169,7 +169,7 @@ for (const [label, run] of [
       expect(data.stage).toBe("needs_review");
     });
 
-    it("recommends aiqt export all when all work is done", async () => {
+    it("recommends aiqt manage when all work is done but qualification evidence is insufficient", async () => {
       dir = makeTempDir();
       await makeInProgressProject(dir);
       const checkpointResult = runCheckpoint(contextFor(dir), {
@@ -178,7 +178,7 @@ for (const [label, run] of [
       expect(checkpointResult.exitCode).toBe(ExitCode.Success);
       const result = run(contextFor(dir));
       expect(result.exitCode).toBe(ExitCode.Success);
-      expect(result.nextRecommendedCommand).toBe("aiqt export all");
+      expect(result.nextRecommendedCommand).toBe("aiqt manage");
       const data = result.data as { stage: string; followUpCommand: string | null };
       expect(data.stage).toBe("ready_for_export");
       expect(data.followUpCommand).toBeNull();
@@ -216,7 +216,7 @@ describe("RC1: all-done recommendation is consistent across start, continue, and
     dir = null;
   });
 
-  it("start, continue, and review all agree on aiqt export all once review has no blocking findings", async () => {
+  it("start, continue, and review all agree on aiqt manage when qualification evidence is insufficient", async () => {
     dir = makeTempDir();
     await makeInProgressProject(dir);
     const checkpointResult = runCheckpoint(contextFor(dir), {
@@ -226,18 +226,18 @@ describe("RC1: all-done recommendation is consistent across start, continue, and
 
     const startResult = runStart(contextFor(dir));
     const continueResult = runContinue(contextFor(dir));
-    expect(startResult.nextRecommendedCommand).toBe("aiqt export all");
-    expect(continueResult.nextRecommendedCommand).toBe("aiqt export all");
+    expect(startResult.nextRecommendedCommand).toBe("aiqt manage");
+    expect(continueResult.nextRecommendedCommand).toBe("aiqt manage");
 
     const reviewResult = runReviewCommand(contextFor(dir));
     expect(reviewResult.exitCode).toBe(ExitCode.Success);
     const reviewData = reviewResult.data as { blockingFindingCount: number };
     expect(reviewData.blockingFindingCount).toBe(0);
 
-    // Once review confirms no blocking findings, review's own next command
-    // must equal the same "aiqt export all" that start/continue already
-    // pointed to -- the CLI must never disagree with itself here.
-    expect(reviewResult.nextRecommendedCommand).toBe("aiqt export all");
+    // Missing revision-bound evidence is a qualification gap even when the
+    // legacy review finding set is empty. Every handoff surface must route
+    // to the same canonical qualification action.
+    expect(reviewResult.nextRecommendedCommand).toBe("aiqt manage");
     expect(reviewResult.nextRecommendedCommand).toBe(startResult.nextRecommendedCommand);
     expect(reviewResult.nextRecommendedCommand).toBe(continueResult.nextRecommendedCommand);
   });

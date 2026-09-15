@@ -45,7 +45,7 @@ export function applyCheckpoint(params: {
   const { project, state, workUnit, input, checkpointId, timestamp, executionSessionIds } = params;
 
   const disposition: CheckpointDisposition = input.disposition ?? "terminal";
-  const finalStatus = disposition === "terminal" ? deriveFinalWorkUnitStatus(input) : null;
+  const finalStatus = disposition === "terminal" ? deriveFinalWorkUnitStatus(workUnit, input) : null;
 
   let workUnits = disposition === "terminal"
     ? applyCheckpointWorkUnitTransition(state.workGraph.workUnits, workUnit.id, finalStatus!, timestamp)

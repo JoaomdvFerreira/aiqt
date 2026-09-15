@@ -30,12 +30,12 @@ export function lookupExecutionGuidanceForCommand(ctx: CommandContext, options: 
   if (!aiqtDirExists(ctx)) {
     return { ok: false, result: validationFailure("No AIQT project found. Run aiqt init to create the canonical state files.", ExitCode.InvalidInput, "VALIDATION-NO-PROJECT") };
   }
-  const { state } = loadProject(ctx);
+  const { paths, project, state } = loadProject(ctx);
   const workUnit = state.workGraph.workUnits.find((w) => w.id === options.workUnit);
   if (!workUnit) {
     return { ok: false, result: validationFailure(`No Work Unit "${options.workUnit}" exists.`, ExitCode.InvalidInput, "VALIDATION-WORK-UNIT-NOT-FOUND") };
   }
-  const guidance = buildExecutionGuidanceForWorkUnit(workUnit, ctx.cwd, state);
+  const guidance = buildExecutionGuidanceForWorkUnit(workUnit, paths.root, state, project.project.existingRepositoryPath);
   return { ok: true, guidance };
 }
 

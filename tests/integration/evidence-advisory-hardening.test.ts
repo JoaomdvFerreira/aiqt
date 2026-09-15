@@ -97,8 +97,8 @@ function checkpointDonePath(dir: string): string {
       issues: [],
       validationResult: "passed",
       acceptanceCriteriaResult: "passed",
-      validationCommands: [],
-      acceptanceCriteria: [],
+      validationCommands: [{ command: "true", result: "passed" }],
+      acceptanceCriteria: [{ criterion: "a", result: "passed" }],
       targetStatus: "done",
     }),
   );

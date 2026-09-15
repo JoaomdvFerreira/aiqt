@@ -275,7 +275,15 @@ describe("M30-WU04: checkpoint/amendment required-evidence enforcement", () => {
   it("amendment: required gate downgrades needs_review -> done back to needs_review when evidence exists but fails a profile-fail-behavior deficiency (insufficient trust)", async () => {
     dir = makeTempDir();
     await makeInProgressProject(dir);
-    const cpResult = runCheckpoint(contextFor(dir), { fromFile: join(CHECKPOINT_FIXTURES, "valid-needs-review.json") });
+    const cpResult = runCheckpoint(contextFor(dir), {
+      input: {
+        summary: "Aggregate result awaits amendment.", completed: ["Application implementation"], notCompleted: [], filesChanged: [], issues: [],
+        validationResult: "partial", acceptanceCriteriaResult: "partial",
+        validationCommands: [{ command: "pnpm test", result: "passed" }, { command: "pnpm build", result: "passed" }],
+        acceptanceCriteria: [{ criterion: "Application starts successfully", result: "passed" }],
+        targetStatus: "needs_review", notes: [],
+      },
+    });
     expect(cpResult.exitCode).toBe(ExitCode.Success);
     seedRequiredPolicyAndActivation(dir);
     // Evidence exists (so the deficiency is "insufficient_trust", governed by
@@ -321,7 +329,15 @@ describe("M30-WU04: checkpoint/amendment required-evidence enforcement", () => {
   it("amendment: required gate allows needs_review -> done when evidence is present", async () => {
     dir = makeTempDir();
     await makeInProgressProject(dir);
-    const cpResult = runCheckpoint(contextFor(dir), { fromFile: join(CHECKPOINT_FIXTURES, "valid-needs-review.json") });
+    const cpResult = runCheckpoint(contextFor(dir), {
+      input: {
+        summary: "Aggregate result awaits amendment.", completed: ["Application implementation"], notCompleted: [], filesChanged: [], issues: [],
+        validationResult: "partial", acceptanceCriteriaResult: "partial",
+        validationCommands: [{ command: "pnpm test", result: "passed" }, { command: "pnpm build", result: "passed" }],
+        acceptanceCriteria: [{ criterion: "Application starts successfully", result: "passed" }],
+        targetStatus: "needs_review", notes: [],
+      },
+    });
     expect(cpResult.exitCode).toBe(ExitCode.Success);
     seedRequiredPolicyAndActivation(dir);
     seedTestResultEvidence(dir, "C001", "WU001");

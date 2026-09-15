@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { SPAWNING_SUITE_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
+import { HEAVY_SPAWNING_TEST_TIMEOUT_MS } from "../workload-timeout-policy.js";
 import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -12,10 +12,11 @@ import type { GithubExistingPullRequest, PullRequestProviderClient } from "../..
 import type { PullRequestIntegrationPlan } from "../../src/schema/pull-request-integration.schema.js";
 import { resolvePrIntegrationFilePath } from "../../src/state/pr-integration-home.js";
 
-// M34-WU02: this suite spawns real `git` subprocesses against real
-// repositories and a real local bare remote; it belongs to the
-// spawning workload class (docs/engineering/m34-validation-workload-policy.md Sec 6.1).
-vi.setConfig({ testTimeout: SPAWNING_SUITE_TEST_TIMEOUT_MS });
+// M49-WU3: this real Git/local-remote suite passes in isolation on WU3 and
+// clean WU2, but its created-PR reconciliation scenario exceeded 15s only
+// under canonical parallel host load. It uses the existing, evidence-gated
+// per-file heavy spawning budget; assertions and global defaults are unchanged.
+vi.setConfig({ testTimeout: HEAVY_SPAWNING_TEST_TIMEOUT_MS });
 
 /**
  * M47-WU05 integration: `aiqt pr status` (reconciliation, resumability)

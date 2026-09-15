@@ -4,13 +4,7 @@ import type { StateModel } from "../schema/state.schema.js";
 import type { WorkUnit } from "../schema/work-unit.schema.js";
 import type { Milestone } from "../schema/milestone.schema.js";
 import type { Dependency } from "../schema/dependency.schema.js";
-import type {
-  Requirement,
-  Decision,
-  Risk,
-  Assumption,
-  OpenQuestion,
-} from "../schema/common.schema.js";
+import type { Requirement, Decision, Risk, Assumption, OpenQuestion } from "../schema/common.schema.js";
 import type { DetectedIntegration } from "./skills-detection-service.js";
 import { shouldIncludeDesignGuidance } from "../workflow/design/design-guidance-rules.js";
 import type { UiHeavyConfidence } from "../workflow/design/ui-heavy-detection.js";
@@ -25,6 +19,7 @@ import {
 } from "../workflow/component-system-preferences.js";
 import { renderSourceControlExpectationsSection } from "../workflow/source-control-discipline.js";
 import { resolveRoots } from "../workflow/root-resolution.js";
+import { resolveContextReferences, type ResolvedContextRefs } from "../workflow/context-reference-resolution.js";
 import {
   buildExecutionMetadataAdvisory,
   renderExecutionMetadataAdvisorySection,
@@ -67,20 +62,7 @@ export interface PacketContext {
   managedWorkspaceSection: string;
 }
 
-export interface ResolvedContextRefs {
-  requirements: Requirement[];
-  decisions: Decision[];
-  risks: Risk[];
-  assumptions: Assumption[];
-  openQuestions: OpenQuestion[];
-  unresolvedRefs: string[];
-}
-
-function dedupeById<T extends { id: string }>(items: readonly T[]): T[] {
-  const byId = new Map<string, T>();
-  for (const item of items) byId.set(item.id, item);
-  return [...byId.values()];
-}
+export type { ResolvedContextRefs } from "../workflow/context-reference-resolution.js";
 
 /**
  * Resolve `agentContextRefs` against project records. Each ref may be either
@@ -94,71 +76,7 @@ export function resolveAgentContextRefs(
   refs: readonly string[],
   project: ProjectModel,
 ): ResolvedContextRefs {
-  const requirements: Requirement[] = [];
-  const decisions: Decision[] = [];
-  const risks: Risk[] = [];
-  const assumptions: Assumption[] = [];
-  const openQuestions: OpenQuestion[] = [];
-  const unresolvedRefs: string[] = [];
-
-  for (const ref of refs) {
-    switch (ref) {
-      case "requirements":
-        requirements.push(...project.requirements);
-        continue;
-      case "decisions":
-        decisions.push(...project.decisions);
-        continue;
-      case "risks":
-        risks.push(...project.risks);
-        continue;
-      case "assumptions":
-        assumptions.push(...project.assumptions);
-        continue;
-      case "openQuestions":
-        openQuestions.push(...project.openQuestions);
-        continue;
-      default:
-        break;
-    }
-
-    const requirement = project.requirements.find((r) => r.id === ref);
-    if (requirement) {
-      requirements.push(requirement);
-      continue;
-    }
-    const decision = project.decisions.find((d) => d.id === ref);
-    if (decision) {
-      decisions.push(decision);
-      continue;
-    }
-    const risk = project.risks.find((r) => r.id === ref);
-    if (risk) {
-      risks.push(risk);
-      continue;
-    }
-    const assumption = project.assumptions.find((a) => a.id === ref);
-    if (assumption) {
-      assumptions.push(assumption);
-      continue;
-    }
-    const openQuestion = project.openQuestions.find((q) => q.id === ref);
-    if (openQuestion) {
-      openQuestions.push(openQuestion);
-      continue;
-    }
-
-    unresolvedRefs.push(ref);
-  }
-
-  return {
-    requirements: dedupeById(requirements),
-    decisions: dedupeById(decisions),
-    risks: dedupeById(risks),
-    assumptions: dedupeById(assumptions),
-    openQuestions: dedupeById(openQuestions),
-    unresolvedRefs,
-  };
+  return resolveContextReferences(refs, project);
 }
 
 /** Build the medium-severity, non-blocking warnings for unresolved refs. */

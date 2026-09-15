@@ -98,10 +98,10 @@ export type RecordValidationOutcome =
   | { ok: false; reason: string };
 
 /**
- * Section 3.6/9 WU42-04: validation evidence, not agent assertion,
- * controls resolution. A "passed" outcome resolves the defect with bound
- * evidence; a "failed" outcome returns it to the queue (still open,
- * never silently closed) with the failure evidence preserved.
+ * A supplied success plus locator is useful report evidence, but it is not
+ * independently verified resolution.  This service has no authenticated
+ * evidence-resolution path, so a self report remains visible and routes to
+ * human review rather than resolving the defect.
  */
 export function recordRemediationValidation(input: RecordValidationInput): RecordValidationOutcome {
   const { defect } = input;
@@ -112,7 +112,7 @@ export function recordRemediationValidation(input: RecordValidationInput): Recor
     };
   }
 
-  const targetStatus = input.outcome === "passed" ? "resolved" : "queued";
+  const targetStatus = input.outcome === "passed" ? "needs_human" : "queued";
   const transitionCheck = validateDefectTransition(defect.status, targetStatus);
   if (!transitionCheck.ok) {
     return { ok: false, reason: transitionCheck.reason ?? `Illegal transition to ${targetStatus}.` };
@@ -146,9 +146,7 @@ export function recordRemediationValidation(input: RecordValidationInput): Recor
     remediation: updatedRemediation,
     remediationEvidence: [...(defect.remediationEvidence ?? []), remediationEvidence],
     resolution:
-      input.outcome === "passed"
-        ? { resolvedAt: input.now, evidenceRefs: [evidenceRef], note: input.note }
-        : defect.resolution,
+      defect.resolution,
     updatedAt: input.now,
   };
 

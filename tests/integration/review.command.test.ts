@@ -181,7 +181,7 @@ describe("aiqt review", () => {
     }
   });
 
-  it("passes with no findings recommendation of aiqt export all when all work is done (RC1 canonical all-done recommendation)", async () => {
+  it("recommends qualification management when done work has insufficient revision-bound evidence", async () => {
     dir = makeTempDir();
     await makeInProgressProject(dir);
     const checkpointResult = runCheckpoint(contextFor(dir), {
@@ -190,8 +190,9 @@ describe("aiqt review", () => {
     expect(checkpointResult.exitCode).toBe(ExitCode.Success);
     const result = runReviewCommand(contextFor(dir));
     expect(result.exitCode).toBe(ExitCode.Success);
-    expect(result.nextRecommendedCommand).toBe("aiqt export all");
-    const data = result.data as { recommendedExportTargets: string[] };
+    expect(result.nextRecommendedCommand).toBe("aiqt manage");
+    const data = result.data as { recommendedExportTargets: string[]; productionReadiness: { status: string } };
+    expect(data.productionReadiness.status).toBe("UNKNOWN");
     expect(data.recommendedExportTargets).toContain("status-report");
     expect(data.recommendedExportTargets).not.toContain("project-summary");
   });
