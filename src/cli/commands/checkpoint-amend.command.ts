@@ -13,6 +13,7 @@ import { applyWorkflowAssessmentToState } from "../../services/workflow-assessme
 import { selectNextReadyWorkUnit } from "../../workflow/next-work-unit-selector.js";
 import { applyCheckpointAmendment, computeEffectiveCheckpointResult, getCheckpointAmendments } from "../../services/checkpoint-amendment-service.js";
 import type { ReconciledAcceptanceCriterion } from "../../schema/checkpoint-amendment.schema.js";
+import { ReviewDecisionSchema, type ReviewDecision } from "../../schema/review-record.schema.js";
 import {
   AcceptanceCriteriaResultSchema,
   ValidationResultSchema,
@@ -90,6 +91,13 @@ export interface RunCheckpointAmendOptions {
   reconciledAcceptanceCriterion?: string;
   criterionResult?: string;
   criterionEvidenceReference?: string;
+  decision?: string;
+  resolvedReviewRequirement?: string;
+  resolvedIssue?: string;
+  reconciledValidationCommand?: string;
+  validationCommandResult?: string;
+  validationCommandSummary?: string;
+  evidenceReference?: string;
 }
 
 const SOURCE_COMMAND = "aiqt checkpoint amend";
@@ -157,10 +165,10 @@ export function runCheckpointAmend(
       );
     }
 
-    if (options.acceptance === undefined && options.validation === undefined && options.resolvedNotCompleted === undefined && options.reconciledAcceptanceCriterion === undefined) {
+    if (options.acceptance === undefined && options.validation === undefined && options.resolvedNotCompleted === undefined && options.reconciledAcceptanceCriterion === undefined && options.decision === undefined && options.resolvedReviewRequirement === undefined && options.resolvedIssue === undefined && options.reconciledValidationCommand === undefined && options.evidenceReference === undefined) {
       return failInvalidInput(
         "CHECKPOINT-AMEND-MISSING-FIELD",
-        "At least one of --acceptance, --validation, --resolve-not-completed, or --reconcile-acceptance-criterion is required.",
+        "At least one review update is required.",
       );
     }
 
@@ -194,6 +202,12 @@ export function runCheckpointAmend(
         "CHECKPOINT-AMEND-MISSING-REASON",
         "--reason is required and must be non-empty.",
       );
+    }
+    let decision: ReviewDecision | undefined;
+    if (options.decision !== undefined) {
+      const parsed = ReviewDecisionSchema.safeParse(options.decision);
+      if (!parsed.success) return failInvalidInput("CHECKPOINT-AMEND-INVALID-DECISION", "--decision must be accepted, rejected, or partial.");
+      decision = parsed.data;
     }
 
     const resolvedNotCompleted = options.resolvedNotCompleted?.trim();
@@ -236,6 +250,16 @@ export function runCheckpointAmend(
         ...(options.criterionEvidenceReference !== undefined ? { evidenceReference: options.criterionEvidenceReference.trim() } : {}),
       };
     }
+    const resolvedReviewRequirement = options.resolvedReviewRequirement?.trim();
+    if (options.resolvedReviewRequirement !== undefined && resolvedReviewRequirement === "") return failInvalidInput("CHECKPOINT-AMEND-INVALID-REVIEW-REQUIREMENT", "--resolve-review-requirement must be non-empty.");
+    const resolvedIssue = options.resolvedIssue?.trim();
+    if (options.resolvedIssue !== undefined && resolvedIssue === "") return failInvalidInput("CHECKPOINT-AMEND-INVALID-ISSUE", "--resolve-issue must be non-empty.");
+    const reconciledValidationCommand = options.reconciledValidationCommand?.trim();
+    if (options.reconciledValidationCommand !== undefined && reconciledValidationCommand === "") return failInvalidInput("CHECKPOINT-AMEND-INVALID-VALIDATION-COMMAND", "--reconcile-validation-command must be non-empty.");
+    if (options.validationCommandResult !== undefined && reconciledValidationCommand === undefined) return failInvalidInput("CHECKPOINT-AMEND-VALIDATION-COMMAND-WITHOUT-COMMAND", "--validation-command-result requires --reconcile-validation-command.");
+    if (reconciledValidationCommand !== undefined && options.validationCommandResult === undefined) return failInvalidInput("CHECKPOINT-AMEND-MISSING-VALIDATION-COMMAND-RESULT", "--reconcile-validation-command requires --validation-command-result.");
+    let reconciledValidationCommandResult: { command: string; result: ValidationResult; summary?: string | null; evidence?: string } | undefined;
+    if (reconciledValidationCommand !== undefined) { const parsed = ValidationResultSchema.safeParse(options.validationCommandResult); if (!parsed.success) return failInvalidInput("CHECKPOINT-AMEND-INVALID-VALIDATION-COMMAND-RESULT", `--validation-command-result must be one of: ${ValidationResultSchema.options.join(", ")}.`); reconciledValidationCommandResult = { command: reconciledValidationCommand, result: parsed.data, ...(options.validationCommandSummary !== undefined ? { summary: options.validationCommandSummary } : {}) }; }
 
     const { paths, project, state } = loadProject(ctx);
 
@@ -274,6 +298,9 @@ export function runCheckpointAmend(
         `Acceptance criterion ${JSON.stringify(reconciledAcceptanceCriterion.criterion)} is not recorded by checkpoint "${checkpointId}".`,
       );
     }
+    if (resolvedReviewRequirement !== undefined && !(checkpoint.reviewRequirements ?? []).includes(resolvedReviewRequirement)) return failInvalidInput("CHECKPOINT-AMEND-UNKNOWN-REVIEW-REQUIREMENT", `Review requirement ${JSON.stringify(resolvedReviewRequirement)} is not recorded by checkpoint "${checkpointId}".`);
+    if (resolvedIssue !== undefined && !checkpoint.issues.some((entry) => entry.title === resolvedIssue)) return failInvalidInput("CHECKPOINT-AMEND-UNKNOWN-ISSUE", `Issue ${JSON.stringify(resolvedIssue)} is not recorded by checkpoint "${checkpointId}".`);
+    if (reconciledValidationCommandResult !== undefined && !checkpoint.validationCommands.some((entry) => entry.command === reconciledValidationCommandResult!.command)) return failInvalidInput("CHECKPOINT-AMEND-UNKNOWN-VALIDATION-COMMAND", `Validation command ${JSON.stringify(reconciledValidationCommandResult.command)} is not recorded by checkpoint "${checkpointId}".`);
 
     const workUnit = state.workGraph.workUnits.find((wu) => wu.id === checkpoint.workUnitId);
     if (!workUnit) {
@@ -334,6 +361,11 @@ export function runCheckpointAmend(
       resolvedNotCompleted,
       resolutionEvidenceReference,
       reconciledAcceptanceCriterion,
+      decision,
+      resolvedReviewRequirement,
+      resolvedIssue,
+      reconciledValidationCommand: reconciledValidationCommandResult,
+      evidenceReferences: options.evidenceReference === undefined ? undefined : [options.evidenceReference],
       amendmentId,
       reason,
       timestamp,
@@ -433,7 +465,11 @@ export function runCheckpointAmend(
         workUnits: applied.workUnits,
         milestones: applied.milestones,
       },
-      checkpointAmendments: [...(state.checkpointAmendments ?? []), applied.amendment!],
+      reviewRecords: [...(state.reviewRecords ?? []), applied.reviewRecord!],
+      // New review activity is first-class reviewRecords. Preserve the
+      // legacy unfinished-work reconciliation only for old checkpoints that
+      // encoded a review requirement in notCompleted.
+      ...(resolvedNotCompleted !== undefined ? { checkpointAmendments: [...(state.checkpointAmendments ?? []), applied.amendment!] } : {}),
       lastUpdatedAt: timestamp,
       ...(requiredGateDecision && requiredGateDecision.consumedExceptionIds.length > 0
         ? {

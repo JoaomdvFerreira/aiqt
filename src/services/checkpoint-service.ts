@@ -79,6 +79,7 @@ export function applyCheckpoint(params: {
     summary: input.summary,
     completed: input.completed,
     notCompleted: input.notCompleted,
+    ...(input.reviewRequirements.length > 0 ? { reviewRequirements: input.reviewRequirements } : {}),
     filesChanged: input.filesChanged,
     issues: input.issues.map((issue) => ({
       title: issue.title,

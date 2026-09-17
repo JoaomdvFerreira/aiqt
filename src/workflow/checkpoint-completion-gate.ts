@@ -13,6 +13,7 @@ import type {
   ValidationResult,
 } from "../schema/checkpoint.schema.js";
 import type { WorkUnit } from "../schema/work-unit.schema.js";
+import type { EffectiveReviewState } from "../services/effective-review-state-service.js";
 
 type CompletionIssue = CheckpointIssueInput | CheckpointIssue;
 
@@ -74,6 +75,15 @@ export function evaluateImplementationCompletion(
   if (hasOpenHighOrCriticalIssue(input.issues)) reasons.push("an open high/critical issue exists");
   hasRequiredResult(input.workUnit.validationCommands, input.validationCommands, (entry) => entry.command, "validation command", reasons);
   hasRequiredResult(input.workUnit.acceptanceCriteria, input.acceptanceCriteria, (entry) => entry.criterion, "acceptance criterion", reasons);
+  return { complete: reasons.length === 0, reasons };
+}
+
+/** Completion after a handoff: implementation facts and review facts are deliberately separate. */
+export function evaluateEffectiveReviewCompletion(workUnit: CompletionEvaluationInput["workUnit"], review: EffectiveReviewState): CompletionEvaluation {
+  const base = evaluateImplementationCompletion({ workUnit, validationResult: review.validationResult, acceptanceCriteriaResult: review.acceptanceCriteriaResult, notCompleted: review.implementationNotCompleted, issues: review.issues, validationCommands: review.validationCommands, acceptanceCriteria: review.acceptanceCriteria });
+  const reasons = [...base.reasons];
+  if (review.reviewRequirements.length > 0) reasons.push("review evidence is still required");
+  if (review.decision !== "accepted") reasons.push(`review decision is ${review.decision ?? "not recorded"}`);
   return { complete: reasons.length === 0, reasons };
 }
 

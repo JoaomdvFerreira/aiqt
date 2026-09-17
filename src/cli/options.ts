@@ -182,6 +182,13 @@ export interface RawCheckpointAmendOptions {
   reconcileAcceptanceCriterion?: string;
   criterionResult?: string;
   criterionEvidence?: string;
+  decision?: string;
+  resolveReviewRequirement?: string;
+  resolveIssue?: string;
+  reconcileValidationCommand?: string;
+  validationCommandResult?: string;
+  validationCommandSummary?: string;
+  evidenceReference?: string;
 }
 
 export interface RawDependencyUpdateOptions {

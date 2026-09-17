@@ -9,9 +9,8 @@ import { isPlanningContextReady } from "./planning-readiness.js";
 import { findCycle } from "./dependency-graph.js";
 import { computeEffectiveReadinessForState } from "./effective-readiness.js";
 import {
-  getCheckpointAmendments,
-  computeEffectiveCheckpointResult,
 } from "../services/checkpoint-amendment-service.js";
+import { computeEffectiveReviewState } from "../services/effective-review-state-service.js";
 
 /**
  * A finding before FIND-### assignment. `ruleKey` is a stable, internal
@@ -583,7 +582,6 @@ export function collectCheckpointFindings(
   state: StateModel,
 ): ReviewFindingCandidate[] {
   const findings: ReviewFindingCandidate[] = [];
-  const amendments = getCheckpointAmendments(state);
   const checkpointsByWorkUnit = new Map<string, typeof state.checkpoints>();
   for (const cp of state.checkpoints) {
     const list = checkpointsByWorkUnit.get(cp.workUnitId) ?? [];
@@ -611,7 +609,7 @@ export function collectCheckpointFindings(
 
     if (wu.status === "needs_review") {
       const hasOpenHighCriticalIssue = wuCheckpoints.some((cp) =>
-        cp.issues.some(
+        computeEffectiveReviewState(cp, state).issues.some(
           (issue) =>
             issue.status === "open" &&
             (issue.severity === "high" || issue.severity === "critical"),
@@ -638,7 +636,7 @@ export function collectCheckpointFindings(
       // M12 §9: use the effective (amendment-overlaid) result, not the raw
       // original checkpoint value, so an amendment can remove this finding
       // entirely without rewriting the original checkpoint record.
-      const effective = computeEffectiveCheckpointResult(latest, amendments);
+      const effective = computeEffectiveReviewState(latest, state);
       if (effective.validationResult === "failed" || effective.validationResult === "partial") {
         findings.push({
           ruleKey: `checkpoint.done-validation-not-passed.${wu.id}`,

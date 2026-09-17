@@ -46,6 +46,7 @@ export const CheckpointInputSchema = z
     summary: z.string().min(1),
     completed: z.array(z.string().min(1)).default([]),
     notCompleted: z.array(z.string().min(1)).default([]),
+    reviewRequirements: z.array(z.string().min(1)).default([]),
     filesChanged: z.array(z.string().min(1)).default([]),
     validationResult: ValidationResultSchema,
     acceptanceCriteriaResult: AcceptanceCriteriaResultSchema,

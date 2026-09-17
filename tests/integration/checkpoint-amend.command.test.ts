@@ -102,8 +102,8 @@ describe("aiqt checkpoint amend", () => {
 
     const state = readState(dir);
     expect(state.workGraph.workUnits.find((w: { id: string }) => w.id === "WU003").status).toBe("done");
-    expect(state.checkpointAmendments).toHaveLength(1);
-    expect(state.checkpointAmendments[0]).toMatchObject({
+    expect(state.reviewRecords).toHaveLength(1);
+    expect(state.reviewRecords[0]).toMatchObject({
       checkpointId: "C003",
       workUnitId: "WU003",
       acceptanceCriteriaResult: "passed",
@@ -159,6 +159,30 @@ describe("aiqt checkpoint amend", () => {
     expect(result.exitCode).toBe(ExitCode.Success);
     const data = result.data as { workUnitStatusAfter: string };
     expect(data.workUnitStatusAfter).toBe("needs_review");
+  });
+
+  it("Rumo WU012 regression: a passed/passed handoff closes only through an explicit accepted review record, without rewriting it", async () => {
+    dir = makeTempDir();
+    await buildCheckpointAmendmentFixtureState(dir);
+    const statePath = join(dir, ".aiqt", "state.json");
+    const seeded = readState(dir);
+    const handoff = seeded.checkpoints.find((item: { id: string }) => item.id === "C002");
+    handoff.validationResult = "passed";
+    handoff.acceptanceCriteriaResult = "passed";
+    handoff.notCompleted = [];
+    handoff.issues = [];
+    handoff.validationCommands.forEach((item: { result: string }) => { item.result = "passed"; });
+    handoff.acceptanceCriteria.forEach((item: { result: string }) => { item.result = "passed"; });
+    writeFileSync(statePath, JSON.stringify(seeded, null, 2));
+    const before = JSON.stringify(handoff);
+
+    const result = runCheckpointAmend(contextFor(dir), { checkpointId: "C002", decision: "accepted", reason: "Project Overseer accepts the completed Rumo WU012 handoff." });
+    expect(result.exitCode).toBe(ExitCode.Success);
+    expect((result.data as { workUnitStatusAfter: string }).workUnitStatusAfter).toBe("done");
+    const persisted = readState(dir);
+    expect(persisted.workGraph.workUnits.find((item: { id: string }) => item.id === "WU002").status).toBe("done");
+    expect(JSON.stringify(persisted.checkpoints.find((item: { id: string }) => item.id === "C002"))).toBe(before);
+    expect(persisted.reviewRecords.at(-1)).toMatchObject({ checkpointId: "C002", decision: "accepted" });
   });
 
   it("reconciles a completed recorded unfinished-work item without rewriting the checkpoint", async () => {
@@ -249,8 +273,8 @@ describe("aiqt checkpoint amend", () => {
     expect((first.data as { changed: boolean }).changed).toBe(true);
     const persisted = readState(dir);
     expect(persisted.checkpoints.find((item: { id: string }) => item.id === "C002").acceptanceCriteria).toEqual(before);
-    expect(persisted.checkpointAmendments.at(-1).reconciledAcceptanceCriterion).toEqual({
-      criterion: "Live Clerk verification passes", result: "passed", evidenceReference: "pr:123",
+    expect(persisted.reviewRecords.at(-1).acceptanceCriteria[0]).toEqual({
+      criterion: "Live Clerk verification passes", result: "passed", evidence: "pr:123",
     });
     const eventCount = readRunlogLines(dir).length;
     const duplicate = runCheckpointAmend(contextFor(dir), {

@@ -1,7 +1,8 @@
 import type { ProjectModel } from "../schema/project.schema.js";
 import type { StateModel } from "../schema/state.schema.js";
 import type { ReviewFinding } from "../schema/review-finding.schema.js";
-import { computeEffectiveCheckpointResult, getCheckpointAmendments, latestCheckpointForWorkUnit } from "../services/checkpoint-amendment-service.js";
+import { latestCheckpointForWorkUnit } from "../services/checkpoint-amendment-service.js";
+import { computeEffectiveReviewState } from "../services/effective-review-state-service.js";
 import { deriveWorkQualification, type ChangeQualification } from "./production-qualification.js";
 import { resolveContextReferences, type ResolvedContextRefs } from "./context-reference-resolution.js";
 import type { RootResolution } from "./root-resolution.js";
@@ -59,8 +60,7 @@ export function deriveCanonicalHandoff(input: { project: ProjectModel; state: St
   const workUnit = input.state.workGraph.workUnits.find((item) => item.id === input.workUnitId) ?? null;
   const context = workUnit ? resolveContextReferences(workUnit.agentContextRefs, input.project) : resolveContextReferences([], input.project);
   const checkpoint = workUnit ? latestCheckpointForWorkUnit(input.state, workUnit.id) : undefined;
-  const amendments = checkpoint ? getCheckpointAmendments(input.state).filter((item) => item.checkpointId === checkpoint.id) : [];
-  const effective = checkpoint ? computeEffectiveCheckpointResult(checkpoint, amendments) : null;
+  const effective = checkpoint ? computeEffectiveReviewState(checkpoint, input.state) : null;
   const reviewFindings = (input.reviewFindings ?? []).filter((finding) => finding.relatedIds.includes(input.workUnitId));
   const qualification = deriveWorkQualification({ project: input.project, state: input.state, workUnitId: input.workUnitId, revision: input.revision.requestedRevision ?? input.revision.head, reviewFindings });
   const evidence = (input.state.evidence?.records ?? []).filter((item) => item.workflowBinding.workUnitId === input.workUnitId).map((item) => ({
@@ -74,9 +74,9 @@ export function deriveCanonicalHandoff(input: { project: ProjectModel; state: St
   return {
     kind: "canonical_handoff", workUnitId: input.workUnitId, milestoneId: workUnit?.milestoneId ?? null, roots: input.roots, revision: input.revision,
     workContract: workUnit ? { title: workUnit.title, objective: workUnit.objective, scope: workUnit.scope, outOfScope: workUnit.outOfScope, acceptanceCriteria: workUnit.acceptanceCriteria, validationCommands: workUnit.validationCommands } : null,
-    effectiveCheckpoint: checkpoint && effective ? { checkpointId: checkpoint.id, summary: checkpoint.summary, validationResult: effective.validationResult, acceptanceCriteriaResult: effective.acceptanceCriteriaResult, amendmentsApplied: amendments.map((item) => item.amendmentId) } : null,
+    effectiveCheckpoint: checkpoint && effective ? { checkpointId: checkpoint.id, summary: checkpoint.summary, validationResult: effective.validationResult, acceptanceCriteriaResult: effective.acceptanceCriteriaResult, amendmentsApplied: effective.recordIds } : null,
     context, evidence, applicableDecisionEscalations,
-    unresolved: { checkpointIssues: checkpoint?.issues.filter((issue) => issue.status === "open").map((issue) => issue.title) ?? [], reviewFindings, contextReferences: context.unresolvedRefs },
+    unresolved: { checkpointIssues: effective?.issues.filter((issue) => issue.status === "open").map((issue) => issue.title) ?? [], reviewFindings, contextReferences: context.unresolvedRefs },
     qualification, nextRequiredAction: qualification.status === "QUALIFIED" ? null : input.state.nextRecommendedCommand, contextSize: input.contextSize ?? null,
   };
 }

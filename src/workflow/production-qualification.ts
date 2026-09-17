@@ -1,7 +1,8 @@
 import type { ProjectModel } from "../schema/project.schema.js";
 import type { StateModel } from "../schema/state.schema.js";
 import type { ReviewFinding } from "../schema/review-finding.schema.js";
-import { computeEffectiveCheckpointResult, getCheckpointAmendments, latestCheckpointForWorkUnit } from "../services/checkpoint-amendment-service.js";
+import { latestCheckpointForWorkUnit } from "../services/checkpoint-amendment-service.js";
+import { computeEffectiveReviewState } from "../services/effective-review-state-service.js";
 
 /**
  * M49-WU4's deliberately small, derived production contract.  These values
@@ -153,14 +154,14 @@ export function deriveWorkQualification(params: {
   if (!checkpoint) {
     requirements.push({ requirementId: "implementation-evidence", title: "Implementation evidence", outcome: "UNKNOWN", reason: "No checkpoint evidence is available for this work unit." });
   } else {
-    const effective = computeEffectiveCheckpointResult(checkpoint, getCheckpointAmendments(params.state));
+    const effective = computeEffectiveReviewState(checkpoint, params.state);
     if (params.project.quality.validationRequiredBeforeDone) {
       requirements.push({ requirementId: "validation", title: "Required validation", outcome: checkpointOutcome(effective.validationResult), reason: `Effective validation result is "${effective.validationResult}".` });
     }
     if (params.project.quality.acceptanceCriteriaRequired) {
       requirements.push({ requirementId: "acceptance", title: "Acceptance criteria", outcome: checkpointOutcome(effective.acceptanceCriteriaResult), reason: `Effective acceptance result is "${effective.acceptanceCriteriaResult}".` });
     }
-    if (checkpoint.issues.some((issue) => issue.status === "open" && (issue.severity === "high" || issue.severity === "critical"))) {
+    if (effective.issues.some((issue) => issue.status === "open" && (issue.severity === "high" || issue.severity === "critical"))) {
       requirements.push({ requirementId: "unresolved-blockers", title: "No unresolved blocking issues", outcome: "FAIL", reason: "The checkpoint has unresolved high or critical issues." });
     }
   }

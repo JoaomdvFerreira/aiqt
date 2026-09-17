@@ -14,7 +14,9 @@ import {
   recalculateMilestoneStatuses,
   computeProjectStatus,
 } from "../workflow/checkpoint-status-transitions.js";
-import { evaluateImplementationCompletion } from "../workflow/checkpoint-completion-gate.js";
+import { evaluateEffectiveReviewCompletion } from "../workflow/checkpoint-completion-gate.js";
+import { computeEffectiveReviewState } from "./effective-review-state-service.js";
+import type { ReviewRecord, ReviewDecision } from "../schema/review-record.schema.js";
 
 /** M12 §6.1: missing state.checkpointAmendments must be treated as an empty array. */
 export function getCheckpointAmendments(state: StateModel): CheckpointAmendment[] {
@@ -101,6 +103,11 @@ export interface ApplyCheckpointAmendmentParams {
   resolvedNotCompleted?: string;
   resolutionEvidenceReference?: string;
   reconciledAcceptanceCriterion?: ReconciledAcceptanceCriterion;
+  decision?: ReviewDecision;
+  resolvedReviewRequirement?: string;
+  resolvedIssue?: string;
+  reconciledValidationCommand?: { command: string; result: ValidationResult; summary?: string | null; evidence?: string };
+  evidenceReferences?: string[];
   amendmentId: string;
   reason: string;
   timestamp: string;
@@ -109,6 +116,7 @@ export interface ApplyCheckpointAmendmentParams {
 export interface ApplyCheckpointAmendmentResult {
   changed: boolean;
   amendment: CheckpointAmendment | null;
+  reviewRecord: ReviewRecord | null;
   effectiveAcceptanceCriteriaResult: AcceptanceCriteriaResult;
   effectiveValidationResult: ValidationResult;
   workUnitStatusBefore: WorkUnitStatus;
@@ -140,31 +148,41 @@ export function applyCheckpointAmendment(
     resolvedNotCompleted,
     resolutionEvidenceReference,
     reconciledAcceptanceCriterion,
+    decision,
+    resolvedReviewRequirement,
+    resolvedIssue,
+    reconciledValidationCommand,
+    evidenceReferences,
     amendmentId,
     reason,
     timestamp,
   } = params;
 
   const existingAmendments = getCheckpointAmendments(state);
-  const currentEffective = computeEffectiveCheckpointResult(checkpoint, existingAmendments);
+  const currentEffective = computeEffectiveReviewState(checkpoint, state);
 
   const changed =
     (acceptanceCriteriaResult !== undefined &&
       acceptanceCriteriaResult !== currentEffective.acceptanceCriteriaResult) ||
     (validationResult !== undefined && validationResult !== currentEffective.validationResult) ||
-    (resolvedNotCompleted !== undefined && currentEffective.notCompleted.includes(resolvedNotCompleted)) ||
+    (resolvedNotCompleted !== undefined && currentEffective.implementationNotCompleted.includes(resolvedNotCompleted)) ||
     (reconciledAcceptanceCriterion !== undefined && (() => {
       const current = currentEffective.acceptanceCriteria.find((entry) => entry.criterion === reconciledAcceptanceCriterion.criterion);
       return current !== undefined && (
         current.result !== reconciledAcceptanceCriterion.result ||
         (reconciledAcceptanceCriterion.evidenceReference !== undefined && current.evidence !== reconciledAcceptanceCriterion.evidenceReference)
       );
-    })());
+    })()) || (decision !== undefined && decision !== currentEffective.decision) ||
+    (resolvedReviewRequirement !== undefined && currentEffective.reviewRequirements.includes(resolvedReviewRequirement)) ||
+    (resolvedIssue !== undefined && currentEffective.issues.some((issue) => issue.title === resolvedIssue && issue.status !== "resolved")) ||
+    (reconciledValidationCommand !== undefined && currentEffective.validationCommands.some((entry) => entry.command === reconciledValidationCommand.command && (entry.result !== reconciledValidationCommand.result || (reconciledValidationCommand.summary !== undefined && entry.summary !== reconciledValidationCommand.summary)))) ||
+    (evidenceReferences?.some((reference) => !state.reviewRecords?.some((record) => record.checkpointId === checkpoint.id && record.evidenceReferences.includes(reference))) ?? false);
 
   if (!changed) {
     return {
       changed: false,
       amendment: null,
+      reviewRecord: null,
       effectiveAcceptanceCriteriaResult: currentEffective.acceptanceCriteriaResult,
       effectiveValidationResult: currentEffective.validationResult,
       workUnitStatusBefore: workUnit.status,
@@ -178,9 +196,6 @@ export function applyCheckpointAmendment(
 
   const newEffectiveAcceptance = acceptanceCriteriaResult ?? currentEffective.acceptanceCriteriaResult;
   const newEffectiveValidation = validationResult ?? currentEffective.validationResult;
-  const newEffectiveNotCompleted = resolvedNotCompleted === undefined
-    ? currentEffective.notCompleted
-    : currentEffective.notCompleted.filter((item) => item !== resolvedNotCompleted);
 
   const amendment: CheckpointAmendment = {
     amendmentId,
@@ -195,22 +210,29 @@ export function applyCheckpointAmendment(
     amendedAt: timestamp,
     sourceCommand: "aiqt checkpoint amend",
   };
+  const provisional = { acceptanceCriteriaResult: acceptanceCriteriaResult ?? currentEffective.acceptanceCriteriaResult, validationResult: validationResult ?? currentEffective.validationResult };
+  const reviewRecord: ReviewRecord = {
+    reviewId: amendmentId, checkpointId: checkpoint.id, workUnitId: workUnit.id,
+    ...(decision !== undefined ? { decision } : (provisional.acceptanceCriteriaResult === "passed" && provisional.validationResult === "passed" ? { decision: "accepted" as const } : {})),
+    ...(acceptanceCriteriaResult !== undefined ? { acceptanceCriteriaResult } : {}),
+    ...(validationResult !== undefined ? { validationResult } : {}),
+    resolvedReviewRequirements: resolvedReviewRequirement === undefined ? [] : [resolvedReviewRequirement],
+    acceptanceCriteria: reconciledAcceptanceCriterion === undefined ? [] : [{ criterion: reconciledAcceptanceCriterion.criterion, result: reconciledAcceptanceCriterion.result, ...(reconciledAcceptanceCriterion.evidenceReference !== undefined ? { evidence: reconciledAcceptanceCriterion.evidenceReference } : {}) }],
+    validationCommands: reconciledValidationCommand === undefined ? [] : [reconciledValidationCommand],
+    issues: resolvedIssue === undefined ? [] : [{ title: resolvedIssue, status: "resolved" }],
+    evidenceReferences: evidenceReferences ?? [], reason, recordedAt: timestamp, sourceCommand: "aiqt checkpoint amend",
+  };
 
   const latest = latestCheckpointForWorkUnit(state, workUnit.id);
   const isLatestCheckpoint = latest?.id === checkpoint.id;
 
+  // Only the legacy --resolve-not-completed escape hatch needs an old overlay:
+  // new checkpoints express post-handoff needs as reviewRequirements instead.
+  const candidateReview = computeEffectiveReviewState(checkpoint, { ...state, checkpointAmendments: resolvedNotCompleted === undefined ? existingAmendments : [...existingAmendments, amendment], reviewRecords: [...(state.reviewRecords ?? []), reviewRecord] });
   const completionGatePasses =
     workUnit.status === "needs_review" &&
     isLatestCheckpoint &&
-    evaluateImplementationCompletion({
-      workUnit,
-      validationResult: newEffectiveValidation,
-      acceptanceCriteriaResult: newEffectiveAcceptance,
-      notCompleted: newEffectiveNotCompleted,
-      issues: checkpoint.issues,
-      validationCommands: checkpoint.validationCommands,
-      acceptanceCriteria: computeEffectiveCheckpointResult(checkpoint, [...existingAmendments, amendment]).acceptanceCriteria,
-    }).complete &&
+    evaluateEffectiveReviewCompletion(workUnit, candidateReview).complete &&
     state.currentWorkUnitId !== workUnit.id;
 
   let workUnitStatusAfter: WorkUnitStatus = workUnit.status;
@@ -241,6 +263,7 @@ export function applyCheckpointAmendment(
   return {
     changed: true,
     amendment,
+    reviewRecord,
     effectiveAcceptanceCriteriaResult: newEffectiveAcceptance,
     effectiveValidationResult: newEffectiveValidation,
     workUnitStatusBefore: workUnit.status,

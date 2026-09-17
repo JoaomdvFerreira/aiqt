@@ -82,6 +82,8 @@ export const CheckpointSchema = z.object({
   summary: z.string(),
   completed: z.array(z.string()),
   notCompleted: z.array(z.string()),
+  /** Post-handoff evidence requirements; unlike notCompleted these do not describe unfinished implementation. */
+  reviewRequirements: z.array(z.string()).optional(),
   filesChanged: z.array(z.string()),
   issues: z.array(CheckpointIssueSchema),
   validationResult: ValidationResultSchema,

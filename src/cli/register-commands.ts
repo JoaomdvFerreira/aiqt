@@ -594,7 +594,7 @@ export function buildProgram(): Command {
 
   checkpointCommand
     .command("amend")
-    .description("Amend effective results or reconcile completed recorded unfinished work")
+    .description("Append post-handoff review evidence or an Overseer decision (legacy amendment flags remain supported)")
     .option("--json", "emit machine-readable JSON output", false)
     .option("--checkpoint <checkpointId>", "the checkpoint id to amend")
     .option("--acceptance <result>", "effective acceptance result: passed, failed, partial, or not_checked")
@@ -605,6 +605,13 @@ export function buildProgram(): Command {
     .option("--reconcile-acceptance-criterion <criterion>", "reconcile one original detailed acceptance criterion by exact text")
     .option("--criterion-result <result>", "effective result for --reconcile-acceptance-criterion: passed, failed, partial, or not_checked")
     .option("--criterion-evidence <reference>", "optional evidence/reference for --reconcile-acceptance-criterion")
+    .option("--decision <decision>", "Overseer decision: accepted, rejected, or partial")
+    .option("--resolve-review-requirement <requirement>", "mark one recorded review/evidence requirement as fulfilled")
+    .option("--resolve-issue <title>", "mark one recorded checkpoint issue as resolved")
+    .option("--reconcile-validation-command <command>", "record supplementary result for one detailed validation command")
+    .option("--validation-command-result <result>", "result for --reconcile-validation-command")
+    .option("--validation-command-summary <summary>", "optional supplementary validation summary")
+    .option("--evidence-reference <reference>", "external evidence reference attached to this review record")
     .action((raw: RawCheckpointAmendOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runCheckpointAmend(ctx, {
@@ -617,6 +624,13 @@ export function buildProgram(): Command {
         reconciledAcceptanceCriterion: raw.reconcileAcceptanceCriterion,
         criterionResult: raw.criterionResult,
         criterionEvidenceReference: raw.criterionEvidence,
+        decision: raw.decision,
+        resolvedReviewRequirement: raw.resolveReviewRequirement,
+        resolvedIssue: raw.resolveIssue,
+        reconciledValidationCommand: raw.reconcileValidationCommand,
+        validationCommandResult: raw.validationCommandResult,
+        validationCommandSummary: raw.validationCommandSummary,
+        evidenceReference: raw.evidenceReference,
       });
       emit(result, ctx.json);
     });

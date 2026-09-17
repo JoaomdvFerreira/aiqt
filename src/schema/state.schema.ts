@@ -5,6 +5,7 @@ import { AgentPacketMetadataSchema } from "./agent-packet.schema.js";
 import { ReviewAcknowledgmentStateSchema } from "./review-acknowledgment.schema.js";
 import { IssueStateSchema } from "./issue-state.schema.js";
 import { CheckpointAmendmentSchema } from "./checkpoint-amendment.schema.js";
+import { ReviewRecordSchema } from "./review-record.schema.js";
 import { EvidenceStateSchema } from "./evidence.schema.js";
 import { WorkspaceStateSchema } from "./managed-workspace.schema.js";
 import { ExecutionSessionSchema, MAX_SESSIONS } from "./execution-session.schema.js";
@@ -47,6 +48,8 @@ export const StateModelSchema = z.object({
   issues: IssueStateSchema.optional(),
   /** M12 §6.1: optional, additive. Missing entirely on pre-M12 state files. */
   checkpointAmendments: z.array(CheckpointAmendmentSchema).optional(),
+  /** Append-only post-handoff review history. Legacy amendments are projected when this is absent. */
+  reviewRecords: z.array(ReviewRecordSchema).optional(),
   /** M22-WU02: optional, additive. Missing entirely on pre-M22 state files. */
   evidence: EvidenceStateSchema.optional(),
   /** M25 §5: optional, additive. Missing entirely on pre-M25 state files. */
