@@ -1,12 +1,13 @@
 import type { StateModel, ProjectStatus } from "../schema/state.schema.js";
 import type {
   Checkpoint,
+  AcceptanceCriterionResult,
   AcceptanceCriteriaResult,
   ValidationResult,
 } from "../schema/checkpoint.schema.js";
 import type { WorkUnit, WorkUnitStatus } from "../schema/work-unit.schema.js";
 import type { Milestone } from "../schema/milestone.schema.js";
-import type { CheckpointAmendment } from "../schema/checkpoint-amendment.schema.js";
+import type { CheckpointAmendment, ReconciledAcceptanceCriterion } from "../schema/checkpoint-amendment.schema.js";
 import { recalculateDependencyReadiness } from "../workflow/dependency-readiness.js";
 import {
   applyCheckpointWorkUnitTransition,
@@ -31,6 +32,7 @@ export interface EffectiveCheckpointResult {
   acceptanceCriteriaResult: AcceptanceCriteriaResult;
   validationResult: ValidationResult;
   notCompleted: string[];
+  acceptanceCriteria: AcceptanceCriterionResult[];
 }
 
 /**
@@ -44,6 +46,7 @@ export function computeEffectiveCheckpointResult(
 ): EffectiveCheckpointResult {
   let acceptanceCriteriaResult = checkpoint.acceptanceCriteriaResult;
   let validationResult = checkpoint.validationResult;
+  const acceptanceCriteria = checkpoint.acceptanceCriteria.map((entry) => ({ ...entry }));
   const resolvedNotCompleted = new Set<string>();
   for (const amendment of amendmentsForCheckpoint(checkpoint.id, amendments)) {
     if (amendment.acceptanceCriteriaResult !== undefined) {
@@ -58,11 +61,25 @@ export function computeEffectiveCheckpointResult(
     ) {
       resolvedNotCompleted.add(amendment.resolvedNotCompleted);
     }
+    if (amendment.reconciledAcceptanceCriterion !== undefined) {
+      const index = acceptanceCriteria.findIndex((entry) => entry.criterion === amendment.reconciledAcceptanceCriterion!.criterion);
+      if (index !== -1) {
+        const current = acceptanceCriteria[index];
+        acceptanceCriteria[index] = {
+          ...current,
+          result: amendment.reconciledAcceptanceCriterion.result,
+          ...(amendment.reconciledAcceptanceCriterion.evidenceReference !== undefined
+            ? { evidence: amendment.reconciledAcceptanceCriterion.evidenceReference }
+            : {}),
+        };
+      }
+    }
   }
   return {
     acceptanceCriteriaResult,
     validationResult,
     notCompleted: checkpoint.notCompleted.filter((item) => !resolvedNotCompleted.has(item)),
+    acceptanceCriteria,
   };
 }
 
@@ -83,6 +100,7 @@ export interface ApplyCheckpointAmendmentParams {
   validationResult?: ValidationResult;
   resolvedNotCompleted?: string;
   resolutionEvidenceReference?: string;
+  reconciledAcceptanceCriterion?: ReconciledAcceptanceCriterion;
   amendmentId: string;
   reason: string;
   timestamp: string;
@@ -121,6 +139,7 @@ export function applyCheckpointAmendment(
     validationResult,
     resolvedNotCompleted,
     resolutionEvidenceReference,
+    reconciledAcceptanceCriterion,
     amendmentId,
     reason,
     timestamp,
@@ -133,7 +152,14 @@ export function applyCheckpointAmendment(
     (acceptanceCriteriaResult !== undefined &&
       acceptanceCriteriaResult !== currentEffective.acceptanceCriteriaResult) ||
     (validationResult !== undefined && validationResult !== currentEffective.validationResult) ||
-    (resolvedNotCompleted !== undefined && currentEffective.notCompleted.includes(resolvedNotCompleted));
+    (resolvedNotCompleted !== undefined && currentEffective.notCompleted.includes(resolvedNotCompleted)) ||
+    (reconciledAcceptanceCriterion !== undefined && (() => {
+      const current = currentEffective.acceptanceCriteria.find((entry) => entry.criterion === reconciledAcceptanceCriterion.criterion);
+      return current !== undefined && (
+        current.result !== reconciledAcceptanceCriterion.result ||
+        (reconciledAcceptanceCriterion.evidenceReference !== undefined && current.evidence !== reconciledAcceptanceCriterion.evidenceReference)
+      );
+    })());
 
   if (!changed) {
     return {
@@ -164,6 +190,7 @@ export function applyCheckpointAmendment(
     ...(validationResult !== undefined ? { validationResult } : {}),
     ...(resolvedNotCompleted !== undefined ? { resolvedNotCompleted } : {}),
     ...(resolutionEvidenceReference !== undefined ? { resolutionEvidenceReference } : {}),
+    ...(reconciledAcceptanceCriterion !== undefined ? { reconciledAcceptanceCriterion } : {}),
     reason,
     amendedAt: timestamp,
     sourceCommand: "aiqt checkpoint amend",
@@ -182,7 +209,7 @@ export function applyCheckpointAmendment(
       notCompleted: newEffectiveNotCompleted,
       issues: checkpoint.issues,
       validationCommands: checkpoint.validationCommands,
-      acceptanceCriteria: checkpoint.acceptanceCriteria,
+      acceptanceCriteria: computeEffectiveCheckpointResult(checkpoint, [...existingAmendments, amendment]).acceptanceCriteria,
     }).complete &&
     state.currentWorkUnitId !== workUnit.id;
 

@@ -12,6 +12,7 @@ import { nextId } from "../../state/ids.js";
 import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 import { selectNextReadyWorkUnit } from "../../workflow/next-work-unit-selector.js";
 import { applyCheckpointAmendment, computeEffectiveCheckpointResult, getCheckpointAmendments } from "../../services/checkpoint-amendment-service.js";
+import type { ReconciledAcceptanceCriterion } from "../../schema/checkpoint-amendment.schema.js";
 import {
   AcceptanceCriteriaResultSchema,
   ValidationResultSchema,
@@ -86,6 +87,9 @@ export interface RunCheckpointAmendOptions {
   reason?: string;
   resolvedNotCompleted?: string;
   resolutionEvidenceReference?: string;
+  reconciledAcceptanceCriterion?: string;
+  criterionResult?: string;
+  criterionEvidenceReference?: string;
 }
 
 const SOURCE_COMMAND = "aiqt checkpoint amend";
@@ -114,6 +118,7 @@ function failInvalidInput(id: string, message: string): CommandResult {
 /**
  * aiqt checkpoint amend --checkpoint <id> [--acceptance ...] [--validation ...]
  * [--resolve-not-completed <original-item> [--resolution-evidence <reference>]]
+ * [--reconcile-acceptance-criterion <original-criterion> --criterion-result <result> [--criterion-evidence <reference>]]
  * --reason "..." (M12 §8.1). Stores an amendment overlay without rewriting
  * the original checkpoint. The only amendment-triggered status transition is
  * needs_review -> done, gated by applyCheckpointAmendment's completion gate;
@@ -152,10 +157,10 @@ export function runCheckpointAmend(
       );
     }
 
-    if (options.acceptance === undefined && options.validation === undefined && options.resolvedNotCompleted === undefined) {
+    if (options.acceptance === undefined && options.validation === undefined && options.resolvedNotCompleted === undefined && options.reconciledAcceptanceCriterion === undefined) {
       return failInvalidInput(
         "CHECKPOINT-AMEND-MISSING-FIELD",
-        "At least one of --acceptance, --validation, or --resolve-not-completed is required.",
+        "At least one of --acceptance, --validation, --resolve-not-completed, or --reconcile-acceptance-criterion is required.",
       );
     }
 
@@ -203,6 +208,35 @@ export function runCheckpointAmend(
       return failInvalidInput("CHECKPOINT-AMEND-RESOLUTION-EVIDENCE-WITHOUT-RESOLUTION", "--resolution-evidence requires --resolve-not-completed.");
     }
 
+    const reconciledCriterionText = options.reconciledAcceptanceCriterion;
+    if (reconciledCriterionText !== undefined && reconciledCriterionText.trim() === "") {
+      return failInvalidInput("CHECKPOINT-AMEND-INVALID-CRITERION", "--reconcile-acceptance-criterion must be non-empty.");
+    }
+    if (options.criterionResult !== undefined && reconciledCriterionText === undefined) {
+      return failInvalidInput("CHECKPOINT-AMEND-CRITERION-RESULT-WITHOUT-CRITERION", "--criterion-result requires --reconcile-acceptance-criterion.");
+    }
+    if (options.criterionEvidenceReference !== undefined && reconciledCriterionText === undefined) {
+      return failInvalidInput("CHECKPOINT-AMEND-CRITERION-EVIDENCE-WITHOUT-CRITERION", "--criterion-evidence requires --reconcile-acceptance-criterion.");
+    }
+    if (reconciledCriterionText !== undefined && options.criterionResult === undefined) {
+      return failInvalidInput("CHECKPOINT-AMEND-MISSING-CRITERION-RESULT", "--reconcile-acceptance-criterion requires --criterion-result.");
+    }
+    if (options.criterionEvidenceReference !== undefined && options.criterionEvidenceReference.trim() === "") {
+      return failInvalidInput("CHECKPOINT-AMEND-INVALID-CRITERION-EVIDENCE", "--criterion-evidence must be non-empty when supplied.");
+    }
+    let reconciledAcceptanceCriterion: ReconciledAcceptanceCriterion | undefined;
+    if (reconciledCriterionText !== undefined) {
+      const parsed = AcceptanceCriteriaResultSchema.safeParse(options.criterionResult);
+      if (!parsed.success) {
+        return failInvalidInput("CHECKPOINT-AMEND-INVALID-CRITERION-RESULT", `--criterion-result must be one of: ${AcceptanceCriteriaResultSchema.options.join(", ")}.`);
+      }
+      reconciledAcceptanceCriterion = {
+        criterion: reconciledCriterionText,
+        result: parsed.data,
+        ...(options.criterionEvidenceReference !== undefined ? { evidenceReference: options.criterionEvidenceReference.trim() } : {}),
+      };
+    }
+
     const { paths, project, state } = loadProject(ctx);
 
     const checkpoint = state.checkpoints.find((cp) => cp.id === checkpointId);
@@ -232,6 +266,12 @@ export function runCheckpointAmend(
       return failInvalidInput(
         "CHECKPOINT-AMEND-UNKNOWN-NOT-COMPLETED",
         `Unfinished-work item ${JSON.stringify(resolvedNotCompleted)} is not recorded by checkpoint "${checkpointId}".`,
+      );
+    }
+    if (reconciledAcceptanceCriterion !== undefined && !checkpoint.acceptanceCriteria.some((entry) => entry.criterion === reconciledAcceptanceCriterion!.criterion)) {
+      return failInvalidInput(
+        "CHECKPOINT-AMEND-UNKNOWN-ACCEPTANCE-CRITERION",
+        `Acceptance criterion ${JSON.stringify(reconciledAcceptanceCriterion.criterion)} is not recorded by checkpoint "${checkpointId}".`,
       );
     }
 
@@ -293,6 +333,7 @@ export function runCheckpointAmend(
       validationResult,
       resolvedNotCompleted,
       resolutionEvidenceReference,
+      reconciledAcceptanceCriterion,
       amendmentId,
       reason,
       timestamp,
@@ -435,6 +476,7 @@ export function runCheckpointAmend(
           ...(validationResult !== undefined ? { validationResult } : {}),
           ...(resolvedNotCompleted !== undefined ? { resolvedNotCompleted } : {}),
           ...(resolutionEvidenceReference !== undefined ? { resolutionEvidenceReference } : {}),
+          ...(reconciledAcceptanceCriterion !== undefined ? { reconciledAcceptanceCriterion } : {}),
           reason,
           sourceCommand: SOURCE_COMMAND,
         },

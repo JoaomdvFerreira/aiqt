@@ -4,6 +4,15 @@ import {
   ValidationResultSchema,
 } from "./checkpoint.schema.js";
 
+export const ReconciledAcceptanceCriterionSchema = z.object({
+  /** Exact text identity of an acceptance criterion in the original checkpoint. */
+  criterion: z.string().min(1),
+  result: AcceptanceCriteriaResultSchema,
+  /** Optional external-review evidence/reference for this reconciliation. */
+  evidenceReference: z.string().min(1).optional(),
+});
+export type ReconciledAcceptanceCriterion = z.infer<typeof ReconciledAcceptanceCriterionSchema>;
+
 /**
  * M12 §6: an additive, backward-compatible state extension. Amendments are
  * overlays on top of an existing checkpoint -- they never rewrite the
@@ -23,6 +32,8 @@ export const CheckpointAmendmentSchema = z.object({
   resolvedNotCompleted: z.string().min(1).optional(),
   /** Optional external-review evidence/reference for the reconciliation. */
   resolutionEvidenceReference: z.string().min(1).optional(),
+  /** Original detailed acceptance criterion reconciled after review. */
+  reconciledAcceptanceCriterion: ReconciledAcceptanceCriterionSchema.optional(),
   reason: z.string().min(1),
   amendedAt: z.string(),
   sourceCommand: z.literal("aiqt checkpoint amend"),

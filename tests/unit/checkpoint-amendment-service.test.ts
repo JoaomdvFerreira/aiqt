@@ -97,6 +97,7 @@ describe("computeEffectiveCheckpointResult", () => {
       acceptanceCriteriaResult: "partial",
       validationResult: "passed",
       notCompleted: [],
+      acceptanceCriteria: [],
     });
   });
 
@@ -173,6 +174,72 @@ describe("applyCheckpointAmendment: done work units", () => {
 });
 
 describe("applyCheckpointAmendment: needs_review -> done completion gate", () => {
+  it("permits closure when a partial detailed criterion is reconciled to passed and all other gates pass", () => {
+    const state = baseState({
+      workGraph: { ...baseState().workGraph, workUnits: [workUnit({ acceptanceCriteria: ["Criterion A"] })] },
+      checkpoints: [checkpoint({ acceptanceCriteria: [{ criterion: "Criterion A", result: "partial", evidence: null }] })],
+    });
+    const originalCriteria = structuredClone(state.checkpoints[0].acceptanceCriteria);
+    const result = applyCheckpointAmendment({
+      state,
+      checkpoint: state.checkpoints[0],
+      workUnit: state.workGraph.workUnits[0],
+      acceptanceCriteriaResult: "passed",
+      validationResult: "passed",
+      reconciledAcceptanceCriterion: { criterion: "Criterion A", result: "passed", evidenceReference: "pr:123" },
+      amendmentId: "AMEND-001",
+      reason: "PR verification confirmed the criterion.",
+      timestamp: "2026-07-14T01:00:00.000Z",
+    });
+
+    expect(result.workUnitStatusAfter).toBe("done");
+    expect(result.amendment?.reconciledAcceptanceCriterion).toEqual({ criterion: "Criterion A", result: "passed", evidenceReference: "pr:123" });
+    expect(computeEffectiveCheckpointResult(state.checkpoints[0], [result.amendment!]).acceptanceCriteria).toEqual([
+      { criterion: "Criterion A", result: "passed", evidence: "pr:123" },
+    ]);
+    expect(state.checkpoints[0].acceptanceCriteria).toEqual(originalCriteria);
+  });
+
+  it("keeps an unresolved partial detailed criterion blocking", () => {
+    const state = baseState({
+      workGraph: { ...baseState().workGraph, workUnits: [workUnit({ acceptanceCriteria: ["Criterion A"] })] },
+      checkpoints: [checkpoint({ acceptanceCriteria: [{ criterion: "Criterion A", result: "partial", evidence: null }] })],
+    });
+    const result = applyCheckpointAmendment({
+      state,
+      checkpoint: state.checkpoints[0],
+      workUnit: state.workGraph.workUnits[0],
+      acceptanceCriteriaResult: "passed",
+      validationResult: "passed",
+      amendmentId: "AMEND-001",
+      reason: "Aggregate result corrected only.",
+      timestamp: "2026-07-14T01:00:00.000Z",
+    });
+    expect(result.workUnitStatusAfter).toBe("needs_review");
+  });
+
+  it("keeps closure blocked when one of multiple detailed criteria remains unresolved", () => {
+    const state = baseState({
+      workGraph: { ...baseState().workGraph, workUnits: [workUnit({ acceptanceCriteria: ["Criterion A", "Criterion B"] })] },
+      checkpoints: [checkpoint({ acceptanceCriteria: [
+        { criterion: "Criterion A", result: "partial", evidence: null },
+        { criterion: "Criterion B", result: "partial", evidence: null },
+      ] })],
+    });
+    const result = applyCheckpointAmendment({
+      state,
+      checkpoint: state.checkpoints[0],
+      workUnit: state.workGraph.workUnits[0],
+      acceptanceCriteriaResult: "passed",
+      validationResult: "passed",
+      reconciledAcceptanceCriterion: { criterion: "Criterion A", result: "passed" },
+      amendmentId: "AMEND-001",
+      reason: "Only criterion A was verified.",
+      timestamp: "2026-07-14T01:00:00.000Z",
+    });
+    expect(result.workUnitStatusAfter).toBe("needs_review");
+  });
+
   it("transitions to done when both effective results become passed on the latest checkpoint", () => {
     const state = baseState();
     const result = applyCheckpointAmendment({
@@ -332,6 +399,25 @@ describe("applyCheckpointAmendment: needs_review -> done completion gate", () =>
 });
 
 describe("applyCheckpointAmendment: idempotency", () => {
+  it("is a no-op when an identical detailed criterion reconciliation already applies", () => {
+    const state = baseState({
+      workGraph: { ...baseState().workGraph, workUnits: [workUnit({ acceptanceCriteria: ["Criterion A"] })] },
+      checkpoints: [checkpoint({ acceptanceCriteria: [{ criterion: "Criterion A", result: "partial", evidence: null }] })],
+      checkpointAmendments: [amendment({ reconciledAcceptanceCriterion: { criterion: "Criterion A", result: "passed", evidenceReference: "pr:123" } })],
+    });
+    const result = applyCheckpointAmendment({
+      state,
+      checkpoint: state.checkpoints[0],
+      workUnit: state.workGraph.workUnits[0],
+      reconciledAcceptanceCriterion: { criterion: "Criterion A", result: "passed", evidenceReference: "pr:123" },
+      amendmentId: "AMEND-002",
+      reason: "Retry.",
+      timestamp: "2026-07-14T01:00:00.000Z",
+    });
+    expect(result.changed).toBe(false);
+    expect(result.amendment).toBeNull();
+  });
+
   it("is a no-op when the requested value already matches the effective result", () => {
     const state = baseState({
       checkpointAmendments: [amendment({ acceptanceCriteriaResult: "passed" })],

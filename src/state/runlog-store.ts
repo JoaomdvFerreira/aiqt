@@ -418,6 +418,7 @@ export interface CheckpointAmendedEventData {
   validationResult?: string;
   resolvedNotCompleted?: string;
   resolutionEvidenceReference?: string;
+  reconciledAcceptanceCriterion?: { criterion: string; result: string; evidenceReference?: string };
   reason: string;
   sourceCommand: string;
 }

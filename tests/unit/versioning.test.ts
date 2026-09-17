@@ -19,8 +19,8 @@ function expectBlock(fn: () => void): AiqtError {
 
 describe("version compatibility", () => {
   it("classifies the current schema version", () => {
-    expect(classifyCanonicalVersion("0.10.0")).toBe("current");
-    expect(() => assertCompatibleVersion("0.10.0", "state.json")).not.toThrow();
+    expect(classifyCanonicalVersion("0.11.0")).toBe("current");
+    expect(() => assertCompatibleVersion("0.11.0", "state.json")).not.toThrow();
   });
 
   it("M49: classifies pre-revision-bound-evidence 0.9.0 state as older compatible", () => {

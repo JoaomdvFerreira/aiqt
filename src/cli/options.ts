@@ -179,6 +179,9 @@ export interface RawCheckpointAmendOptions {
   reason?: string;
   resolveNotCompleted?: string;
   resolutionEvidence?: string;
+  reconcileAcceptanceCriterion?: string;
+  criterionResult?: string;
+  criterionEvidence?: string;
 }
 
 export interface RawDependencyUpdateOptions {

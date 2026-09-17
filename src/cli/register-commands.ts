@@ -602,6 +602,9 @@ export function buildProgram(): Command {
     .option("--reason <reason>", "reason for this amendment")
     .option("--resolve-not-completed <item>", "record one original notCompleted item as resolved after review")
     .option("--resolution-evidence <reference>", "optional evidence/reference for --resolve-not-completed")
+    .option("--reconcile-acceptance-criterion <criterion>", "reconcile one original detailed acceptance criterion by exact text")
+    .option("--criterion-result <result>", "effective result for --reconcile-acceptance-criterion: passed, failed, partial, or not_checked")
+    .option("--criterion-evidence <reference>", "optional evidence/reference for --reconcile-acceptance-criterion")
     .action((raw: RawCheckpointAmendOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runCheckpointAmend(ctx, {
@@ -611,6 +614,9 @@ export function buildProgram(): Command {
         reason: raw.reason,
         resolvedNotCompleted: raw.resolveNotCompleted,
         resolutionEvidenceReference: raw.resolutionEvidence,
+        reconciledAcceptanceCriterion: raw.reconcileAcceptanceCriterion,
+        criterionResult: raw.criterionResult,
+        criterionEvidenceReference: raw.criterionEvidence,
       });
       emit(result, ctx.json);
     });

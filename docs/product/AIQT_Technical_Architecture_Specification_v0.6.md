@@ -6,7 +6,7 @@
 |---|---|
 | Status | Implementation-aligned public-preview baseline |
 | Aligns with | Product Specification v0.9 |
-| Canonical schema baseline | `AIQT_SCHEMA_VERSION` `0.10.0` |
+| Canonical schema baseline | `AIQT_SCHEMA_VERSION` `0.11.0` |
 | Supersedes | Technical Architecture Specification v0.5 |
 
 ## Architecture

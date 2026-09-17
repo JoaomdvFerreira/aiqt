@@ -225,6 +225,45 @@ describe("aiqt checkpoint amend", () => {
     expect(readRunlogLines(dir)).toHaveLength(eventCount);
   });
 
+  it("rejects an unknown detailed acceptance criterion and records an exact reconciliation append-only", async () => {
+    dir = makeTempDir();
+    await buildCheckpointAmendmentFixtureState(dir);
+
+    const unknown = runCheckpointAmend(contextFor(dir), {
+      checkpointId: "C002",
+      reconciledAcceptanceCriterion: "Not recorded",
+      criterionResult: "passed",
+      reason: "Should reject.",
+    });
+    expect(unknown.exitCode).toBe(ExitCode.InvalidInput);
+    expect(unknown.blockingIssues[0].id).toBe("CHECKPOINT-AMEND-UNKNOWN-ACCEPTANCE-CRITERION");
+
+    const before = readState(dir).checkpoints.find((item: { id: string }) => item.id === "C002").acceptanceCriteria;
+    const first = runCheckpointAmend(contextFor(dir), {
+      checkpointId: "C002",
+      reconciledAcceptanceCriterion: "Live Clerk verification passes",
+      criterionResult: "passed",
+      criterionEvidenceReference: "pr:123",
+      reason: "PR verification confirmed it.",
+    });
+    expect((first.data as { changed: boolean }).changed).toBe(true);
+    const persisted = readState(dir);
+    expect(persisted.checkpoints.find((item: { id: string }) => item.id === "C002").acceptanceCriteria).toEqual(before);
+    expect(persisted.checkpointAmendments.at(-1).reconciledAcceptanceCriterion).toEqual({
+      criterion: "Live Clerk verification passes", result: "passed", evidenceReference: "pr:123",
+    });
+    const eventCount = readRunlogLines(dir).length;
+    const duplicate = runCheckpointAmend(contextFor(dir), {
+      checkpointId: "C002",
+      reconciledAcceptanceCriterion: "Live Clerk verification passes",
+      criterionResult: "passed",
+      criterionEvidenceReference: "pr:123",
+      reason: "Retry.",
+    });
+    expect((duplicate.data as { changed: boolean }).changed).toBe(false);
+    expect(readRunlogLines(dir)).toHaveLength(eventCount);
+  });
+
   it("is idempotent: re-applying the same effective value returns exit 0 with changed:false and appends no runlog event", async () => {
     dir = makeTempDir();
     await buildCheckpointAmendmentFixtureState(dir);
