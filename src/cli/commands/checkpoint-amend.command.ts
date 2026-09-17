@@ -11,7 +11,7 @@ import {
 import { nextId } from "../../state/ids.js";
 import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 import { selectNextReadyWorkUnit } from "../../workflow/next-work-unit-selector.js";
-import { applyCheckpointAmendment } from "../../services/checkpoint-amendment-service.js";
+import { applyCheckpointAmendment, computeEffectiveCheckpointResult, getCheckpointAmendments } from "../../services/checkpoint-amendment-service.js";
 import {
   AcceptanceCriteriaResultSchema,
   ValidationResultSchema,
@@ -84,6 +84,8 @@ export interface RunCheckpointAmendOptions {
   acceptance?: string;
   validation?: string;
   reason?: string;
+  resolvedNotCompleted?: string;
+  resolutionEvidenceReference?: string;
 }
 
 const SOURCE_COMMAND = "aiqt checkpoint amend";
@@ -111,6 +113,7 @@ function failInvalidInput(id: string, message: string): CommandResult {
 
 /**
  * aiqt checkpoint amend --checkpoint <id> [--acceptance ...] [--validation ...]
+ * [--resolve-not-completed <original-item> [--resolution-evidence <reference>]]
  * --reason "..." (M12 §8.1). Stores an amendment overlay without rewriting
  * the original checkpoint. The only amendment-triggered status transition is
  * needs_review -> done, gated by applyCheckpointAmendment's completion gate;
@@ -149,10 +152,10 @@ export function runCheckpointAmend(
       );
     }
 
-    if (options.acceptance === undefined && options.validation === undefined) {
+    if (options.acceptance === undefined && options.validation === undefined && options.resolvedNotCompleted === undefined) {
       return failInvalidInput(
         "CHECKPOINT-AMEND-MISSING-FIELD",
-        "At least one of --acceptance or --validation is required.",
+        "At least one of --acceptance, --validation, or --resolve-not-completed is required.",
       );
     }
 
@@ -188,6 +191,18 @@ export function runCheckpointAmend(
       );
     }
 
+    const resolvedNotCompleted = options.resolvedNotCompleted?.trim();
+    if (options.resolvedNotCompleted !== undefined && resolvedNotCompleted === "") {
+      return failInvalidInput("CHECKPOINT-AMEND-INVALID-RESOLUTION", "--resolve-not-completed must be non-empty.");
+    }
+    const resolutionEvidenceReference = options.resolutionEvidenceReference?.trim();
+    if (options.resolutionEvidenceReference !== undefined && resolutionEvidenceReference === "") {
+      return failInvalidInput("CHECKPOINT-AMEND-INVALID-RESOLUTION-EVIDENCE", "--resolution-evidence must be non-empty when supplied.");
+    }
+    if (resolutionEvidenceReference !== undefined && resolvedNotCompleted === undefined) {
+      return failInvalidInput("CHECKPOINT-AMEND-RESOLUTION-EVIDENCE-WITHOUT-RESOLUTION", "--resolution-evidence requires --resolve-not-completed.");
+    }
+
     const { paths, project, state } = loadProject(ctx);
 
     const checkpoint = state.checkpoints.find((cp) => cp.id === checkpointId);
@@ -211,6 +226,13 @@ export function runCheckpointAmend(
           },
         ],
       });
+    }
+
+    if (resolvedNotCompleted !== undefined && !checkpoint.notCompleted.includes(resolvedNotCompleted)) {
+      return failInvalidInput(
+        "CHECKPOINT-AMEND-UNKNOWN-NOT-COMPLETED",
+        `Unfinished-work item ${JSON.stringify(resolvedNotCompleted)} is not recorded by checkpoint "${checkpointId}".`,
+      );
     }
 
     const workUnit = state.workGraph.workUnits.find((wu) => wu.id === checkpoint.workUnitId);
@@ -269,6 +291,8 @@ export function runCheckpointAmend(
       workUnit,
       acceptanceCriteriaResult,
       validationResult,
+      resolvedNotCompleted,
+      resolutionEvidenceReference,
       amendmentId,
       reason,
       timestamp,
@@ -292,6 +316,7 @@ export function runCheckpointAmend(
           workUnitId: workUnit.id,
           effectiveAcceptanceCriteriaResult: applied.effectiveAcceptanceCriteriaResult,
           effectiveValidationResult: applied.effectiveValidationResult,
+          effectiveNotCompleted: computeEffectiveCheckpointResult(checkpoint, getCheckpointAmendments(state)).notCompleted,
           workUnitStatusBefore: applied.workUnitStatusBefore,
           workUnitStatusAfter: applied.workUnitStatusAfter,
           changed: false,
@@ -408,6 +433,8 @@ export function runCheckpointAmend(
           workUnitId: workUnit.id,
           ...(acceptanceCriteriaResult !== undefined ? { acceptanceCriteriaResult } : {}),
           ...(validationResult !== undefined ? { validationResult } : {}),
+          ...(resolvedNotCompleted !== undefined ? { resolvedNotCompleted } : {}),
+          ...(resolutionEvidenceReference !== undefined ? { resolutionEvidenceReference } : {}),
           reason,
           sourceCommand: SOURCE_COMMAND,
         },
@@ -496,6 +523,7 @@ export function runCheckpointAmend(
         workUnitId: workUnit.id,
         effectiveAcceptanceCriteriaResult: applied.effectiveAcceptanceCriteriaResult,
         effectiveValidationResult: applied.effectiveValidationResult,
+        effectiveNotCompleted: computeEffectiveCheckpointResult(checkpoint, [...getCheckpointAmendments(state), applied.amendment!]).notCompleted,
         workUnitStatusBefore: applied.workUnitStatusBefore,
         workUnitStatusAfter: applied.workUnitStatusAfter,
         changed: true,

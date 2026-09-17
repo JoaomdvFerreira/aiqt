@@ -142,5 +142,6 @@ describe("M22 governance micro-closure: explicit historical-compatibility gap cl
     const effective = computeEffectiveCheckpointResult(state.checkpoints[0], state.checkpointAmendments ?? []);
     expect(effective.acceptanceCriteriaResult).toBe("passed"); // overridden by the amendment
     expect(effective.validationResult).toBe("passed"); // unchanged from the checkpoint itself
+    expect(effective.notCompleted).toEqual([]); // historical amendments have no reconciliation field
   });
 });

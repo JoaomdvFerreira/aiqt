@@ -416,6 +416,8 @@ export interface CheckpointAmendedEventData {
   workUnitId: string;
   acceptanceCriteriaResult?: string;
   validationResult?: string;
+  resolvedNotCompleted?: string;
+  resolutionEvidenceReference?: string;
   reason: string;
   sourceCommand: string;
 }

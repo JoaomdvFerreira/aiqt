@@ -96,6 +96,7 @@ describe("computeEffectiveCheckpointResult", () => {
     expect(computeEffectiveCheckpointResult(cp, [])).toEqual({
       acceptanceCriteriaResult: "partial",
       validationResult: "passed",
+      notCompleted: [],
     });
   });
 
@@ -263,6 +264,51 @@ describe("applyCheckpointAmendment: needs_review -> done completion gate", () =>
     expect(result.workUnitStatusAfter).toBe("needs_review");
   });
 
+  it("promotes only after a recorded unfinished-work item is reconciled", () => {
+    const state = baseState({
+      checkpoints: [checkpoint({ notCompleted: ["External review follow-up"] })],
+    });
+    const originalNotCompleted = [...state.checkpoints[0].notCompleted];
+    const result = applyCheckpointAmendment({
+      state,
+      checkpoint: state.checkpoints[0],
+      workUnit: state.workGraph.workUnits[0],
+      acceptanceCriteriaResult: "passed",
+      validationResult: "passed",
+      resolvedNotCompleted: "External review follow-up",
+      resolutionEvidenceReference: "review:PR-123",
+      amendmentId: "AMEND-001",
+      reason: "External review confirmed the follow-up is complete.",
+      timestamp: "2026-07-14T01:00:00.000Z",
+    });
+
+    expect(result.workUnitStatusAfter).toBe("done");
+    expect(result.amendment).toMatchObject({
+      resolvedNotCompleted: "External review follow-up",
+      resolutionEvidenceReference: "review:PR-123",
+    });
+    expect(state.checkpoints[0].notCompleted).toEqual(originalNotCompleted);
+  });
+
+  it("keeps partial unfinished-work reconciliation blocked", () => {
+    const state = baseState({
+      checkpoints: [checkpoint({ notCompleted: ["one", "two"] })],
+    });
+    const result = applyCheckpointAmendment({
+      state,
+      checkpoint: state.checkpoints[0],
+      workUnit: state.workGraph.workUnits[0],
+      acceptanceCriteriaResult: "passed",
+      validationResult: "passed",
+      resolvedNotCompleted: "one",
+      amendmentId: "AMEND-001",
+      reason: "Only one item was confirmed.",
+      timestamp: "2026-07-14T01:00:00.000Z",
+    });
+
+    expect(result.workUnitStatusAfter).toBe("needs_review");
+  });
+
   it("cannot hide an unresolved blocker or detailed required failure", () => {
     const state = baseState({
       workGraph: { ...baseState().workGraph, workUnits: [workUnit({ validationCommands: ["pnpm test"] })] },
@@ -297,6 +343,25 @@ describe("applyCheckpointAmendment: idempotency", () => {
       acceptanceCriteriaResult: "passed",
       amendmentId: "AMEND-002",
       reason: "Re-applying the same value.",
+      timestamp: "2026-07-14T01:00:00.000Z",
+    });
+
+    expect(result.changed).toBe(false);
+    expect(result.amendment).toBeNull();
+  });
+
+  it("is a no-op when an unfinished-work item was already reconciled", () => {
+    const state = baseState({
+      checkpoints: [checkpoint({ notCompleted: ["review follow-up"] })],
+      checkpointAmendments: [amendment({ resolvedNotCompleted: "review follow-up" })],
+    });
+    const result = applyCheckpointAmendment({
+      state,
+      checkpoint: state.checkpoints[0],
+      workUnit: state.workGraph.workUnits[0],
+      resolvedNotCompleted: "review follow-up",
+      amendmentId: "AMEND-002",
+      reason: "Retry.",
       timestamp: "2026-07-14T01:00:00.000Z",
     });
 

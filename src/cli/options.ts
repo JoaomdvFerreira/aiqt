@@ -177,6 +177,8 @@ export interface RawCheckpointAmendOptions {
   acceptance?: string;
   validation?: string;
   reason?: string;
+  resolveNotCompleted?: string;
+  resolutionEvidence?: string;
 }
 
 export interface RawDependencyUpdateOptions {

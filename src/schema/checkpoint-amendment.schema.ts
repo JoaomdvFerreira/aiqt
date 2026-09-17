@@ -19,6 +19,10 @@ export const CheckpointAmendmentSchema = z.object({
   workUnitId: z.string().min(1),
   acceptanceCriteriaResult: AcceptanceCriteriaResultSchema.optional(),
   validationResult: ValidationResultSchema.optional(),
+  /** Original checkpoint.notCompleted entry reconciled after review. */
+  resolvedNotCompleted: z.string().min(1).optional(),
+  /** Optional external-review evidence/reference for the reconciliation. */
+  resolutionEvidenceReference: z.string().min(1).optional(),
   reason: z.string().min(1),
   amendedAt: z.string(),
   sourceCommand: z.literal("aiqt checkpoint amend"),

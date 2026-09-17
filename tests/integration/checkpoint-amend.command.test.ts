@@ -161,6 +161,70 @@ describe("aiqt checkpoint amend", () => {
     expect(data.workUnitStatusAfter).toBe("needs_review");
   });
 
+  it("reconciles a completed recorded unfinished-work item without rewriting the checkpoint", async () => {
+    dir = makeTempDir();
+    await buildCheckpointAmendmentFixtureState(dir);
+    const statePath = join(dir, ".aiqt", "state.json");
+    const initialState = readState(dir);
+    const checkpoint = initialState.checkpoints.find((item: { id: string }) => item.id === "C002");
+    checkpoint.notCompleted = ["C010 external review follow-up"];
+    writeFileSync(statePath, JSON.stringify(initialState, null, 2));
+
+    const result = runCheckpointAmend(contextFor(dir), {
+      checkpointId: "C002",
+      acceptance: "passed",
+      validation: "passed",
+      resolvedNotCompleted: "C010 external review follow-up",
+      resolutionEvidenceReference: "review:C010",
+      reason: "External review completed C010.",
+    });
+
+    expect(result.exitCode).toBe(ExitCode.Success);
+    expect((result.data as { workUnitStatusAfter: string }).workUnitStatusAfter).toBe("done");
+    const persisted = readState(dir);
+    expect(persisted.checkpoints.find((item: { id: string }) => item.id === "C002").notCompleted).toEqual(["C010 external review follow-up"]);
+    expect(persisted.checkpointAmendments.at(-1)).toMatchObject({
+      resolvedNotCompleted: "C010 external review follow-up",
+      resolutionEvidenceReference: "review:C010",
+    });
+    expect(readRunlogLines(dir).at(-2).data).toMatchObject({
+      resolvedNotCompleted: "C010 external review follow-up",
+      resolutionEvidenceReference: "review:C010",
+    });
+  });
+
+  it("rejects an unknown unfinished-work reconciliation and idempotently ignores a duplicate", async () => {
+    dir = makeTempDir();
+    await buildCheckpointAmendmentFixtureState(dir);
+    const statePath = join(dir, ".aiqt", "state.json");
+    const state = readState(dir);
+    state.checkpoints.find((item: { id: string }) => item.id === "C002").notCompleted = ["review follow-up"];
+    writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+    const unknown = runCheckpointAmend(contextFor(dir), {
+      checkpointId: "C002",
+      resolvedNotCompleted: "not recorded",
+      reason: "Should reject.",
+    });
+    expect(unknown.exitCode).toBe(ExitCode.InvalidInput);
+    expect(unknown.blockingIssues[0].id).toBe("CHECKPOINT-AMEND-UNKNOWN-NOT-COMPLETED");
+
+    const first = runCheckpointAmend(contextFor(dir), {
+      checkpointId: "C002",
+      resolvedNotCompleted: "review follow-up",
+      reason: "Resolved.",
+    });
+    expect((first.data as { changed: boolean }).changed).toBe(true);
+    const eventCount = readRunlogLines(dir).length;
+    const duplicate = runCheckpointAmend(contextFor(dir), {
+      checkpointId: "C002",
+      resolvedNotCompleted: "review follow-up",
+      reason: "Retry.",
+    });
+    expect((duplicate.data as { changed: boolean }).changed).toBe(false);
+    expect(readRunlogLines(dir)).toHaveLength(eventCount);
+  });
+
   it("is idempotent: re-applying the same effective value returns exit 0 with changed:false and appends no runlog event", async () => {
     dir = makeTempDir();
     await buildCheckpointAmendmentFixtureState(dir);

@@ -594,12 +594,14 @@ export function buildProgram(): Command {
 
   checkpointCommand
     .command("amend")
-    .description("Amend the effective validation/acceptance result of an existing checkpoint")
+    .description("Amend effective results or reconcile completed recorded unfinished work")
     .option("--json", "emit machine-readable JSON output", false)
     .option("--checkpoint <checkpointId>", "the checkpoint id to amend")
     .option("--acceptance <result>", "effective acceptance result: passed, failed, partial, or not_checked")
     .option("--validation <result>", "effective validation result: passed, failed, partial, or not_run")
     .option("--reason <reason>", "reason for this amendment")
+    .option("--resolve-not-completed <item>", "record one original notCompleted item as resolved after review")
+    .option("--resolution-evidence <reference>", "optional evidence/reference for --resolve-not-completed")
     .action((raw: RawCheckpointAmendOptions) => {
       const ctx = makeContext({ json: Boolean(raw.json) });
       const result = runCheckpointAmend(ctx, {
@@ -607,6 +609,8 @@ export function buildProgram(): Command {
         acceptance: raw.acceptance,
         validation: raw.validation,
         reason: raw.reason,
+        resolvedNotCompleted: raw.resolveNotCompleted,
+        resolutionEvidenceReference: raw.resolutionEvidence,
       });
       emit(result, ctx.json);
     });
