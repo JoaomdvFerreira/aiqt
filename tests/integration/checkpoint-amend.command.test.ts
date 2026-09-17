@@ -126,6 +126,100 @@ describe("aiqt checkpoint amend", () => {
     expect(runlogLines).toHaveLength(runlogBefore + 2);
     expect(runlogLines[runlogLines.length - 1].type).toBe("evidence_gate.advisory_observation_recorded");
     expect(runlogLines[runlogLines.length - 2].type).toBe("checkpoint.amended");
+    expect(runlogLines[runlogLines.length - 2].data).toMatchObject({
+      checkpointId: "C003",
+      workUnitId: "WU003",
+      reviewRecordId: state.reviewRecords[0].reviewId,
+      reviewRecordType: "review_record",
+      acceptanceCriteriaResult: "passed",
+      reason: "Role escalation edge case accepted as a documented limitation.",
+      sourceCommand: "aiqt checkpoint amend",
+    });
+  });
+
+  it("rejects regressive review commands after done without appending a record or reopening", async () => {
+    dir = makeTempDir();
+    await buildCheckpointAmendmentFixtureState(dir);
+    const beforeState = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
+    const beforeRunlog = readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8");
+
+    for (const options of [
+      { decision: "rejected" },
+      { decision: "partial" },
+      { acceptance: "partial" },
+      { validation: "failed" },
+    ]) {
+      const result = runCheckpointAmend(contextFor(dir), {
+        checkpointId: "C001",
+        ...options,
+        reason: "Attempted regression.",
+      });
+      expect(result.exitCode).toBe(ExitCode.InvalidInput);
+      expect(result.blockingIssues[0].id).toBe("CHECKPOINT-AMEND-DONE-REOPEN-REQUIRES-LIFECYCLE");
+      expect(result.summary).toContain("reopening requires a separate supported lifecycle operation");
+      expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(beforeState);
+      expect(readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8")).toBe(beforeRunlog);
+    }
+  });
+
+  it("rejects unknown effective review targets with zero mutation", async () => {
+    dir = makeTempDir();
+    await buildCheckpointAmendmentFixtureState(dir);
+    const beforeState = readFileSync(join(dir, ".aiqt", "state.json"), "utf8");
+    const beforeRunlog = readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8");
+    const attempts = [
+      { resolvedReviewRequirement: "missing review requirement", expected: "CHECKPOINT-AMEND-UNKNOWN-REVIEW-REQUIREMENT" },
+      { resolvedIssue: "missing issue", expected: "CHECKPOINT-AMEND-UNKNOWN-ISSUE" },
+      { reconciledValidationCommand: "missing command", validationCommandResult: "passed", expected: "CHECKPOINT-AMEND-UNKNOWN-VALIDATION-COMMAND" },
+    ];
+    for (const attempt of attempts) {
+      const result = runCheckpointAmend(contextFor(dir), { checkpointId: "C002", ...attempt, reason: "Unknown target." });
+      expect(result.exitCode).toBe(ExitCode.InvalidInput);
+      expect(result.blockingIssues[0].id).toBe(attempt.expected);
+      expect(readFileSync(join(dir, ".aiqt", "state.json"), "utf8")).toBe(beforeState);
+      expect(readFileSync(join(dir, ".aiqt", "runlog.jsonl"), "utf8")).toBe(beforeRunlog);
+    }
+  });
+
+  it("projects every appended review-record action into checkpoint.amended audit data", async () => {
+    dir = makeTempDir();
+    await buildCheckpointAmendmentFixtureState(dir);
+    const statePath = join(dir, ".aiqt", "state.json");
+    const seeded = readState(dir);
+    const checkpoint = seeded.checkpoints.find((item: { id: string }) => item.id === "C002");
+    checkpoint.reviewRequirements = ["independent review"];
+    checkpoint.issues = [{ title: "review finding", description: null, severity: "medium", status: "open", agentCanFix: true }];
+    writeFileSync(statePath, JSON.stringify(seeded, null, 2));
+
+    const result = runCheckpointAmend(contextFor(dir), {
+      checkpointId: "C002",
+      decision: "partial",
+      resolvedReviewRequirement: "independent review",
+      resolvedIssue: "review finding",
+      reconciledValidationCommand: "pnpm test",
+      validationCommandResult: "passed",
+      evidenceReference: "review:external-42",
+      reason: "Independent review evidence recorded.",
+    });
+    expect(result.exitCode).toBe(ExitCode.Success);
+    const record = readState(dir).reviewRecords.at(-1);
+    const event = readRunlogLines(dir).at(-2)!;
+    expect(event.type).toBe("checkpoint.amended");
+    expect(event.data).toMatchObject({
+      checkpointId: "C002",
+      workUnitId: "WU002",
+      reviewRecordId: record.reviewId,
+      reviewRecordType: "review_record",
+      decision: "partial",
+      resolvedReviewRequirement: "independent review",
+      resolvedIssue: "review finding",
+      reconciledValidationCommand: { command: "pnpm test", result: "passed" },
+      evidenceReferences: ["review:external-42"],
+      reason: "Independent review evidence recorded.",
+      sourceCommand: "aiqt checkpoint amend",
+    });
+    expect(event.timestamp).toBe(record.recordedAt);
+    expect(event.data.recordedAt).toBe(record.recordedAt);
   });
 
   it("needs_review checkpoint amendment to passed/passed transitions the work unit to done", async () => {

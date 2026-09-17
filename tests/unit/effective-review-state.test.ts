@@ -34,4 +34,15 @@ describe("EffectiveReviewState", () => {
     s.checkpointAmendments = [{ amendmentId: "AMEND-1", checkpointId: cp.id, workUnitId: cp.workUnitId, acceptanceCriteriaResult: "passed", validationResult: "passed", reason: "legacy", amendedAt: "x", sourceCommand: "aiqt checkpoint amend" }];
     expect(computeEffectiveReviewState(cp, s).decision).toBe("accepted"); expect(complete(cp, s).reasons).toContain("unfinished work is recorded");
   });
+  it("does not retain legacy acceptance after a later legacy regression", () => {
+    const cp = checkpoint(); const s = state(cp);
+    s.checkpointAmendments = [
+      { amendmentId: "AMEND-1", checkpointId: cp.id, workUnitId: cp.workUnitId, acceptanceCriteriaResult: "passed", validationResult: "passed", reason: "legacy acceptance", amendedAt: "x", sourceCommand: "aiqt checkpoint amend" },
+      { amendmentId: "AMEND-2", checkpointId: cp.id, workUnitId: cp.workUnitId, acceptanceCriteriaResult: "partial", reason: "later regression", amendedAt: "y", sourceCommand: "aiqt checkpoint amend" },
+    ];
+    const effective = computeEffectiveReviewState(cp, s);
+    expect(effective.acceptanceCriteriaResult).toBe("partial");
+    expect(effective.decision).toBeNull();
+    expect(complete(cp, s).complete).toBe(false);
+  });
 });

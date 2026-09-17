@@ -27,9 +27,14 @@ export function computeEffectiveReviewState(checkpoint: Checkpoint, state: Pick<
     if (a.validationResult !== undefined) validationResult = a.validationResult;
     if (a.resolvedNotCompleted !== undefined) { const i = implementationNotCompleted.indexOf(a.resolvedNotCompleted); if (i >= 0) implementationNotCompleted.splice(i, 1); }
     if (a.reconciledAcceptanceCriterion) { const item = acceptanceCriteria.find((x) => x.criterion === a.reconciledAcceptanceCriterion!.criterion); if (item) { item.result = a.reconciledAcceptanceCriterion.result; if (a.reconciledAcceptanceCriterion.evidenceReference !== undefined) item.evidence = a.reconciledAcceptanceCriterion.evidenceReference; } }
-    // Old passed/passed amendments were the supported acceptance action.
-    if (acceptanceCriteriaResult === "passed" && validationResult === "passed") decision = "accepted";
   }
+  // Old passed/passed amendments were the supported acceptance action. Project
+  // the final legacy result, rather than retaining an earlier acceptance.
+  if (
+    (state.checkpointAmendments ?? []).some((x) => x.checkpointId === checkpoint.id) &&
+    acceptanceCriteriaResult === "passed" &&
+    validationResult === "passed"
+  ) decision = "accepted";
   for (const r of (state.reviewRecords ?? []).filter((x) => x.checkpointId === checkpoint.id)) {
     recordIds.push(r.reviewId);
     if (r.acceptanceCriteriaResult !== undefined) acceptanceCriteriaResult = r.acceptanceCriteriaResult;

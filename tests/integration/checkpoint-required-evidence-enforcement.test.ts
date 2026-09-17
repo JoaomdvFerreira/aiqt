@@ -322,7 +322,14 @@ describe("M30-WU04: checkpoint/amendment required-evidence enforcement", () => {
     expect(data.changed).toBe(true); // the amendment overlay is still stored
 
     const finalState = readState(dir);
-    expect(finalState.checkpointAmendments).toHaveLength(1);
+    expect(finalState.checkpointAmendments ?? []).toHaveLength(0);
+    expect(finalState.reviewRecords).toHaveLength(1);
+    expect(finalState.reviewRecords[0]).toMatchObject({
+      checkpointId: "C001",
+      acceptanceCriteriaResult: "passed",
+      validationResult: "passed",
+      decision: "accepted",
+    });
     expect(finalState.workGraph.workUnits[0].status).toBe("needs_review");
   }, 20000);
 

@@ -414,12 +414,20 @@ export interface CheckpointAmendedEventData {
   amendmentId: string;
   checkpointId: string;
   workUnitId: string;
+  reviewRecordId?: string;
+  reviewRecordType?: "review_record";
   acceptanceCriteriaResult?: string;
   validationResult?: string;
   resolvedNotCompleted?: string;
   resolutionEvidenceReference?: string;
   reconciledAcceptanceCriterion?: { criterion: string; result: string; evidenceReference?: string };
+  decision?: string;
+  resolvedReviewRequirement?: string;
+  resolvedIssue?: string;
+  reconciledValidationCommand?: { command: string; result: string; summary?: string | null; evidence?: string };
+  evidenceReferences?: string[];
   reason: string;
+  recordedAt?: string;
   sourceCommand: string;
 }
 

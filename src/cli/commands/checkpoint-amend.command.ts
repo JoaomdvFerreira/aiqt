@@ -12,6 +12,7 @@ import { nextId } from "../../state/ids.js";
 import { applyWorkflowAssessmentToState } from "../../services/workflow-assessment-persistence.js";
 import { selectNextReadyWorkUnit } from "../../workflow/next-work-unit-selector.js";
 import { applyCheckpointAmendment, computeEffectiveCheckpointResult, getCheckpointAmendments } from "../../services/checkpoint-amendment-service.js";
+import { computeEffectiveReviewState } from "../../services/effective-review-state-service.js";
 import type { ReconciledAcceptanceCriterion } from "../../schema/checkpoint-amendment.schema.js";
 import { ReviewDecisionSchema, type ReviewDecision } from "../../schema/review-record.schema.js";
 import {
@@ -298,9 +299,10 @@ export function runCheckpointAmend(
         `Acceptance criterion ${JSON.stringify(reconciledAcceptanceCriterion.criterion)} is not recorded by checkpoint "${checkpointId}".`,
       );
     }
-    if (resolvedReviewRequirement !== undefined && !(checkpoint.reviewRequirements ?? []).includes(resolvedReviewRequirement)) return failInvalidInput("CHECKPOINT-AMEND-UNKNOWN-REVIEW-REQUIREMENT", `Review requirement ${JSON.stringify(resolvedReviewRequirement)} is not recorded by checkpoint "${checkpointId}".`);
-    if (resolvedIssue !== undefined && !checkpoint.issues.some((entry) => entry.title === resolvedIssue)) return failInvalidInput("CHECKPOINT-AMEND-UNKNOWN-ISSUE", `Issue ${JSON.stringify(resolvedIssue)} is not recorded by checkpoint "${checkpointId}".`);
-    if (reconciledValidationCommandResult !== undefined && !checkpoint.validationCommands.some((entry) => entry.command === reconciledValidationCommandResult!.command)) return failInvalidInput("CHECKPOINT-AMEND-UNKNOWN-VALIDATION-COMMAND", `Validation command ${JSON.stringify(reconciledValidationCommandResult.command)} is not recorded by checkpoint "${checkpointId}".`);
+    const effectiveReview = computeEffectiveReviewState(checkpoint, state);
+    if (resolvedReviewRequirement !== undefined && !effectiveReview.reviewRequirements.includes(resolvedReviewRequirement)) return failInvalidInput("CHECKPOINT-AMEND-UNKNOWN-REVIEW-REQUIREMENT", `Review requirement ${JSON.stringify(resolvedReviewRequirement)} is not recorded by the effective review state for checkpoint "${checkpointId}".`);
+    if (resolvedIssue !== undefined && !effectiveReview.issues.some((entry) => entry.title === resolvedIssue)) return failInvalidInput("CHECKPOINT-AMEND-UNKNOWN-ISSUE", `Issue ${JSON.stringify(resolvedIssue)} is not recorded by the effective review state for checkpoint "${checkpointId}".`);
+    if (reconciledValidationCommandResult !== undefined && !effectiveReview.validationCommands.some((entry) => entry.command === reconciledValidationCommandResult!.command)) return failInvalidInput("CHECKPOINT-AMEND-UNKNOWN-VALIDATION-COMMAND", `Validation command ${JSON.stringify(reconciledValidationCommandResult.command)} is not recorded by the effective review state for checkpoint "${checkpointId}".`);
 
     const workUnit = state.workGraph.workUnits.find((wu) => wu.id === checkpoint.workUnitId);
     if (!workUnit) {
@@ -345,6 +347,20 @@ export function runCheckpointAmend(
           },
         ],
       });
+    }
+
+    const regressesDoneReview =
+      workUnit.status === "done" &&
+      (acceptanceCriteriaResult !== undefined && acceptanceCriteriaResult !== "passed" ||
+        validationResult !== undefined && validationResult !== "passed" ||
+        decision !== undefined && decision !== "accepted" ||
+        reconciledAcceptanceCriterion !== undefined && reconciledAcceptanceCriterion.result !== "passed" ||
+        reconciledValidationCommandResult !== undefined && reconciledValidationCommandResult.result !== "passed");
+    if (regressesDoneReview) {
+      return failInvalidInput(
+        "CHECKPOINT-AMEND-DONE-REOPEN-REQUIRES-LIFECYCLE",
+        `Work unit "${workUnit.id}" is done. A review update that regresses its effective completion state is not allowed; reopening requires a separate supported lifecycle operation.`,
+      );
     }
 
     const timestamp = new Date().toISOString();
@@ -406,7 +422,13 @@ export function runCheckpointAmend(
     const completionGatePassed = applied.workUnitStatusBefore === "needs_review" && applied.workUnitStatusAfter === "done";
     if (completionGatePassed) {
       const gate = evaluateCheckpointRequiredGate({
-        state,
+        state: {
+          ...state,
+          reviewRecords: [...(state.reviewRecords ?? []), applied.reviewRecord!],
+          ...(resolvedNotCompleted !== undefined
+            ? { checkpointAmendments: [...(state.checkpointAmendments ?? []), applied.amendment!] }
+            : {}),
+        },
         project,
         candidateCheckpoint: checkpoint,
         candidateWorkUnits: applied.workUnits,
@@ -513,7 +535,15 @@ export function runCheckpointAmend(
           ...(resolvedNotCompleted !== undefined ? { resolvedNotCompleted } : {}),
           ...(resolutionEvidenceReference !== undefined ? { resolutionEvidenceReference } : {}),
           ...(reconciledAcceptanceCriterion !== undefined ? { reconciledAcceptanceCriterion } : {}),
+          reviewRecordId: applied.reviewRecord!.reviewId,
+          reviewRecordType: "review_record",
+          ...(decision !== undefined ? { decision } : {}),
+          ...(resolvedReviewRequirement !== undefined ? { resolvedReviewRequirement } : {}),
+          ...(resolvedIssue !== undefined ? { resolvedIssue } : {}),
+          ...(reconciledValidationCommandResult !== undefined ? { reconciledValidationCommand: reconciledValidationCommandResult } : {}),
+          ...(options.evidenceReference !== undefined ? { evidenceReferences: [options.evidenceReference] } : {}),
           reason,
+          recordedAt: timestamp,
           sourceCommand: SOURCE_COMMAND,
         },
       }),
